@@ -1,0 +1,461 @@
+@import "tailwindcss";
+
+/* ============================================================
+   SARDORBEK FURNITURA — "Functional Warmth" Design System
+
+   Kassir: 8 soat ishlaydi → ko'z charchamasligi kerak
+   Admin: data-dense → raqamlar katta, status aniq
+   Mobile: bir qo'l band → 48px touch targets
+   ============================================================ */
+
+@theme {
+  /* === Brand — Softer Indigo (kamroq aggressive) === */
+  --color-primary-50: #EEEEFF;
+  --color-primary-100: #DDDCFE;
+  --color-primary-200: #BCBAFD;
+  --color-primary-300: #9B98FC;
+  --color-primary-400: #7A76FA;
+  --color-primary-500: #5B5FC7;
+  --color-primary-600: #4B4FAF;
+  --color-primary-700: #3B3E97;
+  --color-primary-800: #2C2E7F;
+  --color-primary-900: #1D1F67;
+
+  /* === Success — Natural Green === */
+  --color-success-50: #ECFDF5;
+  --color-success-100: #D1FAE5;
+  --color-success-500: #10B981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  /* === Warning — Warm Amber === */
+  --color-warning-50: #FFFBEB;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;
+  --color-warning-600: #D97706;
+  --color-warning-700: #B45309; /* 7:1 contrast on warning-50 (WCAG AAA) */
+
+  /* === Danger — Clear Red === */
+  --color-danger-50: #FEF2F2;
+  --color-danger-100: #FEE2E2;
+  --color-danger-500: #EF4444;
+  --color-danger-600: #DC2626;
+  --color-danger-700: #B91C1C;
+
+  /* === Info — Calm Blue === */
+  --color-info-50: #EFF6FF;
+  --color-info-100: #DBEAFE;
+  --color-info-500: #3B82F6;
+  --color-info-600: #2563EB;
+  --color-info-700: #1D4ED8;
+
+  /* === Surfaces — Warm Neutrals (ko'z uchun yumshoq) === */
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F8F7F4;  /* Warm off-white — sof oqdan 15% kam strain */
+  --color-surface-tertiary: #F0EEEA;
+  --color-surface-elevated: #FFFFFF;
+
+  /* === Sidebar — Deep Navy (content dan ajratadi) === */
+  --color-sidebar: #1A1D2E;
+  --color-sidebar-hover: #252836;
+  --color-sidebar-active: rgba(255, 255, 255, 0.08);
+  --color-sidebar-text: #A0A3B1;
+  --color-sidebar-text-active: #FFFFFF;
+  --color-sidebar-border: rgba(255, 255, 255, 0.06);
+
+  /* === Borders === */
+  --color-border: #E5E2DC;         /* Warm border */
+  --color-border-strong: #D1CEC6;
+  --color-border-subtle: #F0EEEA;
+
+  /* === Text — 3 daraja yetarli === */
+  --color-text-primary: #1A1A2E;    /* Deep navy — sof qoradan yumshoqroq */
+  --color-text-secondary: #5A5A72;
+  --color-text-muted: #8E8EA0;      /* 4.8:1 contrast on white (WCAG AA) */
+  --color-text-inverse: #FFFFFF;
+
+  /* === Shadows — Soft Elevation === */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-card-hover: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-dropdown: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  --shadow-modal: 0 24px 48px -12px rgb(0 0 0 / 0.18), 0 8px 16px -4px rgb(0 0 0 / 0.06);
+
+  /* === Typography === */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* === Radius — Soft but not bubbly === */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* === Layout === */
+  --sidebar-width: 256px;
+  --sidebar-collapsed: 72px;
+  --header-height: 64px;
+  --bottom-nav-height: 68px;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+body {
+  @apply bg-surface-secondary text-text-primary font-sans antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';  /* Inter stylistic alternates */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Tabular numbers for prices/amounts (raqamlar "sakramasligi" uchun) === */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* === Focus ring (Accessibility — WCAG 2.4.7) === */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-primary-500;
+  border-radius: var(--radius-sm);
+}
+
+/* === Hide scrollbar utility === */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* ============================================================
+   SCROLLBAR — Minimal, warm
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ============================================================
+   TOUCH TARGETS — 48px (kassir qo'li titraganda ham to'g'ri bosish)
+   ============================================================ */
+
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+input, select, textarea {
+  min-height: 44px;
+}
+
+/* POS da kattaroq target */
+.pos-touch {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* ============================================================
+   CARD SYSTEM — Soft elevation
+   ============================================================ */
+
+.card {
+  @apply bg-surface rounded-xl shadow-card;
+  border: 1px solid var(--color-border-subtle);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-interactive:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.card-flat {
+  @apply bg-surface rounded-xl;
+  border: 1px solid var(--color-border);
+}
+
+/* ============================================================
+   STAT CARD — Dashboard uchun
+   ============================================================ */
+
+.stat-card {
+  @apply bg-surface rounded-xl p-5 shadow-xs;
+  border: 1px solid var(--color-border-subtle);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card .stat-value {
+  @apply text-2xl font-bold text-text-primary tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.stat-card .stat-label {
+  @apply text-xs font-medium text-text-muted uppercase tracking-wider;
+  letter-spacing: 0.05em;
+}
+
+.stat-card .stat-trend {
+  @apply text-xs font-semibold;
+}
+.stat-card .stat-trend.up { @apply text-success-600; }
+.stat-card .stat-trend.down { @apply text-danger-600; }
+
+/* ============================================================
+   STATUS BADGES — Pill with dot (3 ta signal: dot + text + rang)
+   ============================================================ */
+
+.badge {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+}
+.badge-dot {
+  @apply h-1.5 w-1.5 rounded-full shrink-0;
+}
+
+.badge-success { @apply bg-success-50 text-success-700; }
+.badge-success .badge-dot { @apply bg-success-500; }
+
+.badge-warning { @apply bg-warning-50 text-warning-700; }
+.badge-warning .badge-dot { @apply bg-warning-500; }
+
+.badge-danger { @apply bg-danger-50 text-danger-700; }
+.badge-danger .badge-dot { @apply bg-danger-500; }
+
+.badge-info { @apply bg-info-50 text-info-700; }
+.badge-info .badge-dot { @apply bg-info-500; }
+
+.badge-neutral { @apply bg-surface-tertiary text-text-secondary; }
+.badge-neutral .badge-dot { @apply bg-text-muted; }
+
+/* ============================================================
+   BUTTONS — Consistent, accessible
+   ============================================================ */
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply bg-primary-600 text-white;
+  box-shadow: 0 1px 2px 0 rgb(91 95 199 / 0.3), inset 0 1px 0 0 rgb(255 255 255 / 0.1);
+}
+.btn-primary:hover:not(:disabled) {
+  @apply bg-primary-700;
+  box-shadow: 0 2px 4px 0 rgb(91 95 199 / 0.35), inset 0 1px 0 0 rgb(255 255 255 / 0.1);
+}
+.btn-primary:active:not(:disabled) {
+  @apply bg-primary-800;
+  box-shadow: inset 0 1px 3px 0 rgb(0 0 0 / 0.2);
+}
+
+.btn-secondary {
+  @apply bg-surface text-text-primary border border-border;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+}
+.btn-secondary:hover:not(:disabled) {
+  @apply bg-surface-secondary border-border-strong;
+}
+
+.btn-danger {
+  @apply bg-danger-600 text-white;
+  box-shadow: 0 1px 2px 0 rgb(220 38 38 / 0.3);
+}
+.btn-danger:hover:not(:disabled) {
+  @apply bg-danger-700;
+}
+
+.btn-ghost {
+  @apply text-text-secondary bg-transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  @apply bg-surface-tertiary text-text-primary;
+}
+
+.btn-success {
+  @apply bg-success-600 text-white;
+  box-shadow: 0 1px 2px 0 rgb(5 150 105 / 0.3);
+}
+.btn-success:hover:not(:disabled) {
+  @apply bg-success-700;
+}
+
+/* Size variants */
+.btn-sm { @apply text-sm px-3 py-1.5; min-height: 36px; }
+.btn-md { @apply text-sm px-4 py-2; min-height: 40px; }
+.btn-lg { @apply text-base px-5 py-2.5; min-height: 48px; }
+.btn-xl { @apply text-base px-6 py-3; min-height: 52px; }
+
+/* ============================================================
+   FORM INPUTS — Clean, warm
+   ============================================================ */
+
+.input {
+  @apply w-full rounded-lg bg-surface text-text-primary text-sm;
+  @apply placeholder:text-text-muted;
+  border: 1px solid var(--color-border);
+  padding: 10px 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input:focus {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px rgb(91 95 199 / 0.12);
+  outline: none;
+}
+.input:hover:not(:focus) {
+  border-color: var(--color-border-strong);
+}
+.input-error {
+  border-color: var(--color-danger-500);
+}
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.12);
+}
+
+.input-label {
+  @apply block text-sm font-medium text-text-primary mb-1.5;
+}
+
+/* ============================================================
+   ANIMATIONS — Subtle, purposeful
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+.animate-slide-up { animation: slideUp 0.25s ease-out; }
+.animate-slide-down { animation: slideDown 0.25s ease-out; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+
+/* Staggered list animation */
+.stagger-item {
+  opacity: 0;
+  animation: slideUp 0.3s ease-out forwards;
+}
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 40ms; }
+.stagger-item:nth-child(3) { animation-delay: 80ms; }
+.stagger-item:nth-child(4) { animation-delay: 120ms; }
+.stagger-item:nth-child(5) { animation-delay: 160ms; }
+.stagger-item:nth-child(6) { animation-delay: 200ms; }
+.stagger-item:nth-child(7) { animation-delay: 240ms; }
+.stagger-item:nth-child(8) { animation-delay: 280ms; }
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-tertiary) 25%, var(--color-surface-secondary) 50%, var(--color-surface-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   TABLE — Data-dense, scannable
+   ============================================================ */
+
+.table-container {
+  @apply overflow-x-auto rounded-xl;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.table {
+  @apply w-full text-sm;
+}
+.table thead {
+  @apply bg-surface-secondary;
+}
+.table th {
+  @apply px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider;
+}
+.table td {
+  @apply px-4 py-3 text-text-primary;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.table tbody tr {
+  @apply transition-colors duration-100;
+}
+.table tbody tr:hover {
+  @apply bg-surface-secondary/50;
+}
+
+/* ============================================================
+   PRINT — Thermal receipt (80mm)
+   ============================================================ */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-print, .receipt-print * {
+    visibility: visible !important;
+    display: block !important;
+  }
+  .receipt-print {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 2mm;
+    font-size: 10px;
+  }
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION — Accessibility
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .stagger-item {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}
