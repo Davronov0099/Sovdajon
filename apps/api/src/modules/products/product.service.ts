@@ -28,6 +28,7 @@ export async function listProducts(query: ListProductsQuery) {
         { name: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
         { barcode: { contains: search, mode: 'insensitive' } },
+        ...(/^\d+$/.test(search) ? [{ code: parseInt(search, 10) }] : []),
       ],
     }),
     ...(stockStatus === 'OUT_OF_STOCK' && { stock: 0 }),
@@ -47,7 +48,7 @@ export async function listProducts(query: ListProductsQuery) {
   }
 
   // Whitelist — faqat ruxsat etilgan fieldlar bo'yicha sort
-  const ALLOWED_SORT = ['name', 'price', 'costPrice', 'stock', 'createdAt', 'updatedAt'] as const;
+  const ALLOWED_SORT = ['name', 'code', 'price', 'costPrice', 'stock', 'createdAt', 'updatedAt'] as const;
   type AllowedSort = (typeof ALLOWED_SORT)[number];
 
   const orderBy: Prisma.ProductOrderByWithRelationInput = {};
@@ -100,6 +101,18 @@ export async function getProductStats() {
   return { total, lowStock, outOfStock, totalValue };
 }
 
+export async function getProductByBarcode(barcode: string) {
+  const product = await prisma.product.findFirst({
+    where: { barcode, isDeleted: false },
+    include: {
+      category: { select: { id: true, name: true } },
+      subCategory: { select: { id: true, name: true } },
+    },
+  });
+  if (!product) throw notFound('PRODUCT_NOT_FOUND', `Barcode: ${barcode}`);
+  return product;
+}
+
 export async function getProduct(id: string) {
   const product = await prisma.product.findFirst({
     where: { id, isDeleted: false },
@@ -117,6 +130,20 @@ export async function getProduct(id: string) {
   return product;
 }
 
+// Eng kichik bo'sh kodni topish (1, 2, 3... — o'chirilgan kodlar qayta ishlatiladi)
+async function getNextAvailableCode(): Promise<number> {
+  // Hozirda ishlatilayotgan barcha kodlarni olish (faqat code != null)
+  const rows = await prisma.$queryRaw<{ code: number }[]>`
+    SELECT code FROM "Product" WHERE code IS NOT NULL ORDER BY code
+  `;
+  const usedCodes = new Set(rows.map((r) => r.code));
+
+  // Eng kichik bo'sh kodni topish: 1 dan boshlab
+  for (let i = 1; ; i++) {
+    if (!usedCodes.has(i)) return i;
+  }
+}
+
 export async function createProduct(input: CreateProductInput, userId: string) {
   // Check unique constraints
   if (input.sku) {
@@ -127,6 +154,8 @@ export async function createProduct(input: CreateProductInput, userId: string) {
     const existing = await prisma.product.findFirst({ where: { barcode: input.barcode, isDeleted: false } });
     if (existing) throw conflict('PRODUCT_BARCODE_EXISTS');
   }
+
+  const code = await getNextAvailableCode();
 
   const product = await prisma.product.create({
     data: {
@@ -141,6 +170,7 @@ export async function createProduct(input: CreateProductInput, userId: string) {
       categoryId: input.categoryId,
       subCategoryId: input.subCategoryId,
       description: input.description,
+      code,
     },
     include: {
       category: { select: { id: true, name: true } },
@@ -233,7 +263,7 @@ export async function softDeleteProduct(id: string, userId: string) {
 
   await prisma.product.update({
     where: { id },
-    data: { isDeleted: true, deletedAt: new Date() },
+    data: { isDeleted: true, deletedAt: new Date(), code: null },
   });
 
   await createAuditLog({

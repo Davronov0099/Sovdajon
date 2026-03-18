@@ -39,6 +39,7 @@ export interface UserProfile {
 
 export interface ProductItem {
   id: string;
+  code: number | null;
   name: string;
   sku: string | null;
   barcode: string | null;
@@ -175,6 +176,7 @@ export interface CustomerItem {
   loyaltyPoints: number;
   note: string | null;
   createdAt: string;
+  _count?: { debts: number; receipts: number };
 }
 
 // ==================== SUPPLIER ====================
@@ -390,59 +392,12 @@ export interface StoreLocationItem {
 
 // ==================== SETTINGS ====================
 
-// ==================== ORDER ====================
-
-export type OrderStatusType = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-
-export interface OrderItemData {
-  id: string;
-  productId: string;
-  quantity: number;
-  unitPrice: string;
-  total: string;
-  product: { id: string; name: string };
-}
-
-export interface OrderItem {
-  id: string;
-  number: number;
-  customerId: string | null;
-  status: OrderStatusType;
-  total: string;
-  note: string | null;
-  createdById: string;
-  createdAt: string;
-  items: OrderItemData[];
-}
-
 // ==================== WAREHOUSE ====================
 
 export interface WarehouseItem {
   id: string;
   name: string;
   address: string | null;
-  createdAt: string;
-}
-
-// ==================== PARTNER ====================
-
-export interface PartnerItem {
-  id: string;
-  name: string;
-  phone: string | null;
-  company: string | null;
-  balance: string;
-  note: string | null;
-  createdAt: string;
-  _count: { payments: number };
-}
-
-export interface PartnerPaymentItem {
-  id: string;
-  partnerId: string;
-  amount: string;
-  type: 'IN' | 'OUT';
-  note: string | null;
   createdAt: string;
 }
 

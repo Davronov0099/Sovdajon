@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/api';
 import type { PaginatedApiResponse, CustomerItem } from '@/types/api';
 
@@ -31,6 +31,25 @@ export function useCustomers(query: { page?: number; limit?: number; search?: st
   });
 }
 
+export function useInfiniteCustomers(filters: { search?: string; limit?: number } = {}) {
+  const limit = filters.limit ?? 50;
+  return useInfiniteQuery({
+    queryKey: ['customers', 'infinite', filters],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params = new URLSearchParams();
+      params.set('page', String(pageParam));
+      params.set('limit', String(limit));
+      if (filters.search) params.set('search', filters.search);
+      return api.get(`customers?${params.toString()}`).json<PaginatedApiResponse<CustomerItem>>();
+    },
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    initialPageParam: 1,
+  });
+}
+
 export function useCustomer(id: string) {
   return useQuery({
     queryKey: ['customer', id],
@@ -56,5 +75,25 @@ export function useCreateCustomer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customers'] });
     },
+  });
+}
+
+export function useUpdateCustomer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<CreateCustomerInput> & { id: string }) =>
+      api.patch(`customers/${id}`, { json: data }).json(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['customers'] });
+      qc.invalidateQueries({ queryKey: ['customer'] });
+    },
+  });
+}
+
+export function useDeleteCustomer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`customers/${id}`).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['customers'] }); },
   });
 }

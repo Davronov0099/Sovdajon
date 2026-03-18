@@ -28,5 +28,8 @@
   "devDependencies": {
     "mongoose": "^9.3.0",
     "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.20.0"
   }
 }

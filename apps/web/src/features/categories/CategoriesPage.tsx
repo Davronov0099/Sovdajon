@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import {
   useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory,
-  useReorderCategories, useCreateSubCategory, useDeleteSubCategory,
+  useReorderCategories, useCreateSubCategory, useUpdateSubCategory, useDeleteSubCategory,
 } from '@/hooks/useCategories';
 
 interface CategoryItem {
@@ -31,7 +31,7 @@ interface CategoryItem {
 /* ─── Sortable Category Row ─── */
 
 function SortableCategoryRow({
-  cat, expanded, onToggle, onEdit, onDelete, onAddSub, onDeleteSub,
+  cat, expanded, onToggle, onEdit, onDelete, onAddSub, onEditSub, onDeleteSub,
 }: {
   cat: CategoryItem;
   expanded: boolean;
@@ -39,6 +39,7 @@ function SortableCategoryRow({
   onEdit: () => void;
   onDelete: () => void;
   onAddSub: () => void;
+  onEditSub: (id: string, name: string) => void;
   onDeleteSub: (id: string, name: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
@@ -123,6 +124,14 @@ function SortableCategoryRow({
               <Layers className="h-3.5 w-3.5 text-text-muted shrink-0" />
               <span className="flex-1 text-sm text-text-secondary">{sub.name}</span>
               <button
+                onClick={() => onEditSub(sub.id, sub.name)}
+                className="rounded-md p-1.5 text-text-muted hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                aria-label={`${sub.name} ni tahrirlash`}
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
                 onClick={() => onDeleteSub(sub.id, sub.name)}
                 className="rounded-md p-1.5 text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-colors"
                 aria-label={`${sub.name} ni o'chirish`}
@@ -149,6 +158,7 @@ export function CategoriesPage() {
   const deleteMut = useDeleteCategory();
   const reorderMut = useReorderCategories();
   const createSubMut = useCreateSubCategory();
+  const updateSubMut = useUpdateSubCategory();
   const deleteSubMut = useDeleteSubCategory();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -158,6 +168,7 @@ export function CategoriesPage() {
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [subCategoryName, setSubCategoryName] = useState('');
   const [parentCategoryId, setParentCategoryId] = useState('');
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: 'category' | 'sub' } | null>(null);
 
   const categories = (data?.data ?? []) as CategoryItem[];
@@ -194,19 +205,24 @@ export function CategoriesPage() {
     }
   }, [name, editingId, createMut, updateMut, toast]);
 
-  const handleAddSub = useCallback(async () => {
+  const handleSaveSub = useCallback(async () => {
     if (!subCategoryName.trim()) {
       toast('Sub-kategoriya nomini kiriting', 'error');
       return;
     }
     try {
-      await createSubMut.mutateAsync({ name: subCategoryName.trim(), categoryId: parentCategoryId });
-      toast('Sub-kategoriya yaratildi', 'success');
-      setSubModalOpen(false); setSubCategoryName('');
+      if (editingSubId) {
+        await updateSubMut.mutateAsync({ id: editingSubId, data: { name: subCategoryName.trim() } });
+        toast('Sub-kategoriya yangilandi', 'success');
+      } else {
+        await createSubMut.mutateAsync({ name: subCategoryName.trim(), categoryId: parentCategoryId });
+        toast('Sub-kategoriya yaratildi', 'success');
+      }
+      setSubModalOpen(false); setSubCategoryName(''); setEditingSubId(null);
     } catch {
       toast('Xatolik yuz berdi', 'error');
     }
-  }, [subCategoryName, parentCategoryId, createSubMut, toast]);
+  }, [subCategoryName, parentCategoryId, editingSubId, createSubMut, updateSubMut, toast]);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -272,7 +288,8 @@ export function CategoriesPage() {
                     }
                     setDeleteTarget({ id: cat.id, name: cat.name, type: 'category' });
                   }}
-                  onAddSub={() => { setParentCategoryId(cat.id); setSubCategoryName(''); setSubModalOpen(true); }}
+                  onAddSub={() => { setParentCategoryId(cat.id); setSubCategoryName(''); setEditingSubId(null); setSubModalOpen(true); }}
+                  onEditSub={(id, subName) => { setEditingSubId(id); setSubCategoryName(subName); setSubModalOpen(true); }}
                   onDeleteSub={(id, subName) => setDeleteTarget({ id, name: subName, type: 'sub' })}
                 />
               ))}
@@ -304,8 +321,8 @@ export function CategoriesPage() {
         </div>
       </Modal>
 
-      {/* Create Sub-Category Modal */}
-      <Modal open={subModalOpen} onClose={() => setSubModalOpen(false)} title="Yangi sub-kategoriya" size="sm">
+      {/* Create/Edit Sub-Category Modal */}
+      <Modal open={subModalOpen} onClose={() => { setSubModalOpen(false); setEditingSubId(null); }} title={editingSubId ? 'Sub-kategoriya tahrirlash' : 'Yangi sub-kategoriya'} size="sm">
         <div className="space-y-5">
           <Input
             id="sub-name"
@@ -316,12 +333,12 @@ export function CategoriesPage() {
             placeholder="Masalan: Kichik dastgirlar"
           />
           <div className="flex justify-end gap-3">
-            <button onClick={() => setSubModalOpen(false)} className="btn btn-secondary btn-md" disabled={createSubMut.isPending}>
+            <button onClick={() => { setSubModalOpen(false); setEditingSubId(null); }} className="btn btn-secondary btn-md" disabled={createSubMut.isPending || updateSubMut.isPending}>
               {t('common.cancel')}
             </button>
-            <button onClick={handleAddSub} className="btn btn-primary btn-md" disabled={!subCategoryName.trim() || createSubMut.isPending}>
-              {createSubMut.isPending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
-              {t('common.create')}
+            <button onClick={handleSaveSub} className="btn btn-primary btn-md" disabled={!subCategoryName.trim() || createSubMut.isPending || updateSubMut.isPending}>
+              {(createSubMut.isPending || updateSubMut.isPending) && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+              {editingSubId ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

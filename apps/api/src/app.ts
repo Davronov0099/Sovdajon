@@ -25,12 +25,10 @@ import { advanceRoutes } from './modules/advance/advance.routes.js';
 import { kpiRoutes } from './modules/kpi/kpi.routes.js';
 import { fineRoutes } from './modules/fine/fine.routes.js';
 import { cashierSessionRoutes } from './modules/cashier-session/session.routes.js';
-import { orderRoutes } from './modules/orders/order.routes.js';
 import { warehouseRoutes } from './modules/warehouses/warehouse.routes.js';
-import { partnerRoutes } from './modules/partners/partner.routes.js';
 import { contactRoutes } from './modules/contacts/contact.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
-import { monitoringRoutes } from './modules/monitoring/monitoring.routes.js';
+import { userRoutes } from './modules/users/user.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -142,12 +140,10 @@ export async function buildApp() {
   await app.register(kpiRoutes, { prefix: '/api/v1/kpi' });
   await app.register(fineRoutes, { prefix: '/api/v1/fines' });
   await app.register(cashierSessionRoutes, { prefix: '/api/v1/cashier-sessions' });
-  await app.register(orderRoutes, { prefix: '/api/v1/orders' });
   await app.register(warehouseRoutes, { prefix: '/api/v1/warehouses' });
-  await app.register(partnerRoutes, { prefix: '/api/v1/partners' });
   await app.register(contactRoutes, { prefix: '/api/v1/contacts' });
   await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
-  await app.register(monitoringRoutes, { prefix: '/api/v1/monitoring' });
+  await app.register(userRoutes, { prefix: '/api/v1/users' });
 
   return app;
 }

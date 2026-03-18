@@ -29,14 +29,23 @@ export async function getSummaryStats(start?: string, end?: string) {
   const cacheKey = `dashboard:summary:${startDate.toISOString()}:${endDate.toISOString()}`;
 
   return cached(cacheKey, async () => {
-    const [sales, expenses, debts] = await Promise.all([
-      // Sales by payment method
-      prisma.$queryRaw<{ method: string; total: number; count: number }[]>`
-        SELECT "paymentMethod" AS method, SUM(total)::float AS total, COUNT(*)::int AS count
-        FROM "Receipt"
-        WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate} AND "isDraft" = false
-        GROUP BY "paymentMethod"
+    const [receipts, profitData, discountData, expenses, debts] = await Promise.all([
+      // All non-draft receipts with mixedPayments
+      prisma.receipt.findMany({
+        where: { createdAt: { gte: startDate, lte: endDate }, isDraft: false },
+        select: { total: true, paymentMethod: true, mixedPayments: true },
+      }),
+      // Sof foyda: receipt.total (haqiqiy to'langan) - tan narx (costPrice * qty)
+      prisma.$queryRaw<{ revenue: number; cost: number }[]>`
+        SELECT
+          (SELECT COALESCE(SUM(total), 0)::float FROM "Receipt" WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate} AND "isDraft" = false) AS revenue,
+          (SELECT COALESCE(SUM(ri."costPrice" * ri.quantity), 0)::float FROM "ReceiptItem" ri JOIN "Receipt" r ON r.id = ri."receiptId" WHERE r."createdAt" >= ${startDate} AND r."createdAt" <= ${endDate} AND r."isDraft" = false) AS cost
       `,
+      // Jami chegirma
+      prisma.receipt.aggregate({
+        where: { createdAt: { gte: startDate, lte: endDate }, isDraft: false },
+        _sum: { discount: true },
+      }),
       // Total expenses
       prisma.expense.aggregate({
         where: { date: { gte: startDate, lte: endDate } },
@@ -50,26 +59,61 @@ export async function getSummaryStats(start?: string, end?: string) {
       }),
     ]);
 
-    const salesByMethod: Record<string, number> = {};
+    // To'lov usullari bo'yicha hisoblash (MIXED dan ham ajratib)
     let totalSales = 0;
-    let totalCount = 0;
-    for (const row of sales) {
-      salesByMethod[row.method] = row.total;
-      totalSales += row.total;
-      totalCount += row.count;
+    let cash = 0;
+    let card = 0;
+    let click = 0;
+    let debt = 0;
+
+    for (const r of receipts) {
+      const receiptTotal = Number(r.total);
+      totalSales += receiptTotal;
+
+      if (r.paymentMethod === 'MIXED' && r.mixedPayments) {
+        // MIXED: har bir usulni alohida hisoblash
+        const payments = r.mixedPayments as { method: string; amount: number }[];
+        let mixedSum = 0;
+        for (const p of payments) {
+          const amt = Number(p.amount) || 0;
+          mixedSum += amt;
+          if (p.method === 'CASH') cash += amt;
+          else if (p.method === 'CARD') card += amt;
+          else if (p.method === 'CLICK') click += amt;
+          else if (p.method === 'DEBT') debt += amt;
+          else if (p.method === 'TRANSFER') card += amt;
+        }
+        // Qolgan farqni naqd'ga qo'shish
+        const diff = receiptTotal - mixedSum;
+        if (diff > 0) cash += diff;
+      } else {
+        // Single payment method
+        if (r.paymentMethod === 'CASH') cash += receiptTotal;
+        else if (r.paymentMethod === 'CARD') card += receiptTotal;
+        else if (r.paymentMethod === 'CLICK') click += receiptTotal;
+        else if (r.paymentMethod === 'DEBT') debt += receiptTotal;
+        else if (r.paymentMethod === 'TRANSFER') card += receiptTotal;
+      }
     }
+
+    // Sof foyda = (sotish narxi - tan narx) - xarajatlar
+    const revenue = profitData[0]?.revenue ?? 0;
+    const cost = profitData[0]?.cost ?? 0;
+    const totalExpenses = Number(expenses._sum.amount ?? 0);
+    const profit = (revenue - cost) - totalExpenses;
 
     return {
       totalSales,
-      totalCount,
-      cash: salesByMethod['CASH'] ?? 0,
-      card: salesByMethod['CARD'] ?? 0,
-      click: salesByMethod['CLICK'] ?? 0,
-      debt: salesByMethod['DEBT'] ?? 0,
-      totalExpenses: Number(expenses._sum.amount ?? 0),
+      totalCount: receipts.length,
+      cash,
+      card,
+      click,
+      debt,
+      totalDiscount: Number(discountData._sum.discount ?? 0),
+      totalExpenses,
       activeDebts: Number(debts._sum.remainingAmount ?? 0),
       debtCount: debts._count,
-      profit: totalSales - Number(expenses._sum.amount ?? 0),
+      profit,
     };
   });
 }
@@ -174,15 +218,25 @@ export async function getProfitTrend(start?: string, end?: string) {
 
   return cached(cacheKey, async () => {
     return prisma.$queryRaw<{ date: string; revenue: number; cost: number; profit: number }[]>`
-      SELECT DATE(r."createdAt") AS date,
-             SUM(ri."unitPrice" * ri.quantity)::float AS revenue,
-             SUM(ri."costPrice" * ri.quantity)::float AS cost,
-             (SUM(ri."unitPrice" * ri.quantity) - SUM(ri."costPrice" * ri.quantity))::float AS profit
-      FROM "ReceiptItem" ri
-      JOIN "Receipt" r ON r.id = ri."receiptId"
-      WHERE r."createdAt" >= ${startDate} AND r."createdAt" <= ${endDate} AND r."isDraft" = false
-      GROUP BY DATE(r."createdAt")
-      ORDER BY date ASC
+      SELECT
+        d.date,
+        d.revenue,
+        COALESCE(c.cost, 0) AS cost,
+        (d.revenue - COALESCE(c.cost, 0)) AS profit
+      FROM (
+        SELECT DATE("createdAt") AS date, SUM(total)::float AS revenue
+        FROM "Receipt"
+        WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate} AND "isDraft" = false
+        GROUP BY DATE("createdAt")
+      ) d
+      LEFT JOIN (
+        SELECT DATE(r."createdAt") AS date, SUM(ri."costPrice" * ri.quantity)::float AS cost
+        FROM "ReceiptItem" ri
+        JOIN "Receipt" r ON r.id = ri."receiptId"
+        WHERE r."createdAt" >= ${startDate} AND r."createdAt" <= ${endDate} AND r."isDraft" = false
+        GROUP BY DATE(r."createdAt")
+      ) c ON c.date = d.date
+      ORDER BY d.date ASC
     `;
   });
 }

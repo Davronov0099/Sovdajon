@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { passwordSchema } from './common';
+import { passwordSchema } from './common.js';
 
 export const loginSchema = z.object({
   login: z.string().min(3).max(50),

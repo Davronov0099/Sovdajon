@@ -38,7 +38,12 @@ export async function listCustomers(query: ListCustomersQuery) {
         loyaltyPoints: true,
         note: true,
         createdAt: true,
-        _count: { select: { debts: { where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } } } } },
+        _count: {
+          select: {
+            debts: { where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } } },
+            receipts: { where: { isDraft: false } },
+          },
+        },
       },
     }),
     prisma.customer.count({ where }),
@@ -76,21 +81,16 @@ export async function getCustomer(id: string) {
     where: { id, isDeleted: false },
     include: {
       debts: {
-        where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } },
-        orderBy: { dueDate: 'asc' },
+        orderBy: { createdAt: 'desc' },
         include: {
           payments: { orderBy: { createdAt: 'desc' }, take: 5 },
         },
       },
       receipts: {
         orderBy: { createdAt: 'desc' },
-        take: 10,
-        select: {
-          id: true,
-          number: true,
-          total: true,
-          paymentMethod: true,
-          createdAt: true,
+        take: 20,
+        include: {
+          items: true,
         },
       },
     },

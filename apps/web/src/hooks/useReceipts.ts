@@ -52,6 +52,22 @@ export function useSaveDraft() {
   });
 }
 
+export function useHelperCarts() {
+  return useQuery<ApiResponse<ReceiptItem[]>>({
+    queryKey: ['receipts', 'helper-carts'],
+    queryFn: () => api.get('receipts/helper-carts').json<ApiResponse<ReceiptItem[]>>(),
+    refetchInterval: 10_000, // Har 10 sekundda yangilanadi
+  });
+}
+
+export function useDeleteDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`receipts/draft/${id}`).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['receipts'] }); },
+  });
+}
+
 export function useDeleteReceipt() {
   const qc = useQueryClient();
   return useMutation({

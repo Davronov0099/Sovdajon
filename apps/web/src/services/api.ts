@@ -20,10 +20,13 @@ export const api = ky.create({
     afterResponse: [
       async (request, _options, response) => {
         if (response.status === 401) {
-          // /auth/refresh endpoint o'zi 401 qaytarsa — loop qilma
-          if (request.url.includes('/auth/refresh')) {
-            useAuthStore.getState().logout();
-            window.location.href = '/login';
+          // Login yoki refresh endpoint bo'lsa — loop qilma
+          if (request.url.includes('/auth/refresh') || request.url.includes('/auth/login')) {
+            return response;
+          }
+
+          // Allaqachon login sahifada bo'lsa — redirect qilma
+          if (window.location.pathname === '/login') {
             return response;
           }
 

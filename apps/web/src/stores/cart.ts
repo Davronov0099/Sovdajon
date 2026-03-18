@@ -11,6 +11,7 @@ interface CartItem {
   discount: number;
   unit: string;
   stock: number;
+  discountTiers?: { qty: number; pct: number }[];
 }
 
 interface CartState {
@@ -47,13 +48,14 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           const existing = state.items.find((i) => i.productId === product.productId);
           if (existing) {
+            const newQty = existing.quantity + 1;
             return {
               items: state.items.map((i) =>
                 i.productId === product.productId
                   ? {
                       ...i,
-                      quantity: i.quantity + 1,
-                      discount: calculateAutoDiscount(i.quantity + 1),
+                      quantity: newQty,
+                      discount: calculateAutoDiscount(newQty, i.discountTiers),
                     }
                   : i,
               ),
@@ -62,7 +64,7 @@ export const useCartStore = create<CartState>()(
           // Oxirgi qo'shilgan yuqorida ko'rinadi
           return {
             items: [
-              { ...product, quantity: 1, discount: 0 },
+              { ...product, quantity: 1, discount: calculateAutoDiscount(1, product.discountTiers) },
               ...state.items,
             ],
           };
@@ -77,7 +79,7 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           items: state.items.map((i) =>
             i.productId === productId
-              ? { ...i, quantity, discount: calculateAutoDiscount(quantity) }
+              ? { ...i, quantity, discount: calculateAutoDiscount(quantity, i.discountTiers) }
               : i,
           ),
         })),
@@ -127,6 +129,20 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'sardorbek-cart',
+      version: 1,
+      migrate: (persisted: unknown) => {
+        const state = persisted as Record<string, unknown>;
+        // v0 → v1: eski generic chegirmalarni tozalash (tiers yo'q elementlar uchun discount=0)
+        if (Array.isArray(state.items)) {
+          state.items = (state.items as CartItem[]).map((item) => ({
+            ...item,
+            discount: item.discountTiers
+              ? calculateAutoDiscount(item.quantity, item.discountTiers)
+              : 0,
+          }));
+        }
+        return state as CartState;
+      },
     },
   ),
 );

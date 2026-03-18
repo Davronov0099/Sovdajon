@@ -116,7 +116,7 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
   // Validate mixed payment sum
   if (paymentMethod === 'MIXED' && mixedPayments) {
     const mixedSum = mixedPayments.reduce((sum, mp) => sum + mp.amount, 0);
-    if (Math.abs(mixedSum - total) > 1) {
+    if (Math.abs(mixedSum - total) > 100) {
       throw badRequest('RECEIPT_MIXED_SUM_MISMATCH');
     }
   }
@@ -269,7 +269,7 @@ export async function listReceipts(query: ListReceiptsQuery) {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        items: { select: { id: true, productName: true, quantity: true, total: true } },
+        items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, discount: true, total: true } },
         customer: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
       },
@@ -283,7 +283,7 @@ export async function listReceipts(query: ListReceiptsQuery) {
   };
 }
 
-export async function saveDraft(input: CreateReceiptInput, userId: string) {
+export async function saveDraft(input: CreateReceiptInput, userId: string, source: string = 'POS') {
   const productIds = input.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, isDeleted: false },
@@ -309,8 +309,12 @@ export async function saveDraft(input: CreateReceiptInput, userId: string) {
 
   const subtotal = receiptItems.reduce((sum, i) => sum + Number(i.total), 0);
 
+  // Get next draft number
+  const draftCount = await prisma.receipt.count({ where: { isDraft: true } });
+
   return prisma.receipt.create({
     data: {
+      number: draftCount + 1,
       subtotal: new Prisma.Decimal(subtotal),
       discount: new Prisma.Decimal(0),
       discountPercent: new Prisma.Decimal(0),
@@ -319,11 +323,25 @@ export async function saveDraft(input: CreateReceiptInput, userId: string) {
       customerId: input.customerId ?? null,
       createdById: userId,
       isDraft: true,
+      source,
       items: { create: receiptItems },
     },
     include: {
       items: true,
       customer: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true } },
+    },
+  });
+}
+
+export async function listHelperCarts() {
+  return prisma.receipt.findMany({
+    where: { isDraft: true, source: 'HELPER' },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, discount: true, total: true } },
+      customer: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true } },
     },
   });
 }
@@ -337,6 +355,19 @@ export async function deleteDraft(id: string, userId: string, userRole: string) 
   }
 
   await prisma.receipt.delete({ where: { id } });
+
+  // Renumber remaining drafts sequentially starting from 1
+  const remainingDrafts = await prisma.receipt.findMany({
+    where: { isDraft: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+
+  await Promise.all(
+    remainingDrafts.map((draft, idx) =>
+      prisma.receipt.update({ where: { id: draft.id }, data: { number: idx + 1 } }),
+    ),
+  );
 }
 
 export async function deleteReceipt(id: string, userId: string) {

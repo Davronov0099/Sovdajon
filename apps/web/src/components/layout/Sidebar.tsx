@@ -1,57 +1,12 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import {
-  LayoutDashboard, ShoppingCart, Package, FolderTree, Warehouse,
-  CreditCard, Users, Truck, Receipt, UserCog, ClipboardList,
-  Contact, Handshake, Activity, Settings, LogOut, ChevronsLeft, ChevronsRight,
-} from 'lucide-react';
+import { LogOut, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { cn } from '@/lib/cn';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
-
-const NAV_SECTIONS = [
-  {
-    label: 'Asosiy',
-    items: [
-      { to: '/', icon: LayoutDashboard, key: 'dashboard', roles: ['ADMIN'] },
-      { to: '/pos', icon: ShoppingCart, key: 'pos', roles: ['ADMIN', 'CASHIER'] },
-    ],
-  },
-  {
-    label: 'Mahsulotlar',
-    items: [
-      { to: '/products', icon: Package, key: 'products', roles: ['ADMIN', 'CASHIER', 'HELPER'] },
-      { to: '/categories', icon: FolderTree, key: 'categories', roles: ['ADMIN'] },
-      { to: '/warehouse', icon: Warehouse, key: 'warehouse', roles: ['ADMIN', 'HELPER'] },
-    ],
-  },
-  {
-    label: 'Moliya',
-    items: [
-      { to: '/debts', icon: CreditCard, key: 'debts', roles: ['ADMIN', 'CASHIER'] },
-      { to: '/customers', icon: Users, key: 'customers', roles: ['ADMIN', 'CASHIER'] },
-      { to: '/suppliers', icon: Truck, key: 'suppliers', roles: ['ADMIN'] },
-      { to: '/expenses', icon: Receipt, key: 'expenses', roles: ['ADMIN'] },
-    ],
-  },
-  {
-    label: 'Boshqaruv',
-    items: [
-      { to: '/hr', icon: UserCog, key: 'hr', roles: ['ADMIN'] },
-      { to: '/orders', icon: ClipboardList, key: 'orders', roles: ['ADMIN', 'CASHIER'] },
-      { to: '/contacts', icon: Contact, key: 'contacts', roles: ['ADMIN', 'CASHIER'] },
-      { to: '/partners', icon: Handshake, key: 'partners', roles: ['ADMIN'] },
-    ],
-  },
-  {
-    label: 'Tizim',
-    items: [
-      { to: '/monitoring', icon: Activity, key: 'monitoring', roles: ['ADMIN'] },
-      { to: '/settings', icon: Settings, key: 'settings', roles: ['ADMIN'] },
-    ],
-  },
-] as const;
+import { useNavSettingsStore } from '@/stores/navSettings';
+import { NAV_META } from './MobileTopNav';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -59,16 +14,15 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const matchRoute = useMatchRoute();
+  const navItems = useNavSettingsStore((s) => s.items);
 
-  const visibleSections = useMemo(() => {
+  const visibleItems = useMemo(() => {
     if (!user) return [];
-    return NAV_SECTIONS.map((section) => ({
-      ...section,
-      items: section.items.filter((item) =>
-        (item.roles as readonly string[]).includes(user.role),
-      ),
-    })).filter((section) => section.items.length > 0);
-  }, [user]);
+    return navItems.filter((item) => {
+      const meta = NAV_META[item.key];
+      return meta && item.visible && meta.roles.includes(user.role);
+    });
+  }, [user, navItems]);
 
   return (
     <aside
@@ -110,47 +64,35 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
-        {visibleSections.map((section) => (
-          <div key={section.label}>
-            {/* Section label */}
-            {sidebarOpen && (
-              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-text/50">
-                {section.label}
-              </p>
-            )}
+      {/* Navigation — foydalanuvchi sozlagan tartibda */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+        {visibleItems.map((item) => {
+          const meta = NAV_META[item.key];
+          if (!meta) return null;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const isActive = matchRoute({ to: meta.to as any, fuzzy: meta.to !== '/' });
+          const Icon = meta.icon;
 
-            {/* Items */}
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const isActive = matchRoute({ to: item.to as any, fuzzy: item.to !== '/' });
-                const Icon = item.icon;
-
-                return (
-                  <Link
-                    key={item.key}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    to={item.to as any}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150',
-                      sidebarOpen ? '' : 'justify-center',
-                      isActive
-                        ? 'bg-sidebar-active text-white shadow-sm border-l-2 border-primary-400 ml-0 pl-[10px]'
-                        : 'text-sidebar-text hover:bg-sidebar-hover hover:text-white border-l-2 border-transparent ml-0 pl-[10px]',
-                    )}
-                    aria-current={isActive ? 'page' : undefined}
-                    title={!sidebarOpen ? t(`nav.${item.key}`) : undefined}
-                  >
-                    <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive && 'text-primary-400')} />
-                    {sidebarOpen && <span>{t(`nav.${item.key}`)}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          return (
+            <Link
+              key={item.key}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              to={meta.to as any}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150',
+                sidebarOpen ? '' : 'justify-center',
+                isActive
+                  ? 'bg-sidebar-active text-white shadow-sm border-l-2 border-primary-400 ml-0 pl-[10px]'
+                  : 'text-sidebar-text hover:bg-sidebar-hover hover:text-white border-l-2 border-transparent ml-0 pl-[10px]',
+              )}
+              aria-current={isActive ? 'page' : undefined}
+              title={!sidebarOpen ? t(`nav.${item.key}`) : undefined}
+            >
+              <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive && 'text-primary-400')} />
+              {sidebarOpen && <span>{t(`nav.${item.key}`)}</span>}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* User Info + Logout */}

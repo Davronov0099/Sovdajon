@@ -1,14 +1,23 @@
-import { createServer } from 'http';
-import { buildApp } from './app.js';
-import { env } from './config/env.js';
-import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { connectRedis, disconnectRedis } from './config/redis.js';
-import { setupSocketIO } from './websocket/index.js';
-import { startOverdueCron } from './jobs/overdueCron.js';
-import { startStockAlertCron } from './jobs/stockAlertCron.js';
-import { startBackupCron } from './jobs/backupCron.js';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+// dotenv ni barcha import'lardan OLDIN yuklash kerak
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, '..', '.env') });
 
 async function start(): Promise<void> {
+  // Dynamic import — dotenv yuklangandan keyin
+  const { createServer } = await import('http');
+  const { buildApp } = await import('./app.js');
+  const { env } = await import('./config/env.js');
+  const { connectDatabase, disconnectDatabase } = await import('./config/database.js');
+  const { connectRedis, disconnectRedis } = await import('./config/redis.js');
+  const { setupSocketIO } = await import('./websocket/index.js');
+  const { startOverdueCron } = await import('./jobs/overdueCron.js');
+  const { startStockAlertCron } = await import('./jobs/stockAlertCron.js');
+  const { startBackupCron } = await import('./jobs/backupCron.js');
+
   const app = await buildApp();
 
   // Connect to services
@@ -35,17 +44,10 @@ async function start(): Promise<void> {
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     app.log.info(`Received ${signal} — shutting down gracefully...`);
-
-    // Stop accepting new connections
     httpServer.close();
-
-    // Close app (finishes in-flight requests with kill_timeout: 15s)
     await app.close();
-
-    // Disconnect services
     await disconnectDatabase();
     await disconnectRedis();
-
     app.log.info('Shutdown complete');
     process.exit(0);
   };

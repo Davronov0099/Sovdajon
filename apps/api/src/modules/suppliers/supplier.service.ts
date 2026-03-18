@@ -110,7 +110,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
   const productIds = input.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, isDeleted: false },
-    select: { id: true, name: true, costPrice: true, stock: true },
+    select: { id: true, name: true, costPrice: true, price: true, stock: true },
   });
   if (products.length !== productIds.length) throw notFound('PRODUCT_NOT_FOUND');
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -164,21 +164,27 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         const product = productMap.get(item.productId)!;
         const newCostPrice = item.unitPrice * rate;
         const oldCostPrice = Number(product.costPrice);
+        const newSellingPrice = item.sellingPrice != null ? item.sellingPrice * rate : undefined;
 
-        // Stock increment + costPrice update (atomic per product)
+        // Stock increment + costPrice + sellingPrice update (atomic per product)
+        const updateData: Prisma.ProductUpdateInput = {
+          stock: { increment: item.quantity },
+          costPrice: new Prisma.Decimal(newCostPrice),
+        };
+        if (newSellingPrice != null && newSellingPrice > 0) {
+          updateData.price = new Prisma.Decimal(newSellingPrice);
+        }
+
         await tx.product.update({
           where: { id: item.productId },
-          data: {
-            stock: { increment: item.quantity },
-            costPrice: new Prisma.Decimal(newCostPrice),
-          },
+          data: updateData,
         });
 
         // Collect price history for batch insert
         priceHistoryData.push({
           productId: item.productId,
-          oldPrice: product.costPrice,
-          newPrice: product.costPrice,
+          oldPrice: product.price,
+          newPrice: newSellingPrice != null && newSellingPrice > 0 ? new Prisma.Decimal(newSellingPrice) : product.price,
           oldCostPrice: product.costPrice,
           newCostPrice: new Prisma.Decimal(newCostPrice),
           reason: 'SUPPLIER_IMPORT',

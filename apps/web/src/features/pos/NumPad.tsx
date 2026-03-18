@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Delete } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -15,7 +15,7 @@ const KEYS = [
   ['C', '0', '⌫'],
 ] as const;
 
-export function NumPad({ onSubmit, onClose, initialValue = 1 }: NumPadProps) {
+export function NumPad({ onSubmit, onClose, initialValue = 0 }: NumPadProps) {
   const [display, setDisplay] = useState(String(initialValue));
 
   function handleKey(key: string) {
@@ -28,10 +28,33 @@ export function NumPad({ onSubmit, onClose, initialValue = 1 }: NumPadProps) {
     }
   }
 
-  function handleConfirm() {
+  const handleConfirm = useCallback(() => {
     const value = parseInt(display) || 1;
     onSubmit(Math.max(1, value));
-  }
+  }, [display, onSubmit]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleKey(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleKey('⌫');
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        handleKey('C');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleConfirm, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>

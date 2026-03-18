@@ -27,6 +27,13 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     reply.send({ success: true, data: stats });
   });
 
+  // Barcode lookup — yordamchilar uchun
+  app.get('/barcode/:barcode', { preHandler: [requireAuth] }, async (req, reply) => {
+    const { barcode } = req.params as { barcode: string };
+    const product = await service.getProductByBarcode(barcode);
+    reply.send({ success: true, data: product });
+  });
+
   app.get('/:id', { preHandler: [requireAuth, validateParams(idParamSchema)] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const product = await service.getProduct(id);

@@ -1,9 +1,9 @@
 import { QueryClient, type Mutation } from '@tanstack/react-query';
 
 // Global mutation error handler — barcha mutation xatolarini toast qiladi
-function onMutationError(error: Error, _variables: unknown, _context: unknown, mutation: Mutation) {
+function onMutationError(error: Error, _variables: unknown, _context: unknown, mutation?: Mutation) {
   // Skip if mutation has its own onError (already handled)
-  if (mutation.options.onError) return;
+  if (mutation?.options?.onError) return;
 
   // Extract error message from API response
   let message = 'Xatolik yuz berdi';

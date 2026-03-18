@@ -165,6 +165,18 @@ input, select, textarea {
   min-width: 48px;
 }
 
+/* Compact inputs — jadval/import kabi zichroq joylarda */
+.compact-inputs input,
+.compact-inputs select,
+.compact-inputs textarea {
+  min-height: auto;
+}
+.compact-inputs button,
+.compact-inputs a {
+  min-height: auto;
+  min-width: auto;
+}
+
 /* ============================================================
    CARD SYSTEM — Soft elevation
    ============================================================ */
@@ -345,6 +357,11 @@ input, select, textarea {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes bottomSheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -360,10 +377,21 @@ input, select, textarea {
   100% { background-position: 200% 0; }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 .animate-fade-in { animation: fadeIn 0.2s ease-out; }
-.animate-slide-up { animation: slideUp 0.25s ease-out; }
+.animate-slide-up { animation: bottomSheetUp 0.25s ease-out; }
 .animate-slide-down { animation: slideDown 0.25s ease-out; }
 .animate-scale-in { animation: scaleIn 0.2s ease-out; }
+.animate-slide-in-right { animation: slideInRight 0.25s ease-out; }
 
 /* Staggered list animation */
 .stagger-item {
@@ -417,30 +445,133 @@ input, select, textarea {
 }
 
 /* ============================================================
-   PRINT — Thermal receipt (80mm)
+   MODAL SCROLL — Professional thin scrollbar
    ============================================================ */
 
+.modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.modal-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ============================================================
+   RECEIPT — Thermal printer (XPrinter 80mm)
+   ============================================================ */
+
+/* Receipt base styles (used in both screen preview and print) */
+.receipt-print {
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #000;
+  background: #fff;
+  width: 72mm;
+  padding: 3mm;
+  box-sizing: border-box;
+}
+.receipt-print .r-center { text-align: center; }
+.receipt-print .r-bold { font-weight: 700; }
+.receipt-print .r-light { opacity: 0.7; }
+.receipt-print .r-lg { font-size: 16px; }
+.receipt-print .r-sm { font-size: 11px; }
+.receipt-print .r-xs { font-size: 9px; }
+.receipt-print .r-line {
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.1;
+  margin: 1.5mm 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.receipt-print .r-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.receipt-print .r-row span:last-child {
+  text-align: right;
+  flex-shrink: 0;
+}
+.receipt-print .r-item {
+  margin: 1.5mm 0;
+}
+.receipt-print .r-item-name {
+  font-size: 11px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* Hide receipt on screen */
+.receipt-print {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  visibility: hidden;
+}
+
 @media print {
+  /* Hide everything */
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
+    position: static;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
   }
-  .receipt-print, .receipt-print * {
+  /* Show only receipt */
+  .receipt-print,
+  .receipt-print * {
     visibility: visible !important;
-    display: block !important;
   }
   .receipt-print {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    margin: 0;
-    padding: 2mm;
-    font-size: 10px;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 72mm !important;
+    margin: 0 !important;
+    padding: 3mm !important;
+    z-index: 999999 !important;
+    background: #fff !important;
+    color: #000 !important;
+    display: block !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .receipt-print .r-row {
+    display: flex !important;
   }
   @page {
     size: 80mm auto;
     margin: 0;
   }
+}
+
+/* ============================================================
+   SCANNER — Barcode scan line animation
+   ============================================================ */
+
+@keyframes scanLine {
+  0% { top: 10%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 90%; opacity: 0; }
+}
+
+.animate-scan-line {
+  animation: scanLine 2s ease-in-out infinite;
 }
 
 /* ============================================================

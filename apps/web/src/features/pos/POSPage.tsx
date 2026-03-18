@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, ShoppingCart, Package } from 'lucide-react';
+import { Search, ShoppingCart, Package, Loader2, X } from 'lucide-react';
 import { formatCurrency, getStockStatus } from '@sardorbek/shared';
-import { useProducts } from '@/hooks/useProducts';
+import { useInfiniteProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useCartStore } from '@/stores/cart';
 import { useUiStore } from '@/stores/ui';
@@ -27,26 +27,54 @@ export function POSPage() {
   const [categoryId, setCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [numPadOpen, setNumPadOpen] = useState(false);
   const [numPadTarget, setNumPadTarget] = useState<string | null>(null);
+  const [numPadProduct, setNumPadProduct] = useState<{ id: string; name: string; price: number; costPrice: number; unit: string; stock: number; discountTiers?: { qty: number; pct: number }[] } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const { play } = useSound();
 
-  const { data: productsData, isLoading } = useProducts({
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteProducts({
     search,
     categoryId,
     subCategoryId,
-    page: 1,
-    limit: 100,
+    limit: 2000,
   });
   const { data: catData } = useCategories();
 
-  const products = productsData?.data ?? [];
+  const products = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const categories = catData?.data ?? [];
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   const addItem = useCartStore((s) => s.addItem);
   const itemCount = useCartStore((s) => s.getItemCount());
+
+  // Auto-collapse sidebar on POS (desktop only)
+  const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 640;
+    if (isDesktop) {
+      setSidebarOpen(false);
+      return () => { setSidebarOpen(true); };
+    }
+  }, [setSidebarOpen]);
 
   // Auto-focus search on mount
   useEffect(() => {
@@ -65,19 +93,13 @@ export function POSPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleAddProduct = useCallback(
-    (product: { id: string; name: string; price: number; costPrice: number; unit: string; stock: number }) => {
-      addItem({
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        costPrice: product.costPrice,
-        unit: product.unit,
-        stock: product.stock,
-      });
-      play('add-to-cart');
+  const handleProductClick = useCallback(
+    (product: { id: string; name: string; price: number; costPrice: number; unit: string; stock: number; discountTiers?: { qty: number; pct: number }[] }) => {
+      setNumPadProduct(product);
+      setNumPadTarget(null);
+      setNumPadOpen(true);
     },
-    [addItem, play],
+    [],
   );
 
   return (
@@ -87,14 +109,15 @@ export function POSPage() {
         {/* Search bar */}
         <div className="bg-surface px-4 py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
             <input
               ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Mahsulot qidirish..."
-              className="input pl-10 pos-touch !bg-surface-secondary"
+              className="input pos-touch !bg-surface-secondary"
+              style={{ paddingLeft: '40px' }}
               aria-label="Mahsulot qidirish"
             />
             {search && (
@@ -257,7 +280,7 @@ export function POSPage() {
         {/* Product grid */}
         <div className="flex-1 overflow-auto p-3">
           {isLoading ? (
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="skeleton h-[240px] rounded-xl" />
               ))}
@@ -268,111 +291,128 @@ export function POSPage() {
               <p className="text-sm font-medium">Mahsulot topilmadi</p>
             </div>
           ) : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
-              {products.map((product) => {
-                const stockStatus = getStockStatus(product.stock, product.minStock);
-                const unitLabel = UNIT_LABELS[product.unit] || product.unit;
-                const hasImage = product.images && product.images.length > 0 && product.images[0];
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                {products.map((product) => {
+                  const stockStatus = getStockStatus(product.stock, product.minStock);
+                  const unitLabel = UNIT_LABELS[product.unit] || product.unit;
+                  const hasImage = product.images && product.images.length > 0 && product.images[0];
 
-                const d1Qty = Number(product.discount1Qty || 0);
-                const d1Pct = Number(product.discount1Pct || 0);
-                const d2Qty = Number(product.discount2Qty || 0);
-                const d2Pct = Number(product.discount2Pct || 0);
-                const d3Qty = Number(product.discount3Qty || 0);
-                const d3Pct = Number(product.discount3Pct || 0);
-                const hasDiscountTiers = d1Qty > 0 || d2Qty > 0 || d3Qty > 0;
+                  const d1Qty = Number(product.discount1Qty || 0);
+                  const d1Pct = Number(product.discount1Pct || 0);
+                  const d2Qty = Number(product.discount2Qty || 0);
+                  const d2Pct = Number(product.discount2Pct || 0);
+                  const d3Qty = Number(product.discount3Qty || 0);
+                  const d3Pct = Number(product.discount3Pct || 0);
+                  const hasDiscountTiers = d1Qty > 0 || d2Qty > 0 || d3Qty > 0;
 
-                return (
-                  <button
-                    key={product.id}
-                    onClick={() =>
-                      handleAddProduct({
-                        id: product.id,
-                        name: product.name,
-                        price: Number(product.price),
-                        costPrice: Number(product.costPrice),
-                        unit: product.unit,
-                        stock: product.stock,
-                      })
-                    }
-                    className={cn(
-                      'group relative flex flex-col overflow-hidden rounded-xl bg-surface text-left transition-all duration-150',
-                      'active:scale-[0.97]',
-                      'hover:shadow-card-hover hover:-translate-y-0.5',
-                      stockStatus === 'OUT_OF_STOCK' && 'opacity-40',
-                    )}
-                    style={{ border: '1px solid var(--color-border-subtle)' }}
-                    aria-label={`${product.name} — ${formatCurrency(Number(product.price))}`}
-                  >
-                    {/* ── Image ── */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
-                      {hasImage ? (
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Package className="h-10 w-10 text-text-muted/15" />
-                        </div>
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() =>
+                        handleProductClick({
+                          id: product.id,
+                          name: product.name,
+                          price: Number(product.price),
+                          costPrice: Number(product.costPrice),
+                          unit: product.unit,
+                          stock: product.stock,
+                          discountTiers: [
+                            { qty: Number(product.discount1Qty || 0), pct: Number(product.discount1Pct || 0) },
+                            { qty: Number(product.discount2Qty || 0), pct: Number(product.discount2Pct || 0) },
+                            { qty: Number(product.discount3Qty || 0), pct: Number(product.discount3Pct || 0) },
+                          ].filter(t => t.qty > 0),
+                        })
+                      }
+                      className={cn(
+                        'group relative flex flex-col overflow-hidden rounded-xl bg-surface text-left transition-all duration-150',
+                        'active:scale-[0.97]',
+                        'hover:shadow-card-hover hover:-translate-y-0.5',
+                        stockStatus === 'OUT_OF_STOCK' && 'opacity-40',
                       )}
+                      style={{ border: '1px solid var(--color-border-subtle)' }}
+                      aria-label={`${product.name} — ${formatCurrency(Number(product.price))}`}
+                    >
+                      {/* ── Image ── */}
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
+                        {hasImage ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <Package className="h-10 w-10 text-text-muted/15" />
+                          </div>
+                        )}
 
-                      {/* Stock badge — chap pastda (rasmdagidek) */}
-                      <span className={cn(
-                        'absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-sm',
-                        stockStatus === 'IN_STOCK' && 'bg-success-600',
-                        stockStatus === 'LOW_STOCK' && 'bg-warning-600',
-                        stockStatus === 'OUT_OF_STOCK' && 'bg-danger-600',
-                        stockStatus === 'NEGATIVE' && 'bg-danger-700',
-                      )}>
-                        {product.stock} {unitLabel}
-                      </span>
-                    </div>
+                        {/* Stock badge */}
+                        <span className={cn(
+                          'absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-sm',
+                          stockStatus === 'IN_STOCK' && 'bg-success-600',
+                          stockStatus === 'LOW_STOCK' && 'bg-warning-600',
+                          stockStatus === 'OUT_OF_STOCK' && 'bg-danger-600',
+                          stockStatus === 'NEGATIVE' && 'bg-danger-700',
+                        )}>
+                          {product.stock} {unitLabel}
+                        </span>
+                      </div>
 
-                    {/* ── Content ── */}
-                    <div className="flex flex-1 flex-col px-3 pt-2.5 pb-3">
-                      {/* Name */}
-                      <h3 className="text-[13px] font-semibold text-text-primary leading-snug line-clamp-2">
-                        {product.name}
-                      </h3>
+                      {/* ── Content ── */}
+                      <div className="flex flex-1 flex-col px-2 sm:px-3 pt-2 sm:pt-2.5 pb-2 sm:pb-3">
+                        <h3 className="text-[12px] sm:text-[13px] font-semibold text-text-primary leading-snug line-clamp-2">
+                          {product.name}
+                        </h3>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] text-text-muted truncate">
+                          {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
+                        </p>
+                        <p className="mt-1 sm:mt-1.5 text-sm sm:text-base font-bold text-primary-600 tabular-nums">
+                          {formatCurrency(Number(product.price))}
+                        </p>
+                        {hasDiscountTiers && (() => {
+                          const price = Number(product.price);
+                          return (
+                            <div className="mt-1 sm:mt-1.5 space-y-0.5">
+                              {d1Qty > 0 && (
+                                <p className="text-[10px] sm:text-[11px] text-success-600 tabular-nums">
+                                  {d1Qty}+ ta → {formatCurrency(Math.round(price * (100 - d1Pct) / 100))} <span className="text-text-muted">(-{d1Pct}%)</span>
+                                </p>
+                              )}
+                              {d2Qty > 0 && (
+                                <p className="text-[10px] sm:text-[11px] text-warning-600 tabular-nums">
+                                  {d2Qty}+ ta → {formatCurrency(Math.round(price * (100 - d2Pct) / 100))} <span className="text-text-muted">(-{d2Pct}%)</span>
+                                </p>
+                              )}
+                              {d3Qty > 0 && (
+                                <p className="text-[10px] sm:text-[11px] text-danger-600 tabular-nums">
+                                  {d3Qty}+ ta → {formatCurrency(Math.round(price * (100 - d3Pct) / 100))} <span className="text-text-muted">(-{d3Pct}%)</span>
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-                      {/* Category / subcategory */}
-                      <p className="mt-0.5 text-[11px] text-text-muted truncate">
-                        {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
-                      </p>
-
-                      {/* Price */}
-                      <p className="mt-1.5 text-base font-bold text-primary-600 tabular-nums">
-                        {formatCurrency(Number(product.price))}
-                      </p>
-
-                      {/* 3-tier discounts — rasmdagidek ro'yxat */}
-                      {hasDiscountTiers && (
-                        <div className="mt-1.5 space-y-0.5">
-                          {d1Qty > 0 && (
-                            <p className="text-[11px] text-success-600 tabular-nums">
-                              {d1Pct}% chegirma {d1Qty}+ ta
-                            </p>
-                          )}
-                          {d2Qty > 0 && (
-                            <p className="text-[11px] text-warning-600 tabular-nums">
-                              {d2Pct}% chegirma {d2Qty}+ ta
-                            </p>
-                          )}
-                          {d3Qty > 0 && (
-                            <p className="text-[11px] text-danger-600 tabular-nums">
-                              {d3Pct}% chegirma {d3Qty}+ ta
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+              {/* Infinite scroll sentinel */}
+              <div ref={loadMoreRef} className="flex items-center justify-center py-6">
+                {isFetchingNextPage ? (
+                  <div className="flex items-center gap-2 text-sm text-text-muted">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Yuklanmoqda...
+                  </div>
+                ) : hasNextPage ? (
+                  <div className="h-4" />
+                ) : products.length > 0 ? (
+                  <p className="text-xs text-text-muted">Barcha {products.length} ta mahsulot ko'rsatildi</p>
+                ) : null}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -388,7 +428,7 @@ export function POSPage() {
       {/* Mobile cart FAB */}
       <button
         className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-dropdown sm:hidden transition-transform active:scale-95"
-        onClick={() => setPaymentOpen(true)}
+        onClick={() => setMobileCartOpen(true)}
         aria-label="Savat"
       >
         <ShoppingCart className="h-6 w-6" />
@@ -399,19 +439,61 @@ export function POSPage() {
         )}
       </button>
 
+      {/* Mobile cart drawer */}
+      {mobileCartOpen && (
+        <div className="fixed inset-0 z-40 sm:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileCartOpen(false)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-[380px] animate-slide-in-right">
+            {/* Close button */}
+            <button
+              onClick={() => setMobileCartOpen(false)}
+              className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-secondary/80 text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors backdrop-blur-sm"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <CartPanel
+              onPayment={() => { setMobileCartOpen(false); setPaymentOpen(true); }}
+              onNumPad={(productId) => { setNumPadTarget(productId); setNumPadOpen(true); }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Payment modal */}
       <PaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} />
 
       {/* NumPad */}
-      {numPadOpen && numPadTarget && (
+      {numPadOpen && (
         <NumPad
-          onClose={() => { setNumPadOpen(false); setNumPadTarget(null); }}
+          onClose={() => { setNumPadOpen(false); setNumPadTarget(null); setNumPadProduct(null); }}
           onSubmit={(value) => {
             if (numPadTarget) {
               useCartStore.getState().updateQuantity(numPadTarget, value);
+            } else if (numPadProduct) {
+              const store = useCartStore.getState();
+              const existing = store.items.find((i) => i.productId === numPadProduct.id);
+              if (existing) {
+                store.updateQuantity(numPadProduct.id, existing.quantity + value);
+              } else {
+                store.addItem({
+                  productId: numPadProduct.id,
+                  name: numPadProduct.name,
+                  price: numPadProduct.price,
+                  costPrice: numPadProduct.costPrice,
+                  unit: numPadProduct.unit,
+                  stock: numPadProduct.stock,
+                  discountTiers: numPadProduct.discountTiers,
+                });
+                if (value > 1) {
+                  store.updateQuantity(numPadProduct.id, value);
+                }
+              }
+              play('add-to-cart');
             }
             setNumPadOpen(false);
             setNumPadTarget(null);
+            setNumPadProduct(null);
           }}
         />
       )}

@@ -4,6 +4,7 @@ import type { CreateProductInput } from '@sardorbek/shared';
 
 interface Product {
   id: string;
+  code: number | null;
   name: string;
   sku: string | null;
   barcode: string | null;

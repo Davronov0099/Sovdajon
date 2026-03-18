@@ -73,6 +73,15 @@ export function useCreateSubCategory() {
   });
 }
 
+export function useUpdateSubCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
+      api.patch(`categories/sub/${id}`, { json: data }).json(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  });
+}
+
 export function useDeleteSubCategory() {
   const qc = useQueryClient();
   return useMutation({

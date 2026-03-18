@@ -76,3 +76,17 @@ skills-lock.json
 # PWA generated
 dev-dist/
 skills/
+
+# Uploads (product images)
+uploads/
+apps/api/uploads/
+
+# DB dumps
+*.dump
+
+# Scripts
+install_node.ps1
+install_postgres.ps1
+start-api.sh
+start-web.sh
+mongo_image_mapping.json

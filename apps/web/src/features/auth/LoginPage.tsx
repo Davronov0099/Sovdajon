@@ -82,7 +82,7 @@ export function LoginPage() {
             Biznesingizni boshqarish osonlashdi
           </h2>
           <p className="text-sidebar-text text-base leading-relaxed">
-            Sotuv, ombor, qarzlar, xodimlar — barchasini bitta tizimdan boshqaring.
+            Sotuv, mahsulotlar, qarzlar, xodimlar — barchasini bitta tizimdan boshqaring.
             Tez, ishonchli va professional.
           </p>
         </div>

@@ -1,12 +1,15 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
+import { useUsdRateStore } from '@/stores/usdRate';
+import { useCurrencyRate } from '@/hooks/useSettings';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { MobileTopNav } from '@/components/layout/MobileTopNav';
+import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { CommandPalette } from '@/components/common/CommandPalette';
-import { FloatingCalculator } from '@/components/calculator/FloatingCalculator';
+
 import { cn } from '@/lib/cn';
 
 export const Route = createFileRoute('/_auth')({
@@ -22,6 +25,14 @@ export const Route = createFileRoute('/_auth')({
 function AuthLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
 
+  // Sync currency rate from API to zustand store on app init
+  const { data: currencyData } = useCurrencyRate();
+  useEffect(() => {
+    if (currencyData?.data?.rate) {
+      useUsdRateStore.getState().setRate(currencyData.data.rate);
+    }
+  }, [currencyData]);
+
   return (
     <div className="min-h-screen bg-surface-secondary">
       {/* Desktop sidebar */}
@@ -29,14 +40,15 @@ function AuthLayout() {
         <Sidebar />
       </div>
 
-      {/* Main content — shifts based on sidebar width */}
+      {/* Main content */}
       <main
         className={cn(
           'min-h-screen transition-all duration-200',
-          'pb-[var(--bottom-nav-height)] sm:pb-0',
           sidebarOpen ? 'sm:ml-64' : 'sm:ml-[72px]',
         )}
       >
+        {/* Mobile: Nav birinchi (top), keyin Header */}
+        <MobileTopNav />
         <Header />
         <Suspense fallback={
           <div className="flex h-64 items-center justify-center">
@@ -47,12 +59,12 @@ function AuthLayout() {
         </Suspense>
       </main>
 
-      {/* Mobile bottom nav */}
-      <MobileBottomNav />
+      {/* Mobile sidebar drawer */}
+      <MobileSidebar />
 
       {/* Global overlays */}
       <CommandPalette />
-      <FloatingCalculator />
+
     </div>
   );
 }

@@ -1,11 +1,21 @@
 /**
- * 3-tier auto-discount based on quantity
- * 10+ → 5%, 50+ → 10%, 100+ → 15%
+ * Auto-discount based on quantity.
+ * If product-specific tiers are provided, uses those.
+ * Otherwise falls back to generic: 10+ → 5%, 50+ → 10%, 100+ → 15%
  */
-export function calculateAutoDiscount(quantity: number): number {
-  if (quantity >= 100) return 15;
-  if (quantity >= 50) return 10;
-  if (quantity >= 10) return 5;
+export function calculateAutoDiscount(
+  quantity: number,
+  tiers?: { qty: number; pct: number }[],
+): number {
+  if (tiers && tiers.length > 0) {
+    let bestPct = 0;
+    for (const tier of tiers) {
+      if (tier.qty > 0 && quantity >= tier.qty && tier.pct > bestPct) {
+        bestPct = tier.pct;
+      }
+    }
+    return bestPct;
+  }
   return 0;
 }
 

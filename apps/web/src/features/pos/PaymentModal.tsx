@@ -1,24 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Banknote, CreditCard, Smartphone, HandCoins, Layers } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Banknote, CreditCard, Smartphone, HandCoins, X, Check, Printer, Plus } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
-import type { PaymentMethod } from '@sardorbek/shared';
 import { useCartStore } from '@/stores/cart';
+import { useAuthStore } from '@/stores/auth';
 import { useCreateReceipt } from '@/hooks/useReceipts';
 import { useCustomerSearch, useCreateCustomer } from '@/hooks/useCustomers';
 import { useSound } from '@/hooks/useSound';
-import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MoneyInput } from '@/components/common/MoneyInput';
+import { Receipt } from './Receipt';
 import { cn } from '@/lib/cn';
-
-const PAYMENT_METHODS = [
-  { key: 'CASH' as const, label: 'Naqd', icon: Banknote, shortcut: 'F1', color: 'text-success-600 bg-success-50' },
-  { key: 'CARD' as const, label: 'Karta', icon: CreditCard, shortcut: 'F2', color: 'text-primary-600 bg-primary-50' },
-  { key: 'CLICK' as const, label: 'Click', icon: Smartphone, shortcut: 'F3', color: 'text-violet-600 bg-violet-50' },
-  { key: 'DEBT' as const, label: 'Qarz', icon: HandCoins, shortcut: 'F4', color: 'text-danger-600 bg-danger-50' },
-  { key: 'MIXED' as const, label: 'Aralash', icon: Layers, shortcut: 'F5', color: 'text-amber-600 bg-amber-50' },
-] as const;
 
 interface PaymentModalProps {
   open: boolean;
@@ -27,6 +18,8 @@ interface PaymentModalProps {
 
 export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const { play } = useSound();
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const user = useAuthStore((s) => s.user);
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.getTotal());
   const globalDiscount = useCartStore((s) => s.globalDiscount);
@@ -35,47 +28,131 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const setCustomer = useCartStore((s) => s.setCustomer);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  const [method, setMethod] = useState<PaymentMethod>('CASH');
-  const [cashReceived, setCashReceived] = useState(0);
-  const [mixedCash, setMixedCash] = useState(0);
-  const [mixedCard, setMixedCard] = useState(0);
-  const [mixedClick, setMixedClick] = useState(0);
+  const [cashAmount, setCashAmount] = useState(0);
+  const [cardAmount, setCardAmount] = useState(0);
+  const [clickAmount, setClickAmount] = useState(0);
+  const [debtAmount, setDebtAmount] = useState(0);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [step, setStep] = useState<'method' | 'details' | 'success'>('method');
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const createReceipt = useCreateReceipt();
   const { data: searchResults } = useCustomerSearch(customerSearch);
   const createCustomer = useCreateCustomer();
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
-  const change = method === 'CASH' ? Math.max(0, cashReceived - total) : 0;
-  const mixedTotal = mixedCash + mixedCard + mixedClick;
-  const mixedRemaining = total - mixedTotal;
+  const subtotal = useCartStore((s) => s.getSubtotal());
+  const paidTotal = cashAmount + cardAmount + clickAmount + debtAmount;
+  const remaining = total - paidTotal;
+  const bonus = remaining > 0.5 ? remaining : 0;
+  const change = remaining < -0.5 ? Math.abs(remaining) : 0;
+  const canConfirm = paidTotal > 0 || items.length > 0;
 
-  // F1-F5 shortcuts
+  // Determine payment method from filled amounts
+  function getPaymentMethod() {
+    const filled = [
+      cashAmount > 0 && 'CASH',
+      cardAmount > 0 && 'CARD',
+      clickAmount > 0 && 'CLICK',
+      debtAmount > 0 && 'DEBT',
+    ].filter(Boolean) as string[];
+
+    if (filled.length === 0) return 'CASH';
+    if (filled.length === 1) return filled[0]!;
+    return 'MIXED';
+  }
+
+  // Reset on open
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setCashAmount(0);
+      setCardAmount(0);
+      setClickAmount(0);
+      setDebtAmount(0);
+      setCustomerSearch('');
+      setShowNewCustomer(false);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setSuccess(false);
+    }
+  }, [open]);
+
+  // Keyboard: Enter to confirm, Escape to close
+  useEffect(() => {
+    if (!open || success) return;
     function handleKey(e: KeyboardEvent) {
-      const fKeys: Record<string, PaymentMethod> = {
-        F1: 'CASH', F2: 'CARD', F3: 'CLICK', F4: 'DEBT', F5: 'MIXED',
-      };
-      if (fKeys[e.key]) {
-        e.preventDefault();
-        setMethod(fKeys[e.key]!);
-        setStep('details');
-      }
-      if (e.key === 'Enter' && step === 'details') {
+      if (e.key === 'Enter' && canConfirm) {
         e.preventDefault();
         handleConfirm();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClose();
       }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [open, step, method]);
+  }, [open, success, canConfirm]);
 
   const handleConfirm = useCallback(async () => {
     if (items.length === 0) return;
+    if (debtAmount > 0 && !customerId) return;
+
+    // Bonus: qolgan summa chegirma sifatida qo'shiladi
+    // API: server_total = server_subtotal * (1 - discountPercent/100)
+    // server_subtotal = sum of (price * qty * (1 - itemDiscount/100))
+    // Biz xohlagan narsa: server_total ≈ paidTotal (bonus = total - paidTotal)
+    let effectiveDiscount = globalDiscount;
+    const actualPaid = Math.min(paidTotal, total); // Ortiqcha to'langan bo'lsa, total'dan oshmasin
+    if (bonus > 0 && subtotal > 0) {
+      effectiveDiscount = Math.round((1 - actualPaid / subtotal) * 10000) / 100;
+      effectiveDiscount = Math.min(99, Math.max(0, effectiveDiscount));
+    }
+
+    // Qarz alohida — API'da DEBT mixed payment'ga qo'shilmaydi
+    // Shuning uchun bonus hisobida faqat naqd usullarni hisoblaymiz
+    // Agar qarz bo'lsa, qarz alohida DEBT receipt sifatida yoziladi
+    // Hozircha: qarzni bonus sifatida chegirmaga qo'shamiz
+    const nonDebtPaid = cashAmount + cardAmount + clickAmount;
+    const filledMethods = [
+      cashAmount > 0 && 'CASH',
+      cardAmount > 0 && 'CARD',
+      clickAmount > 0 && 'CLICK',
+    ].filter(Boolean) as string[];
+
+    // Debt summasini ham bonus (chegirma) sifatida hisoblaymiz
+    // Faqat naqd usullar orqali to'lov qilinadi
+    const effectivePaid = nonDebtPaid; // API ga yuboriladigan haqiqiy to'lov
+    if (debtAmount > 0 && subtotal > 0) {
+      // Qarz summasi ham bonus ga qo'shiladi
+      effectiveDiscount = Math.round((1 - effectivePaid / subtotal) * 10000) / 100;
+      effectiveDiscount = Math.min(99, Math.max(0, effectiveDiscount));
+    }
+    const newTotal = bonus > 0 || debtAmount > 0 ? effectivePaid : total;
+
+    let effectiveMethod: string;
+    if (effectivePaid === 0 && paidTotal === 0) {
+      effectiveMethod = 'CASH';
+    } else if (effectivePaid === 0 && debtAmount > 0) {
+      effectiveMethod = 'DEBT';
+    } else if (filledMethods.length === 1) {
+      effectiveMethod = filledMethods[0]!;
+    } else if (filledMethods.length >= 2) {
+      effectiveMethod = 'MIXED';
+    } else {
+      effectiveMethod = 'CASH';
+    }
+
+    // Mixed payments — faqat CASH, CARD, CLICK
+    let mixedPayments: { method: 'CASH' | 'CARD' | 'CLICK' | 'TRANSFER'; amount: number }[] | undefined;
+    if (effectiveMethod === 'MIXED') {
+      mixedPayments = [
+        ...(cashAmount > 0 ? [{ method: 'CASH' as const, amount: cashAmount }] : []),
+        ...(cardAmount > 0 ? [{ method: 'CARD' as const, amount: cardAmount }] : []),
+        ...(clickAmount > 0 ? [{ method: 'CLICK' as const, amount: clickAmount }] : []),
+      ];
+    }
 
     const payload = {
       items: items.map((i) => ({
@@ -83,38 +160,26 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
         quantity: i.quantity,
         discount: i.discount,
       })),
-      paymentMethod: method,
-      discountPercent: globalDiscount,
-      customerId: customerId ?? undefined,
-      cashReceived: method === 'CASH' ? cashReceived : undefined,
-      mixedPayments: method === 'MIXED'
-        ? [
-            ...(mixedCash > 0 ? [{ method: 'CASH' as const, amount: mixedCash }] : []),
-            ...(mixedCard > 0 ? [{ method: 'CARD' as const, amount: mixedCard }] : []),
-            ...(mixedClick > 0 ? [{ method: 'CLICK' as const, amount: mixedClick }] : []),
-          ]
-        : undefined,
+      paymentMethod: effectiveMethod as 'CASH' | 'CARD' | 'CLICK' | 'DEBT' | 'MIXED' | 'TRANSFER',
+      discountPercent: effectiveDiscount,
+      customerId: (effectiveMethod === 'DEBT' || debtAmount > 0) ? (customerId ?? undefined) : (customerId ?? undefined),
+      cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : newTotal) : undefined,
+      mixedPayments,
     };
 
     try {
+      console.log('Payment payload:', JSON.stringify(payload, null, 2));
       await createReceipt.mutateAsync(payload);
       play('success');
-      setStep('success');
-    } catch {
+      setSuccess(true);
+    } catch (err) {
+      console.error('Payment error:', err);
       play('error');
     }
-  }, [items, method, globalDiscount, customerId, cashReceived, mixedCash, mixedCard, mixedClick, createReceipt, play]);
+  }, [items, bonus, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, createReceipt, play]);
 
   function handleClose() {
-    if (step === 'success') {
-      clearCart();
-    }
-    setStep('method');
-    setCashReceived(0);
-    setMixedCash(0);
-    setMixedCard(0);
-    setMixedClick(0);
-    setCustomerSearch('');
+    if (success) clearCart();
     onClose();
   }
 
@@ -128,212 +193,343 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       setCustomer(res.data.id, res.data.name);
       setNewCustomerName('');
       setNewCustomerPhone('');
+      setShowNewCustomer(false);
     } catch { /* ignore */ }
   }
 
+  function setFull(setter: (v: number) => void) {
+    const others = [cashAmount, cardAmount, clickAmount, debtAmount];
+    // reset the current one and calculate remaining
+    setter(0);
+    const otherTotal = others.reduce((a, b) => a + b, 0);
+    // Recalculate: we need to subtract out the old value of this field
+    // Since we just set it to 0, let's compute from scratch
+    setTimeout(() => {
+      const currentOthers = cashAmount + cardAmount + clickAmount + debtAmount;
+      const rem = total - currentOthers;
+      if (rem > 0) setter(rem);
+      else setter(total);
+    }, 0);
+  }
+
+  function handleSetFullCash() {
+    const rem = total - cardAmount - clickAmount - debtAmount;
+    setCashAmount(Math.max(0, rem));
+  }
+  function handleSetFullCard() {
+    const rem = total - cashAmount - clickAmount - debtAmount;
+    setCardAmount(Math.max(0, rem));
+  }
+  function handleSetFullClick() {
+    const rem = total - cashAmount - cardAmount - debtAmount;
+    setClickAmount(Math.max(0, rem));
+  }
+  function handleSetFullDebt() {
+    const rem = total - cashAmount - cardAmount - clickAmount;
+    setDebtAmount(Math.max(0, rem));
+  }
+
+  function parseMoneyInput(val: string): number {
+    const raw = val.replace(/[^0-9]/g, '');
+    return parseInt(raw) || 0;
+  }
+
+  function formatMoneyDisplay(val: number): string {
+    if (val === 0) return '';
+    return val.toLocaleString('uz-UZ');
+  }
+
+  if (!open) return null;
+
   return (
-    <Modal open={open} onClose={handleClose} title="To'lov" size="md">
-      {/* Step 1: Method selection */}
-      {step === 'method' && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-text-primary">{formatCurrency(total)}</p>
-            <p className="text-sm text-text-muted">{items.length} ta mahsulot</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {PAYMENT_METHODS.map((pm) => {
-              const Icon = pm.icon;
-              return (
-                <button
-                  key={pm.key}
-                  onClick={() => { setMethod(pm.key); setStep('details'); }}
-                  className={cn(
-                    'flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all',
-                    method === pm.key ? 'border-primary-500 bg-primary-50' : 'border-border hover:border-primary-300',
-                  )}
-                >
-                  <div className={cn('flex h-12 w-12 items-center justify-center rounded-full', pm.color)}>
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <span className="text-sm font-medium text-text-primary">{pm.label}</span>
-                  <kbd className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 text-xs text-text-muted">
-                    {pm.shortcut}
-                  </kbd>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Customer selector */}
-          <div className="border-t border-border pt-4">
-            <p className="mb-2 text-sm font-medium text-text-primary">
-              Mijoz {method === 'DEBT' && <span className="text-danger-600">*</span>}
-            </p>
-            {customerId ? (
-              <div className="flex items-center justify-between rounded-lg bg-surface-secondary px-3 py-2">
-                <span className="text-sm font-medium">{customerName}</span>
-                <button onClick={() => useCartStore.getState().clearCustomer()} className="text-xs text-danger-600">
-                  Bekor
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Input
-                  id="customer-search"
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Mijoz qidirish..."
-                />
-                {searchResults?.data && searchResults.data.length > 0 && (
-                  <div className="max-h-32 overflow-auto rounded-lg border border-border">
-                    {searchResults.data.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setCustomer(c.id, c.name); setCustomerSearch(''); }}
-                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-surface-secondary"
-                      >
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-text-muted">{c.phone}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {/* Quick create customer */}
-                <details className="rounded-lg border border-border">
-                  <summary className="cursor-pointer px-3 py-2 text-sm text-primary-600">+ Yangi mijoz</summary>
-                  <div className="space-y-2 p-3 pt-0">
-                    <Input id="new-name" placeholder="Ism" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} />
-                    <Input id="new-phone" placeholder="+998901234567" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} />
-                    <Button size="sm" onClick={handleCreateCustomer} loading={createCustomer.isPending}>Yaratish</Button>
-                  </div>
-                </details>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <div
+        className="relative z-10 w-full max-w-[400px] mx-4 rounded-2xl bg-surface shadow-modal overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ─── Success View ─── */}
+        {success ? (
+          <div className="px-5 py-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="h-8 w-8 text-emerald-600" strokeWidth={3} />
+            </div>
+            <h3 className="mt-3 text-lg font-bold text-text-primary">Muvaffaqiyatli!</h3>
+            <p className="text-xl font-extrabold text-text-primary mt-1 tabular-nums">{formatCurrency(total)}</p>
+            {change > 0 && (
+              <p className="mt-2 text-base font-bold text-emerald-600 tabular-nums">Qaytim: {formatCurrency(change)}</p>
             )}
-          </div>
-        </div>
-      )}
+            {bonus > 0 && (
+              <p className="mt-2 text-base font-bold text-amber-600 tabular-nums">Bonus: {formatCurrency(bonus)}</p>
+            )}
+            <div className="flex gap-2 mt-5">
+              <Button variant="outline" onClick={handleClose} className="flex-1">Yopish</Button>
+              <Button onClick={() => window.print()} className="flex-1 gap-1.5">
+                <Printer className="h-4 w-4" />
+                Chop etish
+              </Button>
+            </div>
 
-      {/* Step 2: Payment details */}
-      {step === 'details' && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <p className="text-sm text-text-muted">Jami to'lov</p>
-            <p className="text-3xl font-bold text-text-primary">{formatCurrency(total)}</p>
+            {/* Hidden receipt for printing */}
+            <Receipt
+              ref={receiptRef}
+              data={{
+                items: items.map((i) => ({
+                  name: i.name,
+                  quantity: i.quantity,
+                  price: i.price,
+                  discount: i.discount,
+                })),
+                subtotal,
+                discountPercent: globalDiscount,
+                discountAmount: subtotal - total,
+                bonus,
+                total,
+                paidCash: cashAmount,
+                paidCard: cardAmount,
+                paidClick: clickAmount,
+                paidDebt: debtAmount,
+                change,
+                customerName: customerName,
+                cashierName: user?.name ?? 'Kassir',
+              }}
+            />
           </div>
+        ) : (
+          <div className="overflow-auto" style={{ maxHeight: '85vh' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-text-primary">To'lov</h3>
+              <button
+                onClick={handleClose}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary hover:text-text-primary transition-colors"
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-          {method === 'CASH' && (
-            <div className="space-y-3">
-              <MoneyInput
-                id="cash-received"
-                label="Qabul qilingan summa"
-                value={cashReceived}
-                onChange={setCashReceived}
-                autoFocus
-              />
-              {cashReceived >= total && (
-                <div className="rounded-lg bg-success-50 p-3 text-center">
-                  <p className="text-sm text-success-700">Qaytim</p>
-                  <p className="text-2xl font-bold text-success-800">{formatCurrency(change)}</p>
+            {/* Total */}
+            <div className="px-5 pb-3 text-center">
+              <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide">Jami summa</p>
+              <p className="text-2xl font-extrabold text-text-primary tabular-nums mt-0.5">{formatCurrency(total)}</p>
+              <p className="text-[11px] text-text-muted mt-0.5">{items.length} ta mahsulot</p>
+            </div>
+
+            {/* ─── Mijoz ─── */}
+            <div className="px-5 pb-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+              <p className="text-[12px] font-semibold text-text-secondary pt-3 pb-1.5">Mijoz</p>
+              {customerId ? (
+                <div className="flex items-center justify-between rounded-lg bg-surface-secondary px-3 py-2">
+                  <span className="text-[13px] font-medium text-text-primary">{customerName}</span>
+                  <button
+                    onClick={() => useCartStore.getState().clearCustomer()}
+                    className="text-[11px] font-medium text-danger-600 hover:text-danger-700"
+                    style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  >
+                    Bekor
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Input
+                    id="customer-search"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="Mijoz qidirish..."
+                    className="!text-[13px] !py-2"
+                  />
+                  {searchResults?.data && searchResults.data.length > 0 && (
+                    <div className="max-h-24 overflow-auto rounded-lg border border-border">
+                      {searchResults.data.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setCustomer(c.id, c.name); setCustomerSearch(''); }}
+                          className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] hover:bg-surface-secondary"
+                          style={{ minHeight: 'auto' }}
+                        >
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-text-muted">{c.phone}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!showNewCustomer ? (
+                    <button
+                      onClick={() => setShowNewCustomer(true)}
+                      className="flex items-center gap-1 text-[12px] font-medium text-primary-600 hover:text-primary-700"
+                      style={{ minHeight: 'auto', minWidth: 'auto' }}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Yangi mijoz
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5 rounded-lg bg-surface-secondary p-2.5">
+                      <Input id="new-name" placeholder="Ism" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className="!text-[13px] !py-1.5" />
+                      <Input id="new-phone" placeholder="+998901234567" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className="!text-[13px] !py-1.5" />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleCreateCustomer} loading={createCustomer.isPending} className="text-[12px]">Yaratish</Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowNewCustomer(false)} className="text-[12px]">Bekor</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
 
-          {method === 'CARD' && (
-            <div className="rounded-lg bg-primary-50 p-6 text-center">
-              <CreditCard className="mx-auto mb-2 h-12 w-12 text-primary-600" />
-              <p className="text-sm text-primary-700">Karta terminali orqali to'lash</p>
-            </div>
-          )}
+            {/* ─── Payment Inputs ─── */}
+            <div className="px-5 pb-3 space-y-2.5" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+              <p className="text-[12px] font-semibold text-text-secondary pt-3">To'lov usullari</p>
 
-          {method === 'CLICK' && (
-            <div className="rounded-lg bg-violet-50 p-6 text-center">
-              <Smartphone className="mx-auto mb-2 h-12 w-12 text-violet-600" />
-              <p className="text-sm text-violet-700">Click ilovasi orqali to'lash</p>
-            </div>
-          )}
+              {/* Naqd pul */}
+              <PaymentRow
+                icon={<Banknote className="h-4 w-4 text-emerald-600" />}
+                label="Naqd pul"
+                value={cashAmount}
+                onChange={setCashAmount}
+                onFull={handleSetFullCash}
+                parse={parseMoneyInput}
+                format={formatMoneyDisplay}
+                autoFocus
+              />
 
-          {method === 'DEBT' && (
-            <div className="rounded-lg bg-danger-50 p-4">
-              <p className="mb-2 text-sm font-medium text-danger-700">Qarzga sotuv</p>
-              {!customerId && (
-                <p className="text-sm text-danger-600">Mijoz tanlanmagan! Orqaga qaytib mijoz tanlang.</p>
-              )}
+              {/* Karta */}
+              <PaymentRow
+                icon={<CreditCard className="h-4 w-4 text-blue-600" />}
+                label="Karta"
+                value={cardAmount}
+                onChange={setCardAmount}
+                onFull={handleSetFullCard}
+                parse={parseMoneyInput}
+                format={formatMoneyDisplay}
+              />
+
+              {/* Click */}
+              <PaymentRow
+                icon={<Smartphone className="h-4 w-4 text-violet-600" />}
+                label="Click"
+                value={clickAmount}
+                onChange={setClickAmount}
+                onFull={handleSetFullClick}
+                parse={parseMoneyInput}
+                format={formatMoneyDisplay}
+              />
+
+              {/* Qarz — faqat mijoz tanlanganda */}
               {customerId && (
-                <p className="text-sm text-text-secondary">
-                  {customerName} ga {formatCurrency(total)} qarz yoziladi
-                </p>
+                <PaymentRow
+                  icon={<HandCoins className="h-4 w-4 text-red-600" />}
+                  label="Qarz"
+                  value={debtAmount}
+                  onChange={setDebtAmount}
+                  onFull={handleSetFullDebt}
+                  parse={parseMoneyInput}
+                  format={formatMoneyDisplay}
+                />
               )}
             </div>
-          )}
 
-          {method === 'MIXED' && (
-            <div className="space-y-3">
-              <MoneyInput id="mixed-cash" label="Naqd" value={mixedCash} onChange={setMixedCash} />
-              <MoneyInput id="mixed-card" label="Karta" value={mixedCard} onChange={setMixedCard} />
-              <MoneyInput id="mixed-click" label="Click" value={mixedClick} onChange={setMixedClick} />
-              <div className={cn(
-                'rounded-lg p-3 text-center',
-                Math.abs(mixedRemaining) < 1 ? 'bg-success-50' : 'bg-warning-50',
-              )}>
-                <p className="text-sm text-text-muted">Qoldi</p>
-                <p className={cn('text-xl font-bold', Math.abs(mixedRemaining) < 1 ? 'text-success-700' : 'text-warning-700')}>
-                  {formatCurrency(mixedRemaining)}
-                </p>
+            {/* ─── Remaining / Change ─── */}
+            {paidTotal > 0 && (
+              <div className="px-5 pb-3">
+                {remaining > 0.5 ? (
+                  <div className="rounded-xl bg-amber-50 px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-[12px] font-medium text-amber-700">Bonus</span>
+                    <span className="text-base font-extrabold text-amber-700 tabular-nums">{formatCurrency(remaining)}</span>
+                  </div>
+                ) : change > 0 ? (
+                  <div className="rounded-xl bg-emerald-50 px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-[12px] font-medium text-emerald-700">Qaytim</span>
+                    <span className="text-base font-extrabold text-emerald-700 tabular-nums">{formatCurrency(change)}</span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-emerald-50 px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-[12px] font-medium text-emerald-700">To'liq to'landi</span>
+                    <Check className="h-4 w-4 text-emerald-600" />
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* ─── Action Buttons ─── */}
+            <div className="flex gap-2 px-5 pb-4">
+              <button
+                onClick={handleConfirm}
+                disabled={
+                  createReceipt.isPending ||
+                  items.length === 0 ||
+                  (debtAmount > 0 && !customerId)
+                }
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-all',
+                  !createReceipt.isPending && items.length > 0
+                    ? 'bg-primary-600 hover:bg-primary-700 active:scale-[0.98]'
+                    : 'bg-gray-300 cursor-not-allowed',
+                )}
+                style={{ minHeight: 'auto' }}
+              >
+                {createReceipt.isPending ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  'Tasdiqlash'
+                )}
+              </button>
+              <button
+                onClick={handleClose}
+                className="shrink-0 rounded-xl px-5 py-3 text-[14px] font-semibold text-text-secondary hover:bg-surface-secondary transition-colors"
+                style={{ minHeight: 'auto', border: '1px solid var(--color-border)' }}
+              >
+                Bekor
+              </button>
             </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" onClick={() => setStep('method')} className="flex-1">
-              Orqaga
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              loading={createReceipt.isPending}
-              disabled={
-                (method === 'DEBT' && !customerId) ||
-                (method === 'MIXED' && Math.abs(mixedRemaining) >= 1) ||
-                items.length === 0
-              }
-              className="flex-[2]"
-            >
-              Tasdiqlash (Enter)
-            </Button>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Payment Row Component ─── */
+interface PaymentRowProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  onFull: () => void;
+  parse: (val: string) => number;
+  format: (val: number) => string;
+  autoFocus?: boolean;
+}
+
+function PaymentRow({ icon, label, value, onChange, onFull, parse, format, autoFocus }: PaymentRowProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0 w-[90px]">
+        {icon}
+        <span className="text-[12px] font-semibold text-text-primary">{label}</span>
+      </div>
+      <div className="flex flex-1 items-center gap-1.5">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={format(value)}
+            onChange={(e) => onChange(parse(e.target.value))}
+            placeholder="0"
+            autoFocus={autoFocus}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 pr-12 text-[13px] font-medium text-text-primary tabular-nums placeholder:text-text-muted/50 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 focus:outline-none"
+            style={{ minHeight: '36px' }}
+          />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-text-muted">so'm</span>
         </div>
-      )}
-
-      {/* Step 3: Success */}
-      {step === 'success' && (
-        <div className="space-y-4 py-4 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success-50">
-            <svg className="h-10 w-10 text-success-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-text-primary">To'lov muvaffaqiyatli!</h3>
-          <p className="text-text-muted">{formatCurrency(total)}</p>
-
-          {change > 0 && (
-            <p className="text-lg font-bold text-success-600">Qaytim: {formatCurrency(change)}</p>
-          )}
-
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={handleClose} className="flex-1">
-              Yopish
-            </Button>
-            <Button
-              onClick={() => { window.print(); }}
-              className="flex-1"
-              aria-label="Chop etish (Ctrl+P)"
-            >
-              Chop etish
-            </Button>
-          </div>
-        </div>
-      )}
-    </Modal>
+        <button
+          onClick={onFull}
+          className="shrink-0 rounded-lg bg-primary-50 px-2.5 py-2 text-[11px] font-bold text-primary-600 hover:bg-primary-100 transition-colors"
+          style={{ minHeight: '36px', minWidth: 'auto' }}
+        >
+          To'liq
+        </button>
+      </div>
+    </div>
   );
 }

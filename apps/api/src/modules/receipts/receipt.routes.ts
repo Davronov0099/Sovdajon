@@ -57,6 +57,19 @@ export async function receiptRoutes(app: FastifyInstance): Promise<void> {
     reply.status(201).send({ success: true, data: draft });
   });
 
+  // Helper cart — yordamchi savat yaratish
+  app.post('/helper-cart', { preHandler: [requireRole('ADMIN', 'CASHIER', 'HELPER'), validateBody(createReceiptSchema)] }, async (request, reply) => {
+    const body = request.body as z.infer<typeof createReceiptSchema>;
+    const draft = await receiptService.saveDraft(body, request.userId, 'HELPER');
+    reply.status(201).send({ success: true, data: draft });
+  });
+
+  // Helper carts — kassir ko'rishi uchun
+  app.get('/helper-carts', { preHandler: [requireRole('ADMIN', 'CASHIER')] }, async (_request, reply) => {
+    const result = await receiptService.listHelperCarts();
+    reply.send({ success: true, data: result });
+  });
+
   app.delete('/draft/:id', { preHandler: [requireRole('ADMIN', 'CASHIER'), validateParams(idParamSchema)] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     await receiptService.deleteDraft(id, request.userId, request.userRole);

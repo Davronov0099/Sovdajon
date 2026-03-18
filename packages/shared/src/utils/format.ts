@@ -3,10 +3,11 @@
  * With suffix: "1 234 567 so'm"
  */
 export function formatCurrency(amount: number, suffix = "so'm"): string {
-  const formatted = Math.abs(amount)
+  const safe = Number.isFinite(amount) ? amount : 0;
+  const formatted = Math.abs(safe)
     .toFixed(0)
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  const sign = amount < 0 ? '-' : '';
+  const sign = safe < 0 ? '-' : '';
   return suffix ? `${sign}${formatted} ${suffix}` : `${sign}${formatted}`;
 }
 

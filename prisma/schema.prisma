@@ -122,7 +122,7 @@ model Setting {
 
 model Product {
   id            String      @id @default(uuid())
-  code          Int         @unique @default(autoincrement()) // Tez qidirish — kassir kod yozadi
+  code          Int?        @unique // Tez qidirish — kassir kod yozadi (o'chirilganda null bo'ladi, kod qayta ishlatiladi)
   name          String
   sku           String?     @unique
   barcode       String?     @unique
@@ -233,6 +233,7 @@ model Receipt {
   customerId      String?
   createdById     String
   isDraft         Boolean       @default(false)
+  source          String        @default("POS")   // POS | HELPER
   createdAt       DateTime      @default(now())
 
   // Relations
@@ -246,6 +247,7 @@ model Receipt {
   @@index([customerId])
   @@index([createdAt])
   @@index([isDraft])
+  @@index([source])
 }
 
 model ReceiptItem {

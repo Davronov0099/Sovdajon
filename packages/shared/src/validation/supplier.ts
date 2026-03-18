@@ -13,6 +13,7 @@ export const supplierImportItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().min(1),
   unitPrice: z.number().min(0),
+  sellingPrice: z.number().min(0).optional(),
 });
 
 export const supplierImportSchema = z.object({

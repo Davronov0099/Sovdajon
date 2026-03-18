@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/api';
 import type { CreateContactInput, ContactImportInput } from '@sardorbek/shared';
 import type { PaginatedApiResponse, ApiResponse, ContactItem, ContactCategoryItem } from '@/types/api';
@@ -15,6 +15,26 @@ export function useContacts(query: ContactQuery = {}) {
     queryKey: ['contacts', query],
     queryFn: () => api.get('contacts', { searchParams: query as Record<string, string> }).json<PaginatedApiResponse<ContactItem>>(),
     staleTime: 30_000,
+  });
+}
+
+export function useInfiniteContacts(filters: { search?: string; categoryId?: string; limit?: number } = {}) {
+  const limit = filters.limit ?? 50;
+  return useInfiniteQuery({
+    queryKey: ['contacts', 'infinite', filters],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params = new URLSearchParams();
+      params.set('page', String(pageParam));
+      params.set('limit', String(limit));
+      if (filters.search) params.set('search', filters.search);
+      if (filters.categoryId) params.set('categoryId', filters.categoryId);
+      return api.get(`contacts?${params.toString()}`).json<PaginatedApiResponse<ContactItem>>();
+    },
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    initialPageParam: 1,
   });
 }
 

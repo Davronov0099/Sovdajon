@@ -9,6 +9,7 @@ interface DashboardSummary {
   card: number;
   click: number;
   debt: number;
+  totalDiscount: number;
   totalExpenses: number;
   activeDebts: number;
   debtCount: number;

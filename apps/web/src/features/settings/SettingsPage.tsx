@@ -3,6 +3,7 @@ import { Store, Globe, Shield, DollarSign, Save, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useSettings, useUpdateSetting, useUpdateCurrencyRate } from '@/hooks/useSettings';
+import { useUsdRateStore } from '@/stores/usdRate';
 import { i18n } from '@/i18n';
 
 const LANGS = [
@@ -32,7 +33,11 @@ export function SettingsPage() {
       setStoreName(settings.storeName ?? '');
       setStorePhone(settings.storePhone ?? '');
       setStoreAddress(settings.storeAddress ?? '');
-      setCurrencyRate(settings.currencyRate ?? '12800');
+      const apiRate = settings.currencyRate ?? '12800';
+      setCurrencyRate(apiRate);
+      // Zustand store'ni API bilan sinxronlash
+      const rateNum = Number(apiRate);
+      if (rateNum > 0) useUsdRateStore.getState().setRate(rateNum);
       setReturnDays(settings.returnPeriodDays ?? '14');
       setNegativeStock(settings.allowNegativeStock === 'true');
     }
@@ -52,6 +57,7 @@ export function SettingsPage() {
     if (!rate || rate <= 0) { toast('Kursni kiriting', 'error'); return; }
     try {
       await currencyMut.mutateAsync(rate);
+      useUsdRateStore.getState().setRate(rate);
       toast('Valyuta kursi saqlandi', 'success');
     } catch { toast('Saqlash xatosi', 'error'); }
   }

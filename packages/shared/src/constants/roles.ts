@@ -70,14 +70,6 @@ export const PERMISSIONS = {
   'settings:read': ['ADMIN'],
   'settings:update': ['ADMIN'],
 
-  // Monitoring
-  'monitoring:read': ['ADMIN'],
-
-  // Order
-  'order:read': ['ADMIN', 'CASHIER'],
-  'order:create': ['ADMIN'],
-  'order:update': ['ADMIN'],
-
   // Warehouse
   'warehouse:read': ['ADMIN', 'HELPER'],
   'warehouse:create': ['ADMIN'],
@@ -89,10 +81,6 @@ export const PERMISSIONS = {
   'contact:update': ['ADMIN'],
   'contact:delete': ['ADMIN'],
 
-  // Partner
-  'partner:read': ['ADMIN'],
-  'partner:create': ['ADMIN'],
-  'partner:update': ['ADMIN'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
