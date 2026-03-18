@@ -58,9 +58,12 @@ Thumbs.db
 .vscode/settings.json
 .idea/
 
-# Uploads (production)
-uploads/
-!uploads/.gitkeep
+# Uploads (production — faqat rasm fayllar)
+uploads/products/
+uploads/*.jpg
+uploads/*.png
+uploads/*.webp
+!apps/api/src/uploads/
 
 # Test
 coverage/
@@ -77,9 +80,15 @@ skills-lock.json
 dev-dist/
 skills/
 
-# Uploads (product images)
-uploads/
-apps/api/uploads/
+# Uploads (product images — faqat rasm fayllar, src/ emas)
+uploads/products/
+uploads/*.jpg
+uploads/*.png
+uploads/*.webp
+apps/api/uploads/products/
+apps/api/uploads/*.jpg
+apps/api/uploads/*.png
+apps/api/uploads/*.webp
 
 # DB dumps
 *.dump
