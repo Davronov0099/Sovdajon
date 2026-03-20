@@ -95,8 +95,14 @@ export function CustomerDetailPage() {
               {customer.startDate && (() => {
                 const start = new Date(customer.startDate);
                 const now = new Date();
+                const diffMs = now.getTime() - start.getTime();
+                const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-                const duration = months < 1 ? 'Yangi' : months < 12 ? `${months} oy` : `${Math.floor(months / 12)} yil ${months % 12 > 0 ? months % 12 + ' oy' : ''}`;
+                let duration: string;
+                if (totalDays < 1) duration = 'Bugun';
+                else if (totalDays < 30) duration = `${totalDays} kun`;
+                else if (months < 12) duration = `${months} oy ${totalDays % 30 > 0 ? (totalDays % 30) + ' kun' : ''}`;
+                else { const y = Math.floor(months / 12); const m = months % 12; duration = m > 0 ? `${y} yil ${m} oy` : `${y} yil`; }
                 return (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-info-50 px-2 py-1 text-[11px] font-medium text-info-700">
                     <Clock className="h-3 w-3" />{duration}
