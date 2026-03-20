@@ -52,6 +52,7 @@ export function CustomersPage() {
   const categories = catData?.data ?? [];
   const [newCatName, setNewCatName] = useState('');
   const [showNewCat, setShowNewCat] = useState(false);
+  const [deleteCatConfirm, setDeleteCatConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const rawCustomers = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination.total ?? 0;
@@ -218,10 +219,10 @@ export function CustomersPage() {
             <button
               key={cat.id}
               onClick={() => setCategoryId(categoryId === cat.id ? '' : cat.id)}
-              onContextMenu={(e) => { e.preventDefault(); if (confirm(`"${cat.name}" kategoriyasini o'chirmoqchimisiz?`)) deleteCatMut.mutate(cat.id); }}
+              onDoubleClick={() => setDeleteCatConfirm({ id: cat.id, name: cat.name })}
               className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', categoryId === cat.id ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')}
               style={{ minHeight: '32px', minWidth: 'auto' }}
-              title="O'ng tugma — o'chirish"
+              title="2 marta bosing — o'chirish"
             >
               {cat.name} <span className="ml-1 text-[11px] opacity-70">{cat._count?.customers ?? 0}</span>
             </button>
@@ -438,6 +439,35 @@ export function CustomersPage() {
             <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={deleteMut.isPending}>{t('common.cancel')}</Button>
             <button onClick={handleDelete} disabled={deleteMut.isPending} className="btn btn-md bg-danger-600 text-white hover:bg-danger-700">
               {deleteMut.isPending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+              O'chirish
+            </button>
+          </div>
+        </div>
+      </Modal>
+      {/* Delete Category Modal */}
+      <Modal open={!!deleteCatConfirm} onClose={() => setDeleteCatConfirm(null)} title="Kategoriyani o'chirish" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            <strong className="text-text-primary">"{deleteCatConfirm?.name}"</strong> kategoriyasini o'chirmoqchimisiz? Ushbu kategoriyaga tegishli mijozlar kategoriyasiz qoladi.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteCatConfirm(null)} disabled={deleteCatMut.isPending}>{t('common.cancel')}</Button>
+            <button
+              onClick={() => {
+                if (deleteCatConfirm) {
+                  deleteCatMut.mutate(deleteCatConfirm.id, {
+                    onSuccess: () => {
+                      setDeleteCatConfirm(null);
+                      if (categoryId === deleteCatConfirm.id) setCategoryId('');
+                      toast("Kategoriya o'chirildi", 'success');
+                    },
+                  });
+                }
+              }}
+              disabled={deleteCatMut.isPending}
+              className="btn btn-md bg-danger-600 text-white hover:bg-danger-700"
+            >
+              {deleteCatMut.isPending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
               O'chirish
             </button>
           </div>
