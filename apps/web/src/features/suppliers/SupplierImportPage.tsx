@@ -10,12 +10,16 @@ import { useUsdRateStore } from '@/stores/usdRate';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 
+type Currency = 'UZS' | 'USD';
+
 interface ImportItem {
   productId: string;
   productName: string;
   quantity: number;
   costPrice: number;
+  costCurrency: Currency;
   sellingPrice: number;
+  sellCurrency: Currency;
 }
 
 export function SupplierImportPage() {
@@ -29,7 +33,8 @@ export function SupplierImportPage() {
   const supplier = (supplierData as any)?.data as any;
 
   const [items, setItems] = useState<ImportItem[]>([]);
-  const [currency, setCurrency] = useState<'UZS' | 'USD'>('UZS');
+  const [defaultCostCur, setDefaultCostCur] = useState<Currency>('USD');
+  const [defaultSellCur, setDefaultSellCur] = useState<Currency>('UZS');
   const [note, setNote] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
@@ -42,9 +47,14 @@ export function SupplierImportPage() {
 
   const rate = usdRate || 13000;
 
-  function toAlt(value: number): number {
-    if (currency === 'USD') return value * rate;
-    return rate > 0 ? value / rate : 0;
+  /** Qiymatni UZS ga o'tkazish */
+  function toUzs(value: number, cur: Currency): number {
+    return cur === 'USD' ? value * rate : value;
+  }
+  /** Qiymatni boshqa valyutaga ko'rsatish */
+  function toAltDisplay(value: number, cur: Currency): string {
+    if (cur === 'USD') return formatCurrency(value * rate);
+    return rate > 0 ? `$${(value / rate).toFixed(2)}` : '$0';
   }
 
   function addProduct(product: Record<string, unknown>) {
@@ -54,15 +64,18 @@ export function SupplierImportPage() {
     }
     const currentCostPrice = Number(product.costPrice) || 0;
     const currentSellingPrice = Number(product.price) || 0;
-    const costInCurrency = currency === 'USD' ? (rate > 0 ? currentCostPrice / rate : 0) : currentCostPrice;
-    const sellingInCurrency = currency === 'USD' ? (rate > 0 ? currentSellingPrice / rate : 0) : currentSellingPrice;
+    // Default valyutalarga moslashtirish
+    const costVal = defaultCostCur === 'USD' ? (rate > 0 ? Math.round(currentCostPrice / rate * 100) / 100 : 0) : currentCostPrice;
+    const sellVal = defaultSellCur === 'USD' ? (rate > 0 ? Math.round(currentSellingPrice / rate * 100) / 100 : 0) : currentSellingPrice;
 
     setItems([...items, {
       productId: product.id as string,
       productName: product.name as string,
       quantity: 1,
-      costPrice: Math.round(costInCurrency * 100) / 100,
-      sellingPrice: Math.round(sellingInCurrency * 100) / 100,
+      costPrice: costVal,
+      costCurrency: defaultCostCur,
+      sellingPrice: sellVal,
+      sellCurrency: defaultSellCur,
     }]);
     setProductSearch('');
     setSearchFocused(false);
@@ -76,17 +89,19 @@ export function SupplierImportPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const effectiveRate = currency === 'USD' ? rate : 1;
-  const totalCost = items.reduce((sum, item) => sum + item.quantity * item.costPrice * effectiveRate, 0);
+  // Jami — har bir item'ni UZS ga o'tkazib hisoblash
+  const totalCost = items.reduce((sum, item) => sum + item.quantity * toUzs(item.costPrice, item.costCurrency), 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
 
   const marginStats = useMemo(() => {
     let totalMargin = 0;
     for (const item of items) {
-      totalMargin += (item.sellingPrice - item.costPrice) * effectiveRate * item.quantity;
+      const costUzs = toUzs(item.costPrice, item.costCurrency);
+      const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
+      totalMargin += (sellUzs - costUzs) * item.quantity;
     }
     return { totalMargin };
-  }, [items, effectiveRate]);
+  }, [items, rate]);
 
   async function handleSubmit() {
     if (items.length === 0) { toast("Kamida 1 ta mahsulot qo'shing", 'error'); return; }
@@ -94,13 +109,16 @@ export function SupplierImportPage() {
       if (item.costPrice <= 0) { toast(`${item.productName}: Tan narxi 0 dan katta bo'lishi kerak`, 'error'); return; }
     }
     try {
+      // API ga UZS da yuboramiz
       await importMut.mutateAsync({
         supplierId,
         items: items.map((i) => ({
-          productId: i.productId, quantity: i.quantity, unitPrice: i.costPrice,
-          sellingPrice: i.sellingPrice > 0 ? i.sellingPrice : undefined,
+          productId: i.productId,
+          quantity: i.quantity,
+          unitPrice: toUzs(i.costPrice, i.costCurrency),
+          sellingPrice: i.sellingPrice > 0 ? toUzs(i.sellingPrice, i.sellCurrency) : undefined,
         })),
-        currency, rate: effectiveRate, note: note || undefined,
+        currency: 'UZS', rate: 1, note: note || undefined,
       });
       toast('Kirim muvaffaqiyatli saqlandi', 'success');
       navigate({ to: '/suppliers/$supplierId', params: { supplierId } });
@@ -126,13 +144,30 @@ export function SupplierImportPage() {
               </>
             )}
           </div>
-          <div className="flex rounded-md border border-border overflow-hidden h-7 shrink-0">
-            {(['UZS', 'USD'] as const).map((c) => (
-              <button key={c} type="button" onClick={() => setCurrency(c)}
-                className={cn('px-2.5 sm:px-3 text-[10px] sm:text-xs font-semibold transition-colors', currency === c ? 'bg-primary-600 text-white' : 'text-text-secondary hover:bg-surface-secondary')}>
-                {c}
-              </button>
-            ))}
+          {/* Default valyutalar */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-col items-center">
+              <span className="text-[7px] text-text-muted leading-none mb-0.5">Tan</span>
+              <div className="flex rounded border border-border overflow-hidden h-6">
+                {(['UZS', 'USD'] as const).map((c) => (
+                  <button key={c} type="button" onClick={() => setDefaultCostCur(c)}
+                    className={cn('px-1.5 text-[9px] font-bold transition-colors', defaultCostCur === c ? 'bg-emerald-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}>
+                    {c === 'USD' ? '$' : "so'm"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[7px] text-text-muted leading-none mb-0.5">Sotuv</span>
+              <div className="flex rounded border border-border overflow-hidden h-6">
+                {(['UZS', 'USD'] as const).map((c) => (
+                  <button key={c} type="button" onClick={() => setDefaultSellCur(c)}
+                    className={cn('px-1.5 text-[9px] font-bold transition-colors', defaultSellCur === c ? 'bg-blue-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}>
+                    {c === 'USD' ? '$' : "so'm"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <span className="hidden sm:flex items-center gap-1 text-[11px] text-text-muted shrink-0">
             <DollarSign className="h-3 w-3" />{formatCurrency(rate, '')}
@@ -211,10 +246,10 @@ export function SupplierImportPage() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    const costAlt = toAlt(item.costPrice);
-                    const sellAlt = toAlt(item.sellingPrice);
-                    const itemTotal = item.quantity * item.costPrice * effectiveRate;
-                    const margin = item.sellingPrice > 0 && item.costPrice > 0 ? ((item.sellingPrice - item.costPrice) / item.costPrice * 100) : 0;
+                    const costUzs = toUzs(item.costPrice, item.costCurrency);
+                    const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
+                    const itemTotal = item.quantity * costUzs;
+                    const margin = sellUzs > 0 && costUzs > 0 ? ((sellUzs - costUzs) / costUzs * 100) : 0;
                     return (
                       <tr key={item.productId} className="border-b border-border/15 hover:bg-surface-secondary/20">
                         <td className="px-2.5 py-1.5 text-text-muted text-xs">{i + 1}</td>
@@ -233,18 +268,30 @@ export function SupplierImportPage() {
                           />
                         </td>
                         <td className="px-2.5 py-1.5">
-                          <input type="text" inputMode="decimal" value={item.costPrice}
-                            onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
-                            className={inputCls}
-                          />
-                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {currency === 'USD' ? formatCurrency(costAlt) : `$${costAlt.toFixed(2)}`}</p>
+                          <div className="flex items-center gap-1">
+                            <input type="text" inputMode="decimal" value={item.costPrice}
+                              onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
+                              className={cn(inputCls, 'flex-1')}
+                            />
+                            <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, costCurrency: it.costCurrency === 'USD' ? 'UZS' : 'USD', costPrice: it.costCurrency === 'USD' ? Math.round(it.costPrice * rate) : (rate > 0 ? Math.round(it.costPrice / rate * 100) / 100 : 0) } : it))}
+                              className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors', item.costCurrency === 'USD' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-tertiary text-text-muted')}>
+                              {item.costCurrency === 'USD' ? '$' : "so'm"}
+                            </button>
+                          </div>
+                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {toAltDisplay(item.costPrice, item.costCurrency)}</p>
                         </td>
                         <td className="px-2.5 py-1.5">
-                          <input type="text" inputMode="decimal" value={item.sellingPrice}
-                            onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
-                            className={inputCls}
-                          />
-                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {currency === 'USD' ? formatCurrency(sellAlt) : `$${sellAlt.toFixed(2)}`}</p>
+                          <div className="flex items-center gap-1">
+                            <input type="text" inputMode="decimal" value={item.sellingPrice}
+                              onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
+                              className={cn(inputCls, 'flex-1')}
+                            />
+                            <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, sellCurrency: it.sellCurrency === 'USD' ? 'UZS' : 'USD', sellingPrice: it.sellCurrency === 'USD' ? Math.round(it.sellingPrice * rate) : (rate > 0 ? Math.round(it.sellingPrice / rate * 100) / 100 : 0) } : it))}
+                              className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors', item.sellCurrency === 'USD' ? 'bg-blue-100 text-blue-700' : 'bg-surface-tertiary text-text-muted')}>
+                              {item.sellCurrency === 'USD' ? '$' : "so'm"}
+                            </button>
+                          </div>
+                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {toAltDisplay(item.sellingPrice, item.sellCurrency)}</p>
                         </td>
                         <td className="px-2.5 py-1.5 text-right font-semibold text-text-primary tabular-nums">{formatCurrency(itemTotal)}</td>
                         <td className="px-1 py-1.5">
@@ -262,10 +309,10 @@ export function SupplierImportPage() {
             {/* ── Mobile Cards ── */}
             <div className="sm:hidden space-y-1.5 mb-3">
               {items.map((item, i) => {
-                const costAlt = toAlt(item.costPrice);
-                const sellAlt = toAlt(item.sellingPrice);
-                const itemTotal = item.quantity * item.costPrice * effectiveRate;
-                const margin = item.sellingPrice > 0 && item.costPrice > 0 ? ((item.sellingPrice - item.costPrice) / item.costPrice * 100) : 0;
+                const costUzs = toUzs(item.costPrice, item.costCurrency);
+                const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
+                const itemTotal = item.quantity * costUzs;
+                const margin = sellUzs > 0 && costUzs > 0 ? ((sellUzs - costUzs) / costUzs * 100) : 0;
 
                 return (
                   <div key={item.productId} className="rounded-lg border border-border/50 bg-surface p-2">
@@ -295,20 +342,32 @@ export function SupplierImportPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-[8px] text-text-muted block mb-px">Tan ({currency})</label>
+                        <div className="flex items-center justify-between mb-px">
+                          <label className="text-[8px] text-text-muted">Tan</label>
+                          <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, costCurrency: it.costCurrency === 'USD' ? 'UZS' : 'USD', costPrice: it.costCurrency === 'USD' ? Math.round(it.costPrice * rate) : (rate > 0 ? Math.round(it.costPrice / rate * 100) / 100 : 0) } : it))}
+                            className={cn('text-[7px] font-bold px-1 rounded', item.costCurrency === 'USD' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-tertiary text-text-muted')}>
+                            {item.costCurrency === 'USD' ? '$' : "so'm"}
+                          </button>
+                        </div>
                         <input type="text" inputMode="decimal" value={item.costPrice}
                           onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
                           className="w-full rounded border border-border bg-surface-secondary/40 px-1 py-1 text-[11px] tabular-nums focus:outline-2 focus:outline-primary-500 focus:bg-surface"
                         />
-                        <p className="text-[7px] text-text-muted tabular-nums">≈ {currency === 'USD' ? formatCurrency(costAlt) : `$${costAlt.toFixed(2)}`}</p>
+                        <p className="text-[7px] text-text-muted tabular-nums">≈ {toAltDisplay(item.costPrice, item.costCurrency)}</p>
                       </div>
                       <div>
-                        <label className="text-[8px] text-text-muted block mb-px">Sotuv ({currency})</label>
+                        <div className="flex items-center justify-between mb-px">
+                          <label className="text-[8px] text-text-muted">Sotuv</label>
+                          <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, sellCurrency: it.sellCurrency === 'USD' ? 'UZS' : 'USD', sellingPrice: it.sellCurrency === 'USD' ? Math.round(it.sellingPrice * rate) : (rate > 0 ? Math.round(it.sellingPrice / rate * 100) / 100 : 0) } : it))}
+                            className={cn('text-[7px] font-bold px-1 rounded', item.sellCurrency === 'USD' ? 'bg-blue-100 text-blue-700' : 'bg-surface-tertiary text-text-muted')}>
+                            {item.sellCurrency === 'USD' ? '$' : "so'm"}
+                          </button>
+                        </div>
                         <input type="text" inputMode="decimal" value={item.sellingPrice}
                           onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
                           className="w-full rounded border border-border bg-surface-secondary/40 px-1 py-1 text-[11px] tabular-nums focus:outline-2 focus:outline-primary-500 focus:bg-surface"
                         />
-                        <p className="text-[7px] text-text-muted tabular-nums">≈ {currency === 'USD' ? formatCurrency(sellAlt) : `$${sellAlt.toFixed(2)}`}</p>
+                        <p className="text-[7px] text-text-muted tabular-nums">≈ {toAltDisplay(item.sellingPrice, item.sellCurrency)}</p>
                       </div>
                     </div>
 
