@@ -19,7 +19,7 @@ export const createReceiptSchema = z
     cashReceived: z.number().min(0).optional(),
     mixedPayments: z.array(mixedPaymentSchema).optional(),
     discountPercent: z.number().min(0).max(100).default(0),
-    debtDueDays: z.number().int().min(1).max(365).optional(),
+    debtDueDate: z.string().optional(),
   })
   .refine(
     (data) => {

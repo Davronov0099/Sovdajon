@@ -19,7 +19,7 @@ interface ListReceiptsQuery {
 }
 
 export async function createReceipt(input: CreateReceiptInput, userId: string) {
-  const { items, paymentMethod, customerId, cashReceived, mixedPayments, discountPercent, debtDueDays } = input;
+  const { items, paymentMethod, customerId, cashReceived, mixedPayments, discountPercent, debtDueDate } = input;
 
   // Validate items and fetch product data
   const productIds = items.map((i) => i.productId);
@@ -173,7 +173,7 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
           amount: new Prisma.Decimal(total),
           remainingAmount: new Prisma.Decimal(total),
           status: 'ACTIVE',
-          dueDate: new Date(Date.now() + (debtDueDays || 30) * 24 * 60 * 60 * 1000),
+          dueDate: debtDueDate ? new Date(debtDueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           createdById: userId,
         },
       });
