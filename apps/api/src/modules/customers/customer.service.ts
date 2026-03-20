@@ -7,14 +7,16 @@ interface ListCustomersQuery {
   page: number;
   limit: number;
   search?: string;
+  categoryId?: string;
 }
 
 export async function listCustomers(query: ListCustomersQuery) {
-  const { page, limit, search } = query;
+  const { page, limit, search, categoryId } = query;
   const skip = (page - 1) * limit;
 
   const where: Prisma.CustomerWhereInput = {
     isDeleted: false,
+    ...(categoryId && { categoryId }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -37,7 +39,9 @@ export async function listCustomers(query: ListCustomersQuery) {
         debtLimit: true,
         loyaltyPoints: true,
         note: true,
+        categoryId: true,
         createdAt: true,
+        category: { select: { id: true, name: true } },
         _count: {
           select: {
             debts: { where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } } },
@@ -72,6 +76,7 @@ export async function searchCustomers(search: string, limit = 10) {
       phone: true,
       debtLimit: true,
       loyaltyPoints: true,
+      category: { select: { id: true, name: true } },
     },
   });
 }
@@ -106,6 +111,7 @@ interface CreateCustomerInput {
   address?: string;
   debtLimit?: number;
   note?: string;
+  categoryId?: string | null;
 }
 
 export async function createCustomer(input: CreateCustomerInput, userId: string) {
@@ -122,6 +128,7 @@ export async function createCustomer(input: CreateCustomerInput, userId: string)
       address: input.address,
       debtLimit: input.debtLimit != null ? new Prisma.Decimal(input.debtLimit) : null,
       note: input.note,
+      categoryId: input.categoryId ?? null,
     },
     select: {
       id: true,
@@ -130,7 +137,9 @@ export async function createCustomer(input: CreateCustomerInput, userId: string)
       address: true,
       debtLimit: true,
       loyaltyPoints: true,
+      categoryId: true,
       createdAt: true,
+      category: { select: { id: true, name: true } },
     },
   });
 
@@ -162,8 +171,24 @@ export async function updateCustomer(id: string, input: Partial<CreateCustomerIn
   if (input.address !== undefined) data.address = input.address;
   if (input.debtLimit !== undefined) data.debtLimit = input.debtLimit != null ? new Prisma.Decimal(input.debtLimit) : null;
   if (input.note !== undefined) data.note = input.note;
+  if (input.categoryId !== undefined) data.category = input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true };
 
-  const customer = await prisma.customer.update({ where: { id }, data });
+  const customer = await prisma.customer.update({
+    where: { id },
+    data,
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      address: true,
+      debtLimit: true,
+      loyaltyPoints: true,
+      note: true,
+      categoryId: true,
+      createdAt: true,
+      category: { select: { id: true, name: true } },
+    },
+  });
 
   await createAuditLog({
     action: 'UPDATE',

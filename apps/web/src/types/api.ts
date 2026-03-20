@@ -175,8 +175,17 @@ export interface CustomerItem {
   debtLimit: string | null;
   loyaltyPoints: number;
   note: string | null;
+  categoryId: string | null;
+  category: { id: string; name: string } | null;
   createdAt: string;
   _count?: { debts: number; receipts: number };
+}
+
+export interface CustomerCategoryItem {
+  id: string;
+  name: string;
+  order: number;
+  _count: { customers: number };
 }
 
 // ==================== SUPPLIER ====================

@@ -31,7 +31,7 @@ export function useCustomers(query: { page?: number; limit?: number; search?: st
   });
 }
 
-export function useInfiniteCustomers(filters: { search?: string; limit?: number } = {}) {
+export function useInfiniteCustomers(filters: { search?: string; categoryId?: string; limit?: number } = {}) {
   const limit = filters.limit ?? 50;
   return useInfiniteQuery({
     queryKey: ['customers', 'infinite', filters],
@@ -40,6 +40,7 @@ export function useInfiniteCustomers(filters: { search?: string; limit?: number 
       params.set('page', String(pageParam));
       params.set('limit', String(limit));
       if (filters.search) params.set('search', filters.search);
+      if (filters.categoryId) params.set('categoryId', filters.categoryId);
       return api.get(`customers?${params.toString()}`).json<PaginatedApiResponse<CustomerItem>>();
     },
     getNextPageParam: (lastPage) => {
@@ -65,6 +66,7 @@ interface CreateCustomerInput {
   address?: string;
   debtLimit?: number;
   note?: string;
+  categoryId?: string | null;
 }
 
 export function useCreateCustomer() {

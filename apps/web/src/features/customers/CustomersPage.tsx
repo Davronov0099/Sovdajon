@@ -1,16 +1,18 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
 import { formatCurrency, formatPhone, UZ_VILOYATLAR, getTumanlar } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/common/SearchInput';
 import { useInfiniteCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
+import { useCustomerCategories } from '@/hooks/useCustomerCategories';
 import { useDebts } from '@/hooks/useDebts';
 import { useToast } from '@/components/ui/toast';
 import { ContactsPanel } from '@/components/common/ContactsPanel';
+import { cn } from '@/lib/cn';
 
 type SortMode = 'newest' | 'name' | 'name-desc';
 
@@ -18,6 +20,7 @@ export function CustomersPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editModal, setEditModal] = useState<{ id: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -25,6 +28,7 @@ export function CustomersPage() {
   const [tuman, setTuman] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const catScrollRef = useRef<HTMLDivElement>(null);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('+998');
@@ -32,14 +36,18 @@ export function CustomersPage() {
   const [formTuman, setFormTuman] = useState('');
   const [debtLimit, setDebtLimit] = useState('');
   const [note, setNote] = useState('');
+  const [formCategoryId, setFormCategoryId] = useState('');
 
   const formTumanlar = formViloyat ? getTumanlar(formViloyat) : [];
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteCustomers({ search, limit: 50 });
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteCustomers({ search, categoryId: categoryId || undefined, limit: 50 });
   const { data: debtsData } = useDebts({ limit: 100 });
+  const { data: catData } = useCustomerCategories();
   const createMut = useCreateCustomer();
   const updateMut = useUpdateCustomer();
   const deleteMut = useDeleteCustomer();
+
+  const categories = catData?.data ?? [];
 
   const rawCustomers = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination.total ?? 0;
@@ -84,7 +92,7 @@ export function CustomersPage() {
 
   useEffect(() => { setTuman(''); }, [viloyat]);
 
-  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setDebtLimit(''); setNote(''); }
+  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setDebtLimit(''); setNote(''); setFormCategoryId(''); }
 
   const buildAddress = () => {
     if (!formViloyat) return undefined;
@@ -95,20 +103,20 @@ export function CustomersPage() {
     if (!name.trim()) { toast('Ismni kiriting', 'error'); return; }
     if (!phone || phone.length < 13) { toast('Telefon raqamni kiriting', 'error'); return; }
     try {
-      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined });
+      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, categoryId: formCategoryId || null });
       toast('Mijoz yaratildi', 'success');
       setModalOpen(false); resetForm();
     } catch { toast("Yaratish xatosi", 'error'); }
-  }, [name, phone, formViloyat, formTuman, debtLimit, note, createMut, toast]);
+  }, [name, phone, formViloyat, formTuman, debtLimit, note, formCategoryId, createMut, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editModal || !name.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined });
+      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, categoryId: formCategoryId || null });
       toast('Yangilandi', 'success');
       setEditModal(null);
     } catch { toast('Yangilash xatosi', 'error'); }
-  }, [editModal, name, phone, formViloyat, formTuman, debtLimit, note, updateMut, toast]);
+  }, [editModal, name, phone, formViloyat, formTuman, debtLimit, note, formCategoryId, updateMut, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -124,8 +132,24 @@ export function CustomersPage() {
     const parts = (c.address || '').split(',').map((s) => s.trim());
     setFormViloyat(parts[0] || ''); setFormTuman(parts[1] || '');
     setDebtLimit(c.debtLimit ? String(c.debtLimit) : ''); setNote(c.note || '');
+    setFormCategoryId(c.categoryId || '');
     setEditModal({ id: c.id });
   }
+
+  const categorySelect = (
+    <div>
+      <label htmlFor="c-category" className="mb-1.5 block text-sm font-medium text-text-primary">Kategoriya</label>
+      <select
+        id="c-category"
+        value={formCategoryId}
+        onChange={(e) => setFormCategoryId(e.target.value)}
+        className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500"
+      >
+        <option value="">Tanlanmagan</option>
+        {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+      </select>
+    </div>
+  );
 
   return (
     <div className="p-4 sm:p-6 animate-fade-in">
@@ -170,6 +194,28 @@ export function CustomersPage() {
         <SearchInput value={search} onChange={(v) => setSearch(v)} placeholder="Ism yoki telefon..." className="w-full" />
       </div>
 
+      {/* Category chips */}
+      {categories.length > 0 && (
+        <div className="relative mb-2">
+          <button onClick={() => catScrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' })} className="absolute left-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-r from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button onClick={() => catScrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })} className="absolute right-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-l from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div ref={catScrollRef} className="flex gap-1.5 px-8 py-1.5 overflow-x-auto no-scrollbar" onWheel={(e) => { if (catScrollRef.current && e.deltaY !== 0) { e.preventDefault(); catScrollRef.current.scrollBy({ left: e.deltaY * 2, behavior: 'auto' }); } }}>
+            <button onClick={() => setCategoryId('')} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', !categoryId ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
+              Barchasi
+            </button>
+            {categories.map((cat) => (
+              <button key={cat.id} onClick={() => setCategoryId(categoryId === cat.id ? '' : cat.id)} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', categoryId === cat.id ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
+                {cat.name} <span className="ml-1 text-[11px] opacity-70">{cat._count.customers}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <select value={viloyat} onChange={(e) => setViloyat(e.target.value)} className="input shrink-0 text-xs sm:text-sm" style={{ minWidth: '130px', maxWidth: '200px' }}>
@@ -211,6 +257,13 @@ export function CustomersPage() {
                   <Link to="/customers/$customerId" params={{ customerId: c.id }} className="block min-w-0 mb-1">
                     <h3 className="text-[13px] sm:text-sm font-bold text-text-primary leading-snug hover:text-primary-600 transition-colors line-clamp-2">{c.name}</h3>
                   </Link>
+
+                  {/* Category badge */}
+                  {c.category && (
+                    <span className="inline-block self-start rounded bg-primary-50 px-1.5 py-px text-[9px] sm:text-[10px] font-medium text-primary-600 mb-0.5 truncate max-w-full">
+                      {c.category.name}
+                    </span>
+                  )}
 
                   {/* Phone + address */}
                   <p className="flex items-center gap-1 text-[10px] text-text-muted mb-0.5">
@@ -266,6 +319,7 @@ export function CustomersPage() {
         <div className="space-y-4">
           <Input id="c-name" label="Ism *" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ism familiya" />
           <Input id="c-phone" label="Telefon *" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998901234567" />
+          {categorySelect}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="c-viloyat" className="mb-1.5 block text-sm font-medium text-text-primary">Viloyat</label>
@@ -298,6 +352,7 @@ export function CustomersPage() {
         <div className="space-y-4">
           <Input id="e-name" label="Ism *" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           <Input id="e-phone" label="Telefon *" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          {categorySelect}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="e-viloyat" className="mb-1.5 block text-sm font-medium text-text-primary">Viloyat</label>

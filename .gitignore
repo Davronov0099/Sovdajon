@@ -99,3 +99,5 @@ install_postgres.ps1
 start-api.sh
 start-web.sh
 mongo_image_mapping.json
+compare_prices.cjs
+*.dat
