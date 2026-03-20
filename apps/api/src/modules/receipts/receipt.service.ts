@@ -82,14 +82,17 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
   let subtotal = 0;
   const stockDecrements: { productId: string; quantity: number }[] = [];
 
+  // Qarzga sotganda chegirma bo'lmaydi
+  const isDebtPayment = paymentMethod === 'DEBT';
+
   for (const item of items) {
     const product = productMap.get(item.productId)!;
     const unitPrice = Number(product.price);
     const costPrice = Number(product.costPrice);
 
-    // Auto-discount based on quantity
-    const autoDiscount = calculateAutoDiscount(item.quantity);
-    const itemDiscount = Math.max(item.discount ?? 0, autoDiscount);
+    // Auto-discount based on quantity (qarz bo'lsa 0)
+    const autoDiscount = isDebtPayment ? 0 : calculateAutoDiscount(item.quantity);
+    const itemDiscount = isDebtPayment ? 0 : Math.max(item.discount ?? 0, autoDiscount);
 
     const lineSubtotal = unitPrice * item.quantity;
     const lineDiscount = calculateDiscount(lineSubtotal, itemDiscount);
@@ -109,8 +112,8 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
     stockDecrements.push({ productId: item.productId, quantity: item.quantity });
   }
 
-  // Apply receipt-level discount
-  const receiptDiscount = calculateDiscount(subtotal, discountPercent ?? 0);
+  // Apply receipt-level discount (qarz bo'lsa 0)
+  const receiptDiscount = isDebtPayment ? 0 : calculateDiscount(subtotal, discountPercent ?? 0);
   const total = subtotal - receiptDiscount;
 
   // Validate mixed payment sum

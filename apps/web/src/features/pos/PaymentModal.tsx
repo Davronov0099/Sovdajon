@@ -154,14 +154,17 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       ];
     }
 
+    // Qarzga sotganda — hech qanday chegirma bo'lmaydi
+    const isDebtPayment = effectiveMethod === 'DEBT' || debtAmount > 0;
+
     const payload = {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
-        discount: i.discount,
+        discount: isDebtPayment ? 0 : i.discount,
       })),
       paymentMethod: effectiveMethod as 'CASH' | 'CARD' | 'CLICK' | 'DEBT' | 'MIXED' | 'TRANSFER',
-      discountPercent: effectiveDiscount,
+      discountPercent: isDebtPayment ? 0 : effectiveDiscount,
       customerId: (effectiveMethod === 'DEBT' || debtAmount > 0) ? (customerId ?? undefined) : (customerId ?? undefined),
       cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : newTotal) : undefined,
       mixedPayments,
