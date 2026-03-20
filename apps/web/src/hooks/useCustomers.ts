@@ -66,6 +66,7 @@ interface CreateCustomerInput {
   address?: string;
   debtLimit?: number;
   note?: string;
+  startDate?: string;
   categoryId?: string | null;
 }
 

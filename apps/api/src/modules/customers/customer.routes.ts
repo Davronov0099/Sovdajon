@@ -13,6 +13,7 @@ const createCustomerSchema = z.object({
   address: z.string().max(300).optional(),
   debtLimit: z.number().min(0).optional(),
   note: z.string().max(500).optional(),
+  startDate: z.string().optional(),
   categoryId: z.string().uuid().optional().nullable(),
 });
 

@@ -39,6 +39,7 @@ export async function listCustomers(query: ListCustomersQuery) {
         debtLimit: true,
         loyaltyPoints: true,
         note: true,
+        startDate: true,
         categoryId: true,
         createdAt: true,
         category: { select: { id: true, name: true } },
@@ -111,6 +112,7 @@ interface CreateCustomerInput {
   address?: string;
   debtLimit?: number;
   note?: string;
+  startDate?: string;
   categoryId?: string | null;
 }
 
@@ -128,6 +130,7 @@ export async function createCustomer(input: CreateCustomerInput, userId: string)
       address: input.address,
       debtLimit: input.debtLimit != null ? new Prisma.Decimal(input.debtLimit) : null,
       note: input.note,
+      startDate: input.startDate ? new Date(input.startDate) : null,
       categoryId: input.categoryId ?? null,
     },
     select: {
@@ -137,6 +140,7 @@ export async function createCustomer(input: CreateCustomerInput, userId: string)
       address: true,
       debtLimit: true,
       loyaltyPoints: true,
+      startDate: true,
       categoryId: true,
       createdAt: true,
       category: { select: { id: true, name: true } },
@@ -171,6 +175,7 @@ export async function updateCustomer(id: string, input: Partial<CreateCustomerIn
   if (input.address !== undefined) data.address = input.address;
   if (input.debtLimit !== undefined) data.debtLimit = input.debtLimit != null ? new Prisma.Decimal(input.debtLimit) : null;
   if (input.note !== undefined) data.note = input.note;
+  if (input.startDate !== undefined) data.startDate = input.startDate ? new Date(input.startDate) : null;
   if (input.categoryId !== undefined) data.category = input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true };
 
   const customer = await prisma.customer.update({
@@ -184,6 +189,7 @@ export async function updateCustomer(id: string, input: Partial<CreateCustomerIn
       debtLimit: true,
       loyaltyPoints: true,
       note: true,
+      startDate: true,
       categoryId: true,
       createdAt: true,
       category: { select: { id: true, name: true } },

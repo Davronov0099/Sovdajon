@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
 import { formatCurrency, formatPhone, UZ_VILOYATLAR, getTumanlar } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
@@ -97,7 +97,21 @@ export function CustomersPage() {
 
   useEffect(() => { setTuman(''); }, [viloyat]);
 
-  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setDebtLimit(''); setNote(''); setFormCategoryId(''); }
+  const [formStartDate, setFormStartDate] = useState('');
+
+  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setDebtLimit(''); setNote(''); setFormCategoryId(''); setFormStartDate(''); }
+
+  function getWorkDuration(startDate: string | null): string {
+    if (!startDate) return '';
+    const start = new Date(startDate);
+    const now = new Date();
+    const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (months < 1) return 'Yangi';
+    if (months < 12) return `${months} oy`;
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+    return rem > 0 ? `${years} yil ${rem} oy` : `${years} yil`;
+  }
 
   const buildAddress = () => {
     if (!formViloyat) return undefined;
@@ -108,20 +122,20 @@ export function CustomersPage() {
     if (!name.trim()) { toast('Ismni kiriting', 'error'); return; }
     if (!phone || phone.length < 13) { toast('Telefon raqamni kiriting', 'error'); return; }
     try {
-      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, categoryId: formCategoryId || null });
+      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
       toast('Mijoz yaratildi', 'success');
       setModalOpen(false); resetForm();
     } catch { toast("Yaratish xatosi", 'error'); }
-  }, [name, phone, formViloyat, formTuman, debtLimit, note, formCategoryId, createMut, toast]);
+  }, [name, phone, formViloyat, formTuman, debtLimit, note, formStartDate, formCategoryId, createMut, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editModal || !name.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, categoryId: formCategoryId || null });
+      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
       toast('Yangilandi', 'success');
       setEditModal(null);
     } catch { toast('Yangilash xatosi', 'error'); }
-  }, [editModal, name, phone, formViloyat, formTuman, debtLimit, note, formCategoryId, updateMut, toast]);
+  }, [editModal, name, phone, formViloyat, formTuman, debtLimit, note, formStartDate, formCategoryId, updateMut, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -138,6 +152,7 @@ export function CustomersPage() {
     setFormViloyat(parts[0] || ''); setFormTuman(parts[1] || '');
     setDebtLimit(c.debtLimit ? String(c.debtLimit) : ''); setNote(c.note || '');
     setFormCategoryId(c.categoryId || '');
+    setFormStartDate(c.startDate ? c.startDate.slice(0, 10) : '');
     setEditModal({ id: c.id });
   }
 
@@ -326,8 +341,13 @@ export function CustomersPage() {
                     </p>
                   )}
 
-                  {/* Debt badge + sales */}
-                  <div className="flex items-center gap-1.5 mt-1 mb-1">
+                  {/* Duration + Debt badge + sales */}
+                  <div className="flex items-center gap-1.5 mt-1 mb-1 flex-wrap">
+                    {getWorkDuration(c.startDate) && (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] text-info-600 font-medium">
+                        <Clock className="h-2.5 w-2.5" />{getWorkDuration(c.startDate)}
+                      </span>
+                    )}
                     <span className="text-[9px] sm:text-[10px] text-text-muted">{sales} xarid</span>
                     {debt > 0 ? (
                       <span className="ml-auto rounded bg-danger-50 px-1 py-px text-[9px] sm:text-[10px] font-bold text-danger-600 tabular-nums">
@@ -389,6 +409,7 @@ export function CustomersPage() {
               </select>
             </div>
           </div>
+          <Input id="c-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
           <Input id="c-limit" label="Qarz chegarasi" type="number" value={debtLimit} onChange={(e) => setDebtLimit(e.target.value)} placeholder="0 = chegarasiz" />
           <Input id="c-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
@@ -422,6 +443,7 @@ export function CustomersPage() {
               </select>
             </div>
           </div>
+          <Input id="e-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
           <Input id="e-limit" label="Qarz chegarasi" type="number" value={debtLimit} onChange={(e) => setDebtLimit(e.target.value)} />
           <Input id="e-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">

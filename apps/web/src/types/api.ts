@@ -175,6 +175,7 @@ export interface CustomerItem {
   debtLimit: string | null;
   loyaltyPoints: number;
   note: string | null;
+  startDate: string | null;
   categoryId: string | null;
   category: { id: string; name: string } | null;
   createdAt: string;
