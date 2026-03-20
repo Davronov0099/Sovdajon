@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, ChevronsRight, User, LogOut, Maximize, Minimize, DollarSign, Search, AlertTriangle, Package, TrendingDown } from 'lucide-react';
+import { Bell, ChevronsRight, User, LogOut, Maximize, Minimize, DollarSign, Search, AlertTriangle, Package, TrendingDown, HandCoins } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
@@ -35,6 +35,17 @@ function NotificationsPanel({ onClose }: { onClose: () => void }) {
   const stats = statsData?.data;
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Muddati o'tgan qarzlarni olish
+  const [overdueCount, setOverdueCount] = useState(0);
+  useEffect(() => {
+    import('@/services/api').then(({ api }) => {
+      api.get('debts?limit=100').json<{ data: { status: string }[] }>().then((res) => {
+        const overdue = res.data.filter((d) => d.status === 'OVERDUE').length;
+        setOverdueCount(overdue);
+      }).catch(() => {});
+    });
+  }, []);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
@@ -44,6 +55,17 @@ function NotificationsPanel({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const notifications: { icon: typeof AlertTriangle; color: string; bg: string; title: string; desc: string }[] = [];
+
+  // Muddati o'tgan qarzlar
+  if (overdueCount > 0) {
+    notifications.push({
+      icon: HandCoins,
+      color: 'text-danger-600',
+      bg: 'bg-danger-50',
+      title: `${overdueCount} ta qarz muddati o'tgan`,
+      desc: "Mijozlar bilan bog'laning!",
+    });
+  }
 
   if (stats) {
     if (stats.outOfStock > 0) {

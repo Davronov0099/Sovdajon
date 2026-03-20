@@ -36,6 +36,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [debtDueDays, setDebtDueDays] = useState(30); // Default 30 kun
   const [success, setSuccess] = useState(false);
 
   const createReceipt = useCreateReceipt();
@@ -74,6 +75,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       setShowNewCustomer(false);
       setNewCustomerName('');
       setNewCustomerPhone('');
+      setDebtDueDays(30);
       setSuccess(false);
     }
   }, [open]);
@@ -167,6 +169,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       discountPercent: isDebtPayment ? 0 : effectiveDiscount,
       customerId: (effectiveMethod === 'DEBT' || debtAmount > 0) ? (customerId ?? undefined) : (customerId ?? undefined),
       cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : newTotal) : undefined,
+      debtDueDays: (effectiveMethod === 'DEBT' || debtAmount > 0) ? debtDueDays : undefined,
       mixedPayments,
     };
 
@@ -420,15 +423,41 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
 
               {/* Qarz — faqat mijoz tanlanganda */}
               {customerId && (
-                <PaymentRow
-                  icon={<HandCoins className="h-4 w-4 text-red-600" />}
-                  label="Qarz"
-                  value={debtAmount}
-                  onChange={setDebtAmount}
-                  onFull={handleSetFullDebt}
-                  parse={parseMoneyInput}
-                  format={formatMoneyDisplay}
-                />
+                <>
+                  <PaymentRow
+                    icon={<HandCoins className="h-4 w-4 text-red-600" />}
+                    label="Qarz"
+                    value={debtAmount}
+                    onChange={setDebtAmount}
+                    onFull={handleSetFullDebt}
+                    parse={parseMoneyInput}
+                    format={formatMoneyDisplay}
+                  />
+                  {/* Qarz muddati */}
+                  {debtAmount > 0 && (
+                    <div className="ml-[90px] pl-2 flex items-center gap-2">
+                      <span className="text-[11px] text-text-muted shrink-0">Muddat:</span>
+                      <div className="flex gap-1">
+                        {[7, 14, 30, 60, 90].map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setDebtDueDays(d)}
+                            className={cn(
+                              'rounded-md px-2 py-1 text-[10px] font-semibold transition-colors',
+                              debtDueDays === d
+                                ? 'bg-danger-100 text-danger-700'
+                                : 'bg-surface-tertiary text-text-muted hover:bg-surface-secondary',
+                            )}
+                            style={{ minHeight: 'auto', minWidth: 'auto' }}
+                          >
+                            {d} kun
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
