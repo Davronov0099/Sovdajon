@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/common/SearchInput';
 import { useInfiniteCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
-import { useCustomerCategories } from '@/hooks/useCustomerCategories';
+import { useCustomerCategories, useCreateCustomerCategory, useDeleteCustomerCategory } from '@/hooks/useCustomerCategories';
 import { useDebts } from '@/hooks/useDebts';
 import { useToast } from '@/components/ui/toast';
 import { ContactsPanel } from '@/components/common/ContactsPanel';
@@ -46,8 +46,12 @@ export function CustomersPage() {
   const createMut = useCreateCustomer();
   const updateMut = useUpdateCustomer();
   const deleteMut = useDeleteCustomer();
+  const createCatMut = useCreateCustomerCategory();
+  const deleteCatMut = useDeleteCustomerCategory();
 
   const categories = catData?.data ?? [];
+  const [newCatName, setNewCatName] = useState('');
+  const [showNewCat, setShowNewCat] = useState(false);
 
   const rawCustomers = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination.total ?? 0;
@@ -194,27 +198,73 @@ export function CustomersPage() {
         <SearchInput value={search} onChange={(v) => setSearch(v)} placeholder="Ism yoki telefon..." className="w-full" />
       </div>
 
-      {/* Category chips */}
-      {categories.length > 0 && (
-        <div className="relative mb-2">
-          <button onClick={() => catScrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' })} className="absolute left-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-r from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button onClick={() => catScrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })} className="absolute right-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-l from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <div ref={catScrollRef} className="flex gap-1.5 px-8 py-1.5 overflow-x-auto no-scrollbar" onWheel={(e) => { if (catScrollRef.current && e.deltaY !== 0) { e.preventDefault(); catScrollRef.current.scrollBy({ left: e.deltaY * 2, behavior: 'auto' }); } }}>
-            <button onClick={() => setCategoryId('')} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', !categoryId ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
-              Barchasi
+      {/* Category chips — doim ko'rinadi */}
+      <div className="relative mb-2">
+        {categories.length > 3 && (
+          <>
+            <button onClick={() => catScrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' })} className="absolute left-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-r from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
+              <ChevronLeft className="h-4 w-4" />
             </button>
-            {categories.map((cat) => (
-              <button key={cat.id} onClick={() => setCategoryId(categoryId === cat.id ? '' : cat.id)} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', categoryId === cat.id ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
-                {cat.name} <span className="ml-1 text-[11px] opacity-70">{cat._count.customers}</span>
+            <button onClick={() => catScrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })} className="absolute right-0 top-0 z-10 flex h-full w-7 items-center justify-center bg-gradient-to-l from-surface-secondary to-transparent text-text-muted hover:text-text-primary" style={{ minHeight: 'auto', minWidth: 'auto' }} tabIndex={-1}>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
+        <div ref={catScrollRef} className="flex gap-1.5 px-2 py-1.5 overflow-x-auto no-scrollbar" onWheel={(e) => { if (catScrollRef.current && e.deltaY !== 0) { e.preventDefault(); catScrollRef.current.scrollBy({ left: e.deltaY * 2, behavior: 'auto' }); } }}>
+          <button onClick={() => setCategoryId('')} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', !categoryId ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
+            Barchasi
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryId(categoryId === cat.id ? '' : cat.id)}
+              onContextMenu={(e) => { e.preventDefault(); if (confirm(`"${cat.name}" kategoriyasini o'chirmoqchimisiz?`)) deleteCatMut.mutate(cat.id); }}
+              className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', categoryId === cat.id ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')}
+              style={{ minHeight: '32px', minWidth: 'auto' }}
+              title="O'ng tugma — o'chirish"
+            >
+              {cat.name} <span className="ml-1 text-[11px] opacity-70">{cat._count?.customers ?? 0}</span>
+            </button>
+          ))}
+          {/* Yangi kategoriya qo'shish */}
+          {showNewCat ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                type="text"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newCatName.trim()) {
+                    createCatMut.mutate({ name: newCatName.trim() }, { onSuccess: () => { setNewCatName(''); setShowNewCat(false); } });
+                  }
+                  if (e.key === 'Escape') { setShowNewCat(false); setNewCatName(''); }
+                }}
+                placeholder="Kategoriya nomi..."
+                className="w-32 rounded-lg border border-primary-300 bg-surface px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary-400"
+                style={{ minHeight: '32px' }}
+                autoFocus
+              />
+              <button
+                onClick={() => { if (newCatName.trim()) createCatMut.mutate({ name: newCatName.trim() }, { onSuccess: () => { setNewCatName(''); setShowNewCat(false); } }); }}
+                disabled={!newCatName.trim() || createCatMut.isPending}
+                className="shrink-0 rounded-lg bg-primary-600 px-2.5 py-1.5 text-[12px] font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                style={{ minHeight: '32px', minWidth: 'auto' }}
+              >
+                {createCatMut.isPending ? '...' : 'OK'}
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowNewCat(true)}
+              className="shrink-0 flex items-center gap-1 rounded-lg border-2 border-dashed border-border px-3 py-1.5 text-[13px] font-medium text-text-muted hover:border-primary-300 hover:text-primary-600 transition-all"
+              style={{ minHeight: '32px', minWidth: 'auto' }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Kategoriya
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Filters */}
       <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
