@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, Phone, MapPin, Pencil, ShoppingBag, DollarSign, Clock, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Pencil, ShoppingBag, DollarSign, Clock, AlertTriangle, CheckCircle, X, Calendar, Tag, Shield } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -44,6 +44,7 @@ export function CustomerDetailPage() {
   const [editAddress, setEditAddress] = useState('');
   const [editLimit, setEditLimit] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
 
   function openEdit() {
     if (!customer) return;
@@ -51,13 +52,14 @@ export function CustomerDetailPage() {
     setEditAddress(customer.address || '');
     setEditLimit(customer.debtLimit ? String(Number(customer.debtLimit)) : '');
     setEditNote(customer.note || '');
+    setEditStartDate(customer.startDate ? customer.startDate.slice(0, 10) : '');
     setEditOpen(true);
   }
 
   async function handleUpdate() {
     if (!editName.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, debtLimit: editLimit ? Number(editLimit) : undefined, note: editNote || undefined });
+      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, debtLimit: editLimit ? Number(editLimit) : undefined, note: editNote || undefined, startDate: editStartDate || undefined });
       toast('Yangilandi', 'success');
       setEditOpen(false);
     } catch { toast('Xatolik', 'error'); }
@@ -86,8 +88,36 @@ export function CustomerDetailPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] sm:text-sm text-text-muted">
               <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{customer.phone}</span>
               {customer.address && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{customer.address}</span>}
+              {customer.category && <span className="inline-flex items-center gap-1 text-primary-600 font-medium"><Tag className="h-3 w-3" />{customer.category.name}</span>}
             </div>
-            {customer.note && <p className="text-[11px] text-text-muted mt-0.5 italic">"{customer.note}"</p>}
+            {/* Info badges */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {customer.startDate && (() => {
+                const start = new Date(customer.startDate);
+                const now = new Date();
+                const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+                const duration = months < 1 ? 'Yangi' : months < 12 ? `${months} oy` : `${Math.floor(months / 12)} yil ${months % 12 > 0 ? months % 12 + ' oy' : ''}`;
+                return (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-info-50 px-2 py-1 text-[11px] font-medium text-info-700">
+                    <Clock className="h-3 w-3" />{duration}
+                  </span>
+                );
+              })()}
+              <span className="inline-flex items-center gap-1 rounded-lg bg-surface-tertiary px-2 py-1 text-[11px] font-medium text-text-secondary">
+                <Calendar className="h-3 w-3" />Qo'shilgan: {formatDate(customer.startDate || customer.createdAt)}
+              </span>
+              {customer.debtLimit && Number(customer.debtLimit) > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-lg bg-warning-50 px-2 py-1 text-[11px] font-medium text-warning-700">
+                  <Shield className="h-3 w-3" />Limit: {formatCurrency(Number(customer.debtLimit))}
+                </span>
+              )}
+              {customer.loyaltyPoints > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-lg bg-success-50 px-2 py-1 text-[11px] font-medium text-success-700">
+                  Ball: {customer.loyaltyPoints}
+                </span>
+              )}
+            </div>
+            {customer.note && <p className="text-[11px] text-text-muted mt-1.5 italic">"{customer.note}"</p>}
           </div>
           <button onClick={openEdit} className="btn btn-secondary btn-sm shrink-0">
             <Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tahrirlash</span>
@@ -241,6 +271,7 @@ export function CustomerDetailPage() {
           <Input id="ed-name" label="Ism *" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
           <Input id="ed-phone" label="Telefon" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
           <Input id="ed-address" label="Manzil" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+          <Input id="ed-start" label="Ishlash boshlanish sanasi" type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
           <Input id="ed-limit" label="Qarz chegarasi" type="number" value={editLimit} onChange={(e) => setEditLimit(e.target.value)} />
           <Input id="ed-note" label="Izoh" value={editNote} onChange={(e) => setEditNote(e.target.value)} />
           <div className="flex justify-end gap-3">
