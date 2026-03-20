@@ -68,6 +68,7 @@ export const ERROR_CODES = {
   // User
   USER_NOT_FOUND: 'USER_NOT_FOUND',
   USER_LOGIN_EXISTS: 'USER_LOGIN_EXISTS',
+  CANNOT_DELETE_SELF: 'CANNOT_DELETE_SELF',
 
   // General
   NOT_FOUND: 'NOT_FOUND',
@@ -273,6 +274,11 @@ export const ERROR_MESSAGES: Record<ErrorCode, { uz: string; en: string; ru: str
     uz: 'Bu login band',
     en: 'Login already taken',
     ru: 'Логин уже занят',
+  },
+  CANNOT_DELETE_SELF: {
+    uz: "O'zingizni o'chira olmaysiz",
+    en: 'Cannot delete yourself',
+    ru: 'Нельзя удалить себя',
   },
   NOT_FOUND: { uz: 'Topilmadi', en: 'Not found', ru: 'Не найдено' },
   INTERNAL_ERROR: { uz: 'Server xatosi', en: 'Internal server error', ru: 'Ошибка сервера' },
