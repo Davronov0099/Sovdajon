@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
 import { formatCurrency, formatPhone, UZ_VILOYATLAR, getTumanlar } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
@@ -19,6 +19,7 @@ type SortMode = 'newest' | 'name' | 'name-desc';
 export function CustomersPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -318,11 +319,11 @@ export function CustomersPage() {
               const debt = debtMap.get(c.id) || 0;
               const sales = c._count?.receipts ?? 0;
               return (
-                <div key={c.id} className="card p-2 sm:p-3 flex flex-col transition-all hover:shadow-card-hover">
+                <div key={c.id} onClick={() => navigate({ to: '/customers/$customerId', params: { customerId: c.id } })} className="card p-2 sm:p-3 flex flex-col transition-all hover:shadow-card-hover cursor-pointer active:scale-[0.98]">
                   {/* Name */}
-                  <Link to="/customers/$customerId" params={{ customerId: c.id }} className="block min-w-0 mb-1">
-                    <h3 className="text-[13px] sm:text-sm font-bold text-text-primary leading-snug hover:text-primary-600 transition-colors line-clamp-2">{c.name}</h3>
-                  </Link>
+                  <div className="min-w-0 mb-1">
+                    <h3 className="text-[13px] sm:text-sm font-bold text-text-primary leading-snug line-clamp-2">{c.name}</h3>
+                  </div>
 
                   {/* Category badge */}
                   {c.category && (
@@ -359,10 +360,7 @@ export function CustomersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                    <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Batafsil">
-                      <ChevronRight className="h-3 w-3" />
-                    </Link>
+                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => openEdit(c)} className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-surface-secondary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
                       <Pencil className="h-3 w-3" />
                     </button>

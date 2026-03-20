@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Truck, Plus, Phone, Building2, Loader2, ArrowDownToLine, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { ContactsPanel } from '@/components/common/ContactsPanel';
 export function SuppliersPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editModal, setEditModal] = useState<{ id: string; name: string; phone: string; company: string } | null>(null);
@@ -134,11 +135,11 @@ export function SuppliersPage() {
               const bal = Number(sup.balance) || 0;
               const hasDebt = bal > 0;
               return (
-                <div key={sup.id} className="card p-2 sm:p-3 flex flex-col transition-all hover:shadow-card-hover active:scale-[0.98]">
+                <div key={sup.id} onClick={() => navigate({ to: '/suppliers/$supplierId', params: { supplierId: sup.id } })} className="card p-2 sm:p-3 flex flex-col transition-all hover:shadow-card-hover active:scale-[0.98] cursor-pointer">
                   {/* Name */}
-                  <Link to="/suppliers/$supplierId" params={{ supplierId: sup.id }} className="block min-w-0 mb-1">
-                    <h3 className="text-[13px] sm:text-sm font-bold text-text-primary leading-snug hover:text-primary-600 transition-colors line-clamp-2">{sup.name}</h3>
-                  </Link>
+                  <div className="min-w-0 mb-1">
+                    <h3 className="text-[13px] sm:text-sm font-bold text-text-primary leading-snug line-clamp-2">{sup.name}</h3>
+                  </div>
 
                   {/* Phone + company */}
                   {sup.phone && (
@@ -165,10 +166,7 @@ export function SuppliersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                    <Link to="/suppliers/$supplierId" params={{ supplierId: sup.id }} className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Batafsil">
-                      <ChevronRight className="h-3 w-3" />
-                    </Link>
+                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
                     <Link to="/suppliers/$supplierId/import" params={{ supplierId: sup.id }} className="flex h-6 w-6 items-center justify-center rounded-md bg-info-50 text-info-600 hover:bg-info-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Kirim">
                       <ArrowDownToLine className="h-3 w-3" />
                     </Link>
