@@ -120,7 +120,7 @@ export function ProductsPage() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteProducts({
-    search, categoryId, subCategoryId, stockStatus: stockFilter, limit: 100,
+    search, categoryId, subCategoryId, stockStatus: stockFilter, limit: 2000,
   });
   const { data: statsData, isLoading: statsLoading } = useProductStats();
   const { data: catData } = useCategories();
@@ -131,10 +131,6 @@ export function ProductsPage() {
   const stats = statsData?.data;
   const categories = catData?.data ?? [];
 
-  // Avtomatik barcha sahifalarni yuklash (background'da)
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const subCategories = useMemo(() => {
     if (!categoryId) return [];

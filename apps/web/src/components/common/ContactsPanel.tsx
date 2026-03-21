@@ -26,7 +26,7 @@ export function ContactsPanel({ mode, onAccept }: ContactsPanelProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteContacts({
-    search, categoryId: catFilter || undefined, limit: 100,
+    search, categoryId: catFilter || undefined, limit: 2000,
   });
   const { data: catData } = useContactCategories();
   const deleteMut = useDeleteContact();
@@ -59,10 +59,7 @@ export function ContactsPanel({ mode, onAccept }: ContactsPanelProps) {
     return n === 'mijoz' || n === "ta'minotchi";
   });
 
-  // Avtomatik barcha sahifalarni yuklash
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
 
   async function handleAccept(c: ContactItem) {
     setAccepting(c.id);
