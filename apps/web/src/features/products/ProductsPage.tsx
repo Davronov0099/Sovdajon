@@ -38,7 +38,7 @@ const ProductCard = memo(function ProductCard({ product, onEdit, onQr, onDelete 
         'hover:shadow-card-hover hover:-translate-y-0.5',
         product.stock === 0 && 'opacity-50',
       )}
-      style={{ border: '1px solid var(--color-border-subtle)' }}
+      style={{ border: '1px solid var(--color-border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
       onClick={() => onEdit(product.id)}
       role="button"
       tabIndex={0}

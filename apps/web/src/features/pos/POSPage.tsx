@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ShoppingCart, Package, Loader2, X } from 'lucide-react';
 import { formatCurrency, getStockStatus } from '@sardorbek/shared';
@@ -20,6 +20,67 @@ const UNIT_LABELS: Record<string, string> = {
   PACK: 'pachka',
   BOX: 'quti',
 };
+
+/* ─── Memoized product card — cart o'zgarganda qayta renderlanmaydi ─── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const POSProductCard = memo(function POSProductCard({ product, onClick }: { product: any; onClick: () => void }) {
+  const stockStatus = getStockStatus(product.stock, product.minStock);
+  const unitLabel = UNIT_LABELS[product.unit] || product.unit;
+  const hasImage = product.images && product.images.length > 0 && product.images[0];
+  const d1Qty = Number(product.discount1Qty || 0);
+  const d1Pct = Number(product.discount1Pct || 0);
+  const d2Qty = Number(product.discount2Qty || 0);
+  const d2Pct = Number(product.discount2Pct || 0);
+  const d3Qty = Number(product.discount3Qty || 0);
+  const d3Pct = Number(product.discount3Pct || 0);
+  const hasDiscountTiers = d1Qty > 0 || d2Qty > 0 || d3Qty > 0;
+  const price = Number(product.price);
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'group relative flex flex-col overflow-hidden rounded-xl bg-surface text-left transition-all duration-150',
+        'active:scale-[0.97]',
+        'hover:shadow-card-hover hover:-translate-y-0.5',
+        stockStatus === 'OUT_OF_STOCK' && 'opacity-40',
+      )}
+      style={{ border: '1px solid var(--color-border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
+      aria-label={`${product.name} — ${formatCurrency(price)}`}
+    >
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
+        {hasImage ? (
+          <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" loading="lazy" />
+        ) : (
+          <div className="flex h-full items-center justify-center"><Package className="h-10 w-10 text-text-muted/15" /></div>
+        )}
+        <span className={cn(
+          'absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-sm',
+          stockStatus === 'IN_STOCK' && 'bg-success-600',
+          stockStatus === 'LOW_STOCK' && 'bg-warning-600',
+          stockStatus === 'OUT_OF_STOCK' && 'bg-danger-600',
+          stockStatus === 'NEGATIVE' && 'bg-danger-700',
+        )}>
+          {product.stock} {unitLabel}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col px-2 sm:px-3 pt-2 sm:pt-2.5 pb-2 sm:pb-3">
+        <h3 className="text-[12px] sm:text-[13px] font-semibold text-text-primary leading-snug line-clamp-2">{product.name}</h3>
+        <p className="mt-0.5 text-[10px] sm:text-[11px] text-text-muted truncate">
+          {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
+        </p>
+        <p className="mt-1 sm:mt-1.5 text-sm sm:text-base font-bold text-primary-600 tabular-nums">{formatCurrency(price)}</p>
+        {hasDiscountTiers && (
+          <div className="mt-1 sm:mt-1.5 space-y-0.5">
+            {d1Qty > 0 && <p className="text-[10px] sm:text-[11px] text-success-600 tabular-nums">{d1Qty}+ ta → {formatCurrency(Math.round(price * (100 - d1Pct) / 100))} <span className="text-text-muted">(-{d1Pct}%)</span></p>}
+            {d2Qty > 0 && <p className="text-[10px] sm:text-[11px] text-warning-600 tabular-nums">{d2Qty}+ ta → {formatCurrency(Math.round(price * (100 - d2Pct) / 100))} <span className="text-text-muted">(-{d2Pct}%)</span></p>}
+            {d3Qty > 0 && <p className="text-[10px] sm:text-[11px] text-danger-600 tabular-nums">{d3Qty}+ ta → {formatCurrency(Math.round(price * (100 - d3Pct) / 100))} <span className="text-text-muted">(-{d3Pct}%)</span></p>}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+});
 
 export function POSPage() {
   const { t } = useTranslation();
@@ -286,110 +347,27 @@ export function POSPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                {products.map((product) => {
-                  const stockStatus = getStockStatus(product.stock, product.minStock);
-                  const unitLabel = UNIT_LABELS[product.unit] || product.unit;
-                  const hasImage = product.images && product.images.length > 0 && product.images[0];
-
-                  const d1Qty = Number(product.discount1Qty || 0);
-                  const d1Pct = Number(product.discount1Pct || 0);
-                  const d2Qty = Number(product.discount2Qty || 0);
-                  const d2Pct = Number(product.discount2Pct || 0);
-                  const d3Qty = Number(product.discount3Qty || 0);
-                  const d3Pct = Number(product.discount3Pct || 0);
-                  const hasDiscountTiers = d1Qty > 0 || d2Qty > 0 || d3Qty > 0;
-
-                  return (
-                    <button
-                      key={product.id}
-                      onClick={() =>
-                        handleProductClick({
-                          id: product.id,
-                          name: product.name,
-                          price: Number(product.price),
-                          costPrice: Number(product.costPrice),
-                          unit: product.unit,
-                          stock: product.stock,
-                          discountTiers: [
-                            { qty: Number(product.discount1Qty || 0), pct: Number(product.discount1Pct || 0) },
-                            { qty: Number(product.discount2Qty || 0), pct: Number(product.discount2Pct || 0) },
-                            { qty: Number(product.discount3Qty || 0), pct: Number(product.discount3Pct || 0) },
-                          ].filter(t => t.qty > 0),
-                        })
-                      }
-                      className={cn(
-                        'group relative flex flex-col overflow-hidden rounded-xl bg-surface text-left transition-all duration-150',
-                        'active:scale-[0.97]',
-                        'hover:shadow-card-hover hover:-translate-y-0.5',
-                        stockStatus === 'OUT_OF_STOCK' && 'opacity-40',
-                      )}
-                      style={{ border: '1px solid var(--color-border-subtle)' }}
-                      aria-label={`${product.name} — ${formatCurrency(Number(product.price))}`}
-                    >
-                      {/* ── Image ── */}
-                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
-                        {hasImage ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <Package className="h-10 w-10 text-text-muted/15" />
-                          </div>
-                        )}
-
-                        {/* Stock badge */}
-                        <span className={cn(
-                          'absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-sm',
-                          stockStatus === 'IN_STOCK' && 'bg-success-600',
-                          stockStatus === 'LOW_STOCK' && 'bg-warning-600',
-                          stockStatus === 'OUT_OF_STOCK' && 'bg-danger-600',
-                          stockStatus === 'NEGATIVE' && 'bg-danger-700',
-                        )}>
-                          {product.stock} {unitLabel}
-                        </span>
-                      </div>
-
-                      {/* ── Content ── */}
-                      <div className="flex flex-1 flex-col px-2 sm:px-3 pt-2 sm:pt-2.5 pb-2 sm:pb-3">
-                        <h3 className="text-[12px] sm:text-[13px] font-semibold text-text-primary leading-snug line-clamp-2">
-                          {product.name}
-                        </h3>
-                        <p className="mt-0.5 text-[10px] sm:text-[11px] text-text-muted truncate">
-                          {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
-                        </p>
-                        <p className="mt-1 sm:mt-1.5 text-sm sm:text-base font-bold text-primary-600 tabular-nums">
-                          {formatCurrency(Number(product.price))}
-                        </p>
-                        {hasDiscountTiers && (() => {
-                          const price = Number(product.price);
-                          return (
-                            <div className="mt-1 sm:mt-1.5 space-y-0.5">
-                              {d1Qty > 0 && (
-                                <p className="text-[10px] sm:text-[11px] text-success-600 tabular-nums">
-                                  {d1Qty}+ ta → {formatCurrency(Math.round(price * (100 - d1Pct) / 100))} <span className="text-text-muted">(-{d1Pct}%)</span>
-                                </p>
-                              )}
-                              {d2Qty > 0 && (
-                                <p className="text-[10px] sm:text-[11px] text-warning-600 tabular-nums">
-                                  {d2Qty}+ ta → {formatCurrency(Math.round(price * (100 - d2Pct) / 100))} <span className="text-text-muted">(-{d2Pct}%)</span>
-                                </p>
-                              )}
-                              {d3Qty > 0 && (
-                                <p className="text-[10px] sm:text-[11px] text-danger-600 tabular-nums">
-                                  {d3Qty}+ ta → {formatCurrency(Math.round(price * (100 - d3Pct) / 100))} <span className="text-text-muted">(-{d3Pct}%)</span>
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </button>
-                  );
-                })}
+                {products.map((product) => (
+                  <POSProductCard
+                    key={product.id}
+                    product={product}
+                    onClick={() =>
+                      handleProductClick({
+                        id: product.id,
+                        name: product.name,
+                        price: Number(product.price),
+                        costPrice: Number(product.costPrice),
+                        unit: product.unit,
+                        stock: product.stock,
+                        discountTiers: [
+                          { qty: Number(product.discount1Qty || 0), pct: Number(product.discount1Pct || 0) },
+                          { qty: Number(product.discount2Qty || 0), pct: Number(product.discount2Pct || 0) },
+                          { qty: Number(product.discount3Qty || 0), pct: Number(product.discount3Pct || 0) },
+                        ].filter(t => t.qty > 0),
+                      })
+                    }
+                  />
+                ))}
               </div>
 
               {/* Infinite scroll sentinel */}
