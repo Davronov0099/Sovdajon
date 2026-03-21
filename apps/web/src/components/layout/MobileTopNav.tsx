@@ -103,7 +103,7 @@ function NavSettingsPanel({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 animate-fade-in" data-no-swipe style={{ WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)' }}>
+    <div className="fixed inset-0 z-50 bg-black/40 animate-fade-in" style={{ WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)' }}>
       <div
         ref={panelRef}
         className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-hidden rounded-t-2xl bg-surface shadow-dropdown animate-slide-up"

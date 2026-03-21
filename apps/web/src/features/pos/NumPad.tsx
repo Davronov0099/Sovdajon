@@ -57,7 +57,7 @@ export function NumPad({ onSubmit, onClose, initialValue = 0 }: NumPadProps) {
   }, [handleConfirm, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose} data-no-swipe>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         className="w-72 rounded-2xl bg-surface p-4 shadow-modal"
         onClick={(e) => e.stopPropagation()}

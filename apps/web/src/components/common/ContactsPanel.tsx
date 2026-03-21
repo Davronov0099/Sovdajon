@@ -138,7 +138,7 @@ export function ContactsPanel({ mode, onAccept }: ContactsPanelProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-start sm:justify-center sm:pt-[6vh]" onClick={() => setOpen(false)} data-no-swipe>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-start sm:justify-center sm:pt-[6vh]" onClick={() => setOpen(false)}>
       <div className="absolute inset-0 bg-black/40 animate-fade-in" />
 
       <div
