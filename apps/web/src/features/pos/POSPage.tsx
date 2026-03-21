@@ -41,7 +41,7 @@ export function POSPage() {
     search,
     categoryId,
     subCategoryId,
-    limit: 2000,
+    limit: 100,
   });
   const { data: catData } = useCategories();
 
