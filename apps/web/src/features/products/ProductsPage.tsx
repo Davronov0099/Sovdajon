@@ -120,7 +120,7 @@ export function ProductsPage() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteProducts({
-    search, categoryId, subCategoryId, stockStatus: stockFilter, limit: 500,
+    search, categoryId, subCategoryId, stockStatus: stockFilter, limit: 200,
   });
   const { data: statsData, isLoading: statsLoading } = useProductStats();
   const { data: catData } = useCategories();

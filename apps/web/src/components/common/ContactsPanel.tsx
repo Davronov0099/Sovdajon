@@ -26,7 +26,7 @@ export function ContactsPanel({ mode, onAccept }: ContactsPanelProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteContacts({
-    search, categoryId: catFilter || undefined, limit: 500,
+    search, categoryId: catFilter || undefined, limit: 200,
   });
   const { data: catData } = useContactCategories();
   const deleteMut = useDeleteContact();
