@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header';
 import { MobileTopNav } from '@/components/layout/MobileTopNav';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { CommandPalette } from '@/components/common/CommandPalette';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 import { cn } from '@/lib/cn';
 
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/_auth')({
 
 function AuthLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  const { containerRef, swipeHandlers } = useSwipeNavigation();
 
   // Sync currency rate from API to zustand store on app init
   const { data: currencyData } = useCurrencyRate();
@@ -50,13 +52,15 @@ function AuthLayout() {
         {/* Mobile: Nav birinchi (top), keyin Header */}
         <MobileTopNav />
         <Header />
-        <Suspense fallback={
-          <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary-200 border-t-primary-600" />
-          </div>
-        }>
-          <Outlet />
-        </Suspense>
+        <div ref={containerRef} {...swipeHandlers}>
+          <Suspense fallback={
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary-200 border-t-primary-600" />
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
+        </div>
       </main>
 
       {/* Mobile sidebar drawer */}

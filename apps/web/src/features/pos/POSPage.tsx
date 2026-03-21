@@ -441,7 +441,7 @@ export function POSPage() {
 
       {/* Mobile cart drawer */}
       {mobileCartOpen && (
-        <div className="fixed inset-0 z-40 sm:hidden">
+        <div className="fixed inset-0 z-40 sm:hidden" data-no-swipe>
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileCartOpen(false)} />
           <div className="absolute right-0 top-0 h-full w-full max-w-[380px] animate-slide-in-right">
             {/* Close button */}

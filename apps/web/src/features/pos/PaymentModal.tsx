@@ -260,7 +260,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose} data-no-swipe>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
       <div
         className="relative z-10 w-full max-w-[400px] mx-4 rounded-2xl bg-surface shadow-modal overflow-hidden"
