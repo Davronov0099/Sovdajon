@@ -41,12 +41,20 @@ export function POSPage() {
     search,
     categoryId,
     subCategoryId,
-    limit: 2000,
+    limit: 500,
   });
   const { data: catData } = useCategories();
 
   const products = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const categories = catData?.data ?? [];
+
+  // Qolgan sahifalarni 500ms pauzali avtomatik yuklash
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      const t = setTimeout(fetchNextPage, 500);
+      return () => clearTimeout(t);
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const addItem = useCartStore((s) => s.addItem);
   const itemCount = useCartStore((s) => s.getItemCount());
