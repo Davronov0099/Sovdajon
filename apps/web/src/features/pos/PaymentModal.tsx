@@ -44,8 +44,13 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const createCustomer = useCreateCustomer();
 
   const subtotal = useCartStore((s) => s.getSubtotal());
+  const rawSubtotal = useCartStore((s) => s.getRawSubtotal());
+
+  // Qarzga sotganda auto-chegirma qo'llanilmaydi — to'liq narx ishlatiladi
+  const effectiveTotal = debtAmount > 0 ? rawSubtotal : total;
+
   const paidTotal = cashAmount + cardAmount + clickAmount + debtAmount;
-  const remaining = total - paidTotal;
+  const remaining = effectiveTotal - paidTotal;
   const bonus = remaining > 0.5 ? remaining : 0;
   const change = remaining < -0.5 ? Math.abs(remaining) : 0;
   const canConfirm = paidTotal > 0 || items.length > 0;
@@ -108,7 +113,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
     // server_subtotal = sum of (price * qty * (1 - itemDiscount/100))
     // Biz xohlagan narsa: server_total ≈ paidTotal (bonus = total - paidTotal)
     let effectiveDiscount = globalDiscount;
-    const actualPaid = Math.min(paidTotal, total); // Ortiqcha to'langan bo'lsa, total'dan oshmasin
+    const actualPaid = Math.min(paidTotal, effectiveTotal); // Ortiqcha to'langan bo'lsa, total'dan oshmasin
     if (bonus > 0 && subtotal > 0) {
       effectiveDiscount = Math.round((1 - actualPaid / subtotal) * 10000) / 100;
       effectiveDiscount = Math.min(99, Math.max(0, effectiveDiscount));
@@ -184,7 +189,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       console.error('Payment error:', err);
       play('error');
     }
-  }, [items, bonus, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, createReceipt, play]);
+  }, [items, bonus, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, effectiveTotal, createReceipt, play]);
 
   function handleClose() {
     if (success) clearCart();
@@ -214,26 +219,31 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
     // Since we just set it to 0, let's compute from scratch
     setTimeout(() => {
       const currentOthers = cashAmount + cardAmount + clickAmount + debtAmount;
-      const rem = total - currentOthers;
+      const t = debtAmount > 0 ? rawSubtotal : total;
+      const rem = t - currentOthers;
       if (rem > 0) setter(rem);
-      else setter(total);
+      else setter(t);
     }, 0);
   }
 
   function handleSetFullCash() {
-    const rem = total - cardAmount - clickAmount - debtAmount;
+    const t = debtAmount > 0 ? rawSubtotal : total;
+    const rem = t - cardAmount - clickAmount - debtAmount;
     setCashAmount(Math.max(0, rem));
   }
   function handleSetFullCard() {
-    const rem = total - cashAmount - clickAmount - debtAmount;
+    const t = debtAmount > 0 ? rawSubtotal : total;
+    const rem = t - cashAmount - clickAmount - debtAmount;
     setCardAmount(Math.max(0, rem));
   }
   function handleSetFullClick() {
-    const rem = total - cashAmount - cardAmount - debtAmount;
+    const t = debtAmount > 0 ? rawSubtotal : total;
+    const rem = t - cashAmount - cardAmount - debtAmount;
     setClickAmount(Math.max(0, rem));
   }
   function handleSetFullDebt() {
-    const rem = total - cashAmount - cardAmount - clickAmount;
+    // Qarz uchun doim to'liq narx (chegirmasiz)
+    const rem = rawSubtotal - cashAmount - cardAmount - clickAmount;
     setDebtAmount(Math.max(0, rem));
   }
 
@@ -263,7 +273,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
               <Check className="h-8 w-8 text-emerald-600" strokeWidth={3} />
             </div>
             <h3 className="mt-3 text-lg font-bold text-text-primary">Muvaffaqiyatli!</h3>
-            <p className="text-xl font-extrabold text-text-primary mt-1 tabular-nums">{formatCurrency(total)}</p>
+            <p className="text-xl font-extrabold text-text-primary mt-1 tabular-nums">{formatCurrency(effectiveTotal)}</p>
             {change > 0 && (
               <p className="mt-2 text-base font-bold text-emerald-600 tabular-nums">Qaytim: {formatCurrency(change)}</p>
             )}
@@ -320,7 +330,10 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
             {/* Total */}
             <div className="px-5 pb-3 text-center">
               <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide">Jami summa</p>
-              <p className="text-2xl font-extrabold text-text-primary tabular-nums mt-0.5">{formatCurrency(total)}</p>
+              <p className="text-2xl font-extrabold text-text-primary tabular-nums mt-0.5">{formatCurrency(effectiveTotal)}</p>
+              {debtAmount > 0 && effectiveTotal !== total && (
+                <p className="text-[11px] text-amber-600 mt-0.5">Qarzga chegirma qo'llanilmaydi</p>
+              )}
               <p className="text-[11px] text-text-muted mt-0.5">{items.length} ta mahsulot</p>
             </div>
 
