@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -19,6 +19,10 @@ const sizeMap = {
 };
 
 export function Modal({ open, onClose, title, children, className, size = 'md' }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  const swipeDirection = useRef<'horizontal' | 'vertical' | null>(null);
+
   // Escape key
   useEffect(() => {
     if (!open) return;
@@ -37,21 +41,90 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
     }
   }, [open]);
 
+  /* ─── Swipe-to-close (mobile) ─── */
+  function handleTouchStart(e: React.TouchEvent) {
+    swipeDirection.current = null;
+    touchStart.current = {
+      x: e.touches[0]!.clientX,
+      y: e.touches[0]!.clientY,
+      time: Date.now(),
+    };
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchStart.current || !panelRef.current) return;
+
+    const deltaX = e.touches[0]!.clientX - touchStart.current.x;
+    const deltaY = e.touches[0]!.clientY - touchStart.current.y;
+
+    // Yo'nalishni aniqlash
+    if (!swipeDirection.current) {
+      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        swipeDirection.current = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
+      } else {
+        return;
+      }
+    }
+
+    // Faqat o'ngga swipe — modal yopilishi uchun
+    if (swipeDirection.current === 'horizontal' && deltaX > 0) {
+      panelRef.current.style.transform = `translateX(${deltaX}px)`;
+      panelRef.current.style.opacity = `${Math.max(0.3, 1 - deltaX / 350)}`;
+      panelRef.current.style.transition = 'none';
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchStart.current || !panelRef.current) return;
+
+    const deltaX = e.changedTouches[0]!.clientX - touchStart.current.x;
+    const elapsed = Date.now() - touchStart.current.time;
+    const velocity = Math.abs(deltaX) / elapsed;
+
+    const shouldClose = swipeDirection.current === 'horizontal' && deltaX > 0 &&
+      (deltaX > 100 || (velocity > 0.5 && deltaX > 30));
+
+    if (shouldClose) {
+      // Animatsiya bilan yopish
+      panelRef.current.style.transform = 'translateX(110%)';
+      panelRef.current.style.opacity = '0';
+      panelRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      setTimeout(onClose, 200);
+    } else {
+      // Joyiga qaytarish
+      panelRef.current.style.transform = '';
+      panelRef.current.style.opacity = '';
+      panelRef.current.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+    }
+
+    touchStart.current = null;
+    swipeDirection.current = null;
+  }
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[5vh] sm:pt-[8vh]" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[5vh] sm:pt-[8vh]"
+      onClick={onClose}
+      data-swipe-overlay
+      data-no-swipe
+    >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 animate-fade-in" />
 
       {/* Panel */}
       <div
+        ref={panelRef}
         className={cn(
           'relative z-10 w-full mx-4 rounded-2xl bg-surface shadow-modal animate-scale-in',
           sizeMap[size],
           className,
         )}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
       >
         {/* Sticky header */}

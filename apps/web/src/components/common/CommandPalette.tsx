@@ -108,7 +108,7 @@ export function CommandPalette() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Command palette" data-swipe-overlay data-no-swipe>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={toggle} />
 

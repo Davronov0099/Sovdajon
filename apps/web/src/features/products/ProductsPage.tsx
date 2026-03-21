@@ -328,7 +328,7 @@ export function ProductsPage() {
       <ProductModal open={modalOpen} onClose={() => { setModalOpen(false); setEditProduct(null); }} product={editProduct as import('./ProductModal').ProductData | null} />
 
       {qrProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQrProduct(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQrProduct(null)} data-no-swipe>
           <div className="absolute inset-0 bg-black/40 animate-fade-in" />
           <div className="relative z-10 bg-surface rounded-2xl p-6 shadow-modal text-center max-w-[300px] w-full mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-text-primary mb-3">{qrProduct.name}</h3>

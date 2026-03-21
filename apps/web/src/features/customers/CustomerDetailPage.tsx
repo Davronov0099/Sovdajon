@@ -289,7 +289,7 @@ export function CustomerDetailPage() {
 
       {/* Receipt Detail Modal */}
       {receiptDetail && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setReceiptDetail(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setReceiptDetail(null)} data-no-swipe>
           <div className="absolute inset-0 bg-black/40 animate-fade-in" />
           <div className="compact-inputs relative z-10 w-full sm:max-w-md bg-surface sm:rounded-2xl rounded-t-2xl shadow-modal animate-scale-in"
             style={{ maxHeight: 'calc(100dvh - 2rem)' }} onClick={(e) => e.stopPropagation()}>

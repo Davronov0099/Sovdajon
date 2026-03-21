@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useMatchRoute, useLocation } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { LogOut } from 'lucide-react';
@@ -16,6 +16,11 @@ export function MobileSidebar() {
   const matchRoute = useMatchRoute();
   const location = useLocation();
   const navItems = useNavSettingsStore((s) => s.items);
+
+  // Swipe-left-to-close refs
+  const asideRef = useRef<HTMLElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const swipeDir = useRef<'horizontal' | 'vertical' | null>(null);
 
   // Route o'zgarganda yopish
   useEffect(() => {
@@ -35,10 +40,60 @@ export function MobileSidebar() {
     return meta && user && meta.roles.includes(user.role);
   });
 
+  /* ─── Swipe left to close ─── */
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStart.current = {
+      x: e.touches[0]!.clientX,
+      y: e.touches[0]!.clientY,
+    };
+    swipeDir.current = null;
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchStart.current || !asideRef.current) return;
+
+    const deltaX = e.touches[0]!.clientX - touchStart.current.x;
+    const deltaY = e.touches[0]!.clientY - touchStart.current.y;
+
+    if (!swipeDir.current) {
+      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        swipeDir.current = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
+      } else {
+        return;
+      }
+    }
+
+    // Chapga swipe — sidebar yopilishi uchun
+    if (swipeDir.current === 'horizontal' && deltaX < 0) {
+      asideRef.current.style.transform = `translateX(${deltaX}px)`;
+      asideRef.current.style.transition = 'none';
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchStart.current || !asideRef.current) return;
+
+    const deltaX = e.changedTouches[0]!.clientX - touchStart.current.x;
+
+    if (swipeDir.current === 'horizontal' && deltaX < -80) {
+      // Animatsiya bilan yopish
+      asideRef.current.style.transform = 'translateX(-110%)';
+      asideRef.current.style.transition = 'transform 0.2s ease-out';
+      setTimeout(() => setMobileSidebarOpen(false), 200);
+    } else {
+      // Joyiga qaytarish
+      asideRef.current.style.transform = '';
+      asideRef.current.style.transition = 'transform 0.25s ease-out';
+    }
+
+    touchStart.current = null;
+    swipeDir.current = null;
+  }
+
   if (!mobileSidebarOpen) return null;
 
   return (
-    <div className="sm:hidden fixed inset-0 z-40">
+    <div className="sm:hidden fixed inset-0 z-40" data-swipe-overlay data-no-swipe>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 animate-fade-in"
@@ -48,8 +103,12 @@ export function MobileSidebar() {
 
       {/* Drawer */}
       <aside
+        ref={asideRef}
         className="absolute inset-y-0 left-0 w-72 bg-sidebar flex flex-col shadow-xl"
         style={{ animation: 'slideInLeft 0.25s ease-out' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-5 shrink-0">
