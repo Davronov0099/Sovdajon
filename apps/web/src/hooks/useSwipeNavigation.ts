@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useNavSettingsStore } from '@/stores/navSettings';
 import { useAuthStore } from '@/stores/auth';
 
@@ -65,7 +65,6 @@ function shouldIgnoreTarget(target: HTMLElement): boolean {
 /* ─── Hook ─── */
 export function useSwipeNavigation() {
   const navigate = useNavigate();
-  const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const touchState = useRef<{
@@ -163,7 +162,8 @@ export function useSwipeNavigation() {
       const isValidSwipe = absX >= SWIPE_THRESHOLD || (velocity > 0.5 && absX > 30);
       if (!isValidSwipe) return;
 
-      const pathname = location.pathname;
+      // window.location.pathname — re-render qilmaydi, har doim yangi
+      const pathname = window.location.pathname;
 
       if (deltaX > 0) {
         // SWIPE RIGHT → oldingi tab yoki parent page'ga
@@ -187,7 +187,7 @@ export function useSwipeNavigation() {
         }
       }
     },
-    [location.pathname, navigate, getVisibleRoutes],
+    [navigate, getVisibleRoutes],
   );
 
   return {
