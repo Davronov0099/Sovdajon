@@ -131,18 +131,9 @@ export function ProductsPage() {
   const stats = statsData?.data;
   const categories = catData?.data ?? [];
 
-  // Infinite scroll
+  // Avtomatik barcha sahifalarni yuklash (background'da)
   useEffect(() => {
-    const el = loadMoreRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage();
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const subCategories = useMemo(() => {

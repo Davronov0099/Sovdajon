@@ -59,16 +59,9 @@ export function ContactsPanel({ mode, onAccept }: ContactsPanelProps) {
     return n === 'mijoz' || n === "ta'minotchi";
   });
 
-  // Infinite scroll observer
+  // Avtomatik barcha sahifalarni yuklash
   useEffect(() => {
-    const el = loadMoreRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   async function handleAccept(c: ContactItem) {
