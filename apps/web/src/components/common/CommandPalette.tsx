@@ -71,12 +71,14 @@ export function CommandPalette() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggle]);
 
-  // Focus input on open
+  // Focus input on open + scroll lock
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
+      document.body.style.overflow = 'hidden';
       setTimeout(() => inputRef.current?.focus(), 50);
+      return () => { document.body.style.overflow = ''; };
     }
   }, [isOpen]);
 

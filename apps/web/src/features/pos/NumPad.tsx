@@ -18,6 +18,11 @@ const KEYS = [
 export function NumPad({ onSubmit, onClose, initialValue = 0 }: NumPadProps) {
   const [display, setDisplay] = useState(String(initialValue));
 
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   function handleKey(key: string) {
     if (key === 'C') {
       setDisplay('0');

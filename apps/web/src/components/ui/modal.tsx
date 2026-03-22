@@ -105,7 +105,7 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 modal-scroll">
+        <div className="flex-1 overflow-y-auto px-5 py-4 modal-scroll" style={{ overscrollBehavior: 'contain' }}>
           {children}
         </div>
       </div>

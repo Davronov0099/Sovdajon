@@ -29,7 +29,8 @@ export function BottomSheet({ open, onClose, title, children, height = 'lg' }: B
     if (!open) return;
     function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', handleKey); document.body.style.overflow = ''; };
   }, [open, onClose]);
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -107,7 +108,7 @@ export function BottomSheet({ open, onClose, title, children, height = 'lg' }: B
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4" style={{ overscrollBehavior: 'contain' }}>
           {children}
         </div>
       </div>
