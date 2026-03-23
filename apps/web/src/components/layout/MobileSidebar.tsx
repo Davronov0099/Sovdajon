@@ -27,12 +27,23 @@ export function MobileSidebar() {
     setMobileSidebarOpen(false);
   }, [location.pathname, setMobileSidebarOpen]);
 
-  // Body scroll lock
+  // Body scroll lock (iOS Safari uchun position: fixed)
   useEffect(() => {
-    if (mobileSidebarOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-    }
+    if (!mobileSidebarOpen) return;
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
   }, [mobileSidebarOpen]);
 
   const visibleItems = navItems.filter((item) => {

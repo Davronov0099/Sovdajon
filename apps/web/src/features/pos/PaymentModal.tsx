@@ -71,20 +71,33 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
 
   // Reset on open
   useEffect(() => {
-    if (open) {
-      setCashAmount(0);
-      setCardAmount(0);
-      setClickAmount(0);
-      setDebtAmount(0);
-      setCustomerSearch('');
-      setShowNewCustomer(false);
-      setNewCustomerName('');
-      setNewCustomerPhone('');
-      // Default: 30 kun keyin
-      const d = new Date(); d.setDate(d.getDate() + 30);
-      setDebtDueDate(d.toISOString().slice(0, 10));
-      setSuccess(false);
-    }
+    if (!open) return;
+    setCashAmount(0);
+    setCardAmount(0);
+    setClickAmount(0);
+    setDebtAmount(0);
+    setCustomerSearch('');
+    setShowNewCustomer(false);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    setDebtDueDate(d.toISOString().slice(0, 10));
+    setSuccess(false);
+    // iOS scroll lock
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
   }, [open]);
 
   // Keyboard: Enter to confirm, Escape to close
