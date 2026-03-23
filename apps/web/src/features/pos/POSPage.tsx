@@ -109,12 +109,20 @@ export function POSPage() {
   const products = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const categories = catData?.data ?? [];
 
-  // Qolgan sahifalarni 500ms pauzali avtomatik yuklash
+  // Scroll bo'lgandagina keyingi sahifani yuklash
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      const t = setTimeout(fetchNextPage, 500);
-      return () => clearTimeout(t);
-    }
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const addItem = useCartStore((s) => s.addItem);

@@ -131,12 +131,20 @@ export function ProductsPage() {
   const stats = statsData?.data;
   const categories = catData?.data ?? [];
 
-  // Qolgan sahifalarni 500ms pauzali avtomatik yuklash
+  // Scroll bo'lgandagina keyingi sahifani yuklash (IntersectionObserver)
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      const t = setTimeout(fetchNextPage, 500);
-      return () => clearTimeout(t);
-    }
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const subCategories = useMemo(() => {
@@ -146,11 +154,14 @@ export function ProductsPage() {
   }, [categoryId, categories]);
 
   // Stable callbacks — card qayta renderlanmaydi
+  const productsRef = useRef(products);
+  productsRef.current = products;
+
   const handleEdit = useCallback((id: string) => {
-    const p = products.find((x) => x.id === id);
+    const p = productsRef.current.find((x) => x.id === id);
     setEditProduct(p ? (p as unknown as Record<string, unknown>) : null);
     setModalOpen(true);
-  }, [products]);
+  }, []);
 
   const handleQr = useCallback((p: { name: string; id: string; price: string }) => {
     setQrProduct(p);
