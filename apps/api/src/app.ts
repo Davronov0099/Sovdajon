@@ -29,6 +29,7 @@ import { warehouseRoutes } from './modules/warehouses/warehouse.routes.js';
 import { contactRoutes } from './modules/contacts/contact.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
+import { versionRoutes } from './modules/version/version.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -79,6 +80,9 @@ export async function buildApp() {
 
   // Auth decorator
   await app.register(authPlugin);
+
+  // Version SSE (no auth — barcha foydalanuvchilar uchun)
+  await app.register(versionRoutes, { prefix: '/api/v1/version' });
 
   // Health check (no auth)
   app.get('/api/v1/health/live', async () => ({ status: 'ok' }));
