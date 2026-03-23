@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database.js';
-import { notFound, conflict, badRequest } from '../../utils/errors.js';
+import { notFound, badRequest } from '../../utils/errors.js';
 import { createAuditLog } from '../../utils/auditLog.js';
 import type { CreateProductInput, UpdateProductInput } from '@sardorbek/shared';
 
