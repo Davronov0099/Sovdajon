@@ -332,79 +332,85 @@ export function ProductsPage() {
       {/* Modals — grid dan tashqarida, qayta render qilmaydi */}
       <ProductModal open={modalOpen} onClose={() => { setModalOpen(false); setEditProduct(null); }} product={editProduct as import('./ProductModal').ProductData | null} />
 
-      {qrProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQrProduct(null)} data-no-swipe>
-          <div className="absolute inset-0 bg-black/40 animate-fade-in" />
-          <div className="relative z-10 bg-surface rounded-2xl p-5 shadow-modal max-w-[340px] w-full mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            {/* Preview — narx yorlig'i ko'rinishi */}
-            <div className="bg-[#e8f540] rounded-xl p-3 mb-4" style={{ border: '2px solid #333' }}>
-              {/* Tepa: QR + Kod va Nom */}
-              <div className="flex items-start gap-2.5 mb-2">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrProduct.id)}`}
-                  alt="QR"
-                  className="w-[60px] h-[60px] rounded shrink-0"
-                  style={{ background: '#fff', padding: '2px' }}
-                />
-                <div className="min-w-0 flex-1">
-                  {qrProduct.code != null && (
-                    <p className="text-[11px] font-bold text-gray-700 tabular-nums">#{qrProduct.code}</p>
-                  )}
-                  <p className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-2">{qrProduct.name}</p>
+      {qrProduct && (() => {
+        const priceText = formatCurrency(Number(qrProduct.price));
+        // Narx uzunligiga qarab font-size — sig'gancha katta
+        const priceLen = priceText.length;
+        const priceFontPreview = priceLen > 12 ? 'text-[26px]' : priceLen > 9 ? 'text-[30px]' : 'text-[36px]';
+        const priceFontPrint = priceLen > 12 ? '24px' : priceLen > 9 ? '28px' : '34px';
+        // Nom uzunligiga qarab font-size
+        const nameLen = qrProduct.name.length;
+        const nameFontPrint = nameLen > 30 ? '8px' : nameLen > 20 ? '10px' : '12px';
+        const nameFontPreview = nameLen > 30 ? 'text-[10px]' : nameLen > 20 ? 'text-[12px]' : 'text-[14px]';
+
+        function doPrint() {
+          const win = window.open('', '_blank');
+          if (!win) return;
+          const code = qrProduct!.code != null ? `<p style="font-size:10px;font-weight:bold;color:#333;margin:0 0 0.5mm 0">#${qrProduct!.code}</p>` : '';
+          win.document.write(`<html><head><style>
+            @page{size:60mm 40mm;margin:0}
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:Arial,Helvetica,sans-serif;width:60mm;height:40mm;background:#e8f540;padding:1.5mm 2mm;display:flex;flex-direction:column}
+            .top{display:flex;align-items:flex-start;gap:2mm;flex-shrink:0}
+            .qr{width:13mm;height:13mm;background:#fff;padding:0.5mm;border-radius:1mm;flex-shrink:0}
+            .qr img{width:100%;height:100%}
+            .info{flex:1;min-width:0;overflow:hidden}
+            .name{font-size:${nameFontPrint};font-weight:700;color:#111;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+            .bottom{flex:1;display:flex;align-items:center;justify-content:center;border-top:1.5px dashed #555;margin-top:1mm}
+            .price{font-size:${priceFontPrint};font-weight:900;color:#111;letter-spacing:-0.5px}
+          </style></head><body>
+            <div class="top">
+              <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrProduct!.id)}"/></div>
+              <div class="info">${code}<p class="name">${qrProduct!.name}</p></div>
+            </div>
+            <div class="bottom"><p class="price">${priceText}</p></div>
+            <script>
+              const img=document.querySelector('.qr img');
+              if(img.complete){setTimeout(()=>{window.print();window.close()},200)}
+              else{img.onload=()=>{window.print();window.close()}}
+            <\/script>
+          </body></html>`);
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQrProduct(null)} data-no-swipe>
+            <div className="absolute inset-0 bg-black/40 animate-fade-in" />
+            <div className="relative z-10 bg-surface rounded-2xl p-5 shadow-modal max-w-[340px] w-full mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+              {/* Preview */}
+              <div className="bg-[#e8f540] rounded-xl p-3 mb-4" style={{ border: '2px solid #333' }}>
+                <div className="flex items-start gap-2.5 mb-2">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrProduct.id)}`}
+                    alt="QR"
+                    className="w-[56px] h-[56px] rounded shrink-0"
+                    style={{ background: '#fff', padding: '2px' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {qrProduct.code != null && (
+                      <p className="text-[10px] font-bold text-gray-600 tabular-nums">#{qrProduct.code}</p>
+                    )}
+                    <p className={`${nameFontPreview} font-bold text-gray-900 leading-tight line-clamp-2`}>{qrProduct.name}</p>
+                  </div>
+                </div>
+                <div className="text-center" style={{ borderTop: '1.5px dashed #555', paddingTop: '6px' }}>
+                  <p className={`${priceFontPreview} font-black text-gray-900 tabular-nums leading-none tracking-tight`}>
+                    {priceText}
+                  </p>
                 </div>
               </div>
-              {/* Past: Katta narx */}
-              <div className="text-center" style={{ borderTop: '1.5px dashed #555', paddingTop: '6px' }}>
-                <p className="text-[32px] font-black text-gray-900 tabular-nums leading-none tracking-tight">
-                  {formatCurrency(Number(qrProduct.price))}
-                </p>
+
+              <div className="flex gap-2">
+                <button onClick={doPrint} className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors" style={{ minHeight: 'auto' }}>
+                  Chop etish
+                </button>
+                <button onClick={() => setQrProduct(null)} className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-text-secondary hover:bg-surface-secondary transition-colors" style={{ minHeight: 'auto', border: '1px solid var(--color-border)' }}>
+                  Yopish
+                </button>
               </div>
             </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const win = window.open('', '_blank');
-                  if (win) {
-                    const price = formatCurrency(Number(qrProduct.price));
-                    const code = qrProduct.code != null ? `<p style="font-size:11px;font-weight:bold;color:#333;margin:0">#${qrProduct.code}</p>` : '';
-                    win.document.write(`<html><head><style>
-                      @page{size:60mm 40mm;margin:1mm}
-                      *{margin:0;padding:0;box-sizing:border-box}
-                      body{font-family:Arial,sans-serif;width:60mm;height:40mm;background:#e8f540;padding:2mm}
-                      .top{display:flex;align-items:flex-start;gap:2mm;margin-bottom:1.5mm}
-                      .qr{width:14mm;height:14mm;background:#fff;padding:0.5mm;border-radius:1mm;flex-shrink:0}
-                      .qr img{width:100%;height:100%}
-                      .info{flex:1;min-width:0;overflow:hidden}
-                      .name{font-size:9px;font-weight:600;color:#111;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-                      .bottom{border-top:1px dashed #555;padding-top:1mm;text-align:center}
-                      .price{font-size:28px;font-weight:900;color:#111;letter-spacing:-0.5px}
-                    </style></head><body>
-                      <div class="top">
-                        <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrProduct.id)}" /></div>
-                        <div class="info">${code}<p class="name">${qrProduct.name}</p></div>
-                      </div>
-                      <div class="bottom"><p class="price">${price}</p></div>
-                      <script>setTimeout(()=>{window.print();window.close()},600)<\/script>
-                    </body></html>`);
-                  }
-                }}
-                className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors"
-                style={{ minHeight: 'auto' }}
-              >
-                Chop etish
-              </button>
-              <button
-                onClick={() => setQrProduct(null)}
-                className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-text-secondary hover:bg-surface-secondary transition-colors"
-                style={{ minHeight: 'auto', border: '1px solid var(--color-border)' }}
-              >
-                Yopish
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
