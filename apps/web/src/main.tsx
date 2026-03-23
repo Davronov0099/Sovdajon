@@ -11,7 +11,26 @@ import { ToastProvider } from '@/components/ui/toast';
 import '@/i18n';
 import './app.css';
 
-const router = createRouter({ routeTree });
+// Yangi deploy'dan keyin eski chunk 404 bo'lsa — avtomatik reload
+window.addEventListener('vite:preloadError', () => {
+  if (!sessionStorage.getItem('chunk-reload')) {
+    sessionStorage.setItem('chunk-reload', '1');
+    window.location.reload();
+  }
+});
+// Reload muvaffaqiyatli bo'lsa flag'ni tozalash
+sessionStorage.removeItem('chunk-reload');
+
+const router = createRouter({
+  routeTree,
+  defaultOnCatch: () => {
+    // Chunk 404 — yangi deploy bo'lgan, sahifani reload qilamiz
+    if (!sessionStorage.getItem('chunk-reload')) {
+      sessionStorage.setItem('chunk-reload', '1');
+      window.location.reload();
+    }
+  },
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
