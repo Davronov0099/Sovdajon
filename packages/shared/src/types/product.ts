@@ -21,8 +21,6 @@ export type StockStatus = (typeof StockStatus)[keyof typeof StockStatus];
 export interface Product {
   id: string;
   name: string;
-  sku: string | null;
-  barcode: string | null;
   price: number;
   costPrice: number;
   stock: number;

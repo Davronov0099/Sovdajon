@@ -26,7 +26,6 @@ interface ProductLookupResult {
   price: string | number;
   costPrice: string | number;
   stock: number;
-  barcode: string | null;
 }
 
 /* ─── BarcodeDetector type (native API) ─── */
@@ -152,7 +151,7 @@ export function HelperPage() {
 
     setLookupLoading(true);
     try {
-      const res = await api.get(`products/barcode/${encodeURIComponent(barcode.trim())}`).json<{
+      const res = await api.get(`products/code/${encodeURIComponent(Number(barcode.trim()))}`).json<{
         success: boolean;
         data: ProductLookupResult;
       }>();

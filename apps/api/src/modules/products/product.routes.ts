@@ -27,10 +27,10 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     reply.send({ success: true, data: stats });
   });
 
-  // Barcode lookup — yordamchilar uchun
-  app.get('/barcode/:barcode', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { barcode } = req.params as { barcode: string };
-    const product = await service.getProductByBarcode(barcode);
+  // Code lookup — yordamchilar uchun
+  app.get('/code/:code', { preHandler: [requireAuth] }, async (req, reply) => {
+    const { code } = req.params as { code: string };
+    const product = await service.getProductByCode(Number(code));
     reply.send({ success: true, data: product });
   });
 

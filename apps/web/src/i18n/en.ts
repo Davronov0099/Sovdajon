@@ -73,8 +73,6 @@ export const en = {
     stock: 'Stock',
     unit: 'Unit',
     category: 'Category',
-    sku: 'SKU',
-    barcode: 'Barcode',
     lowStock: 'Low Stock',
     outOfStock: 'Out of Stock',
     inStock: 'In Stock',

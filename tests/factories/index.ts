@@ -37,8 +37,6 @@ export function createProduct(overrides: Record<string, unknown> = {}) {
   return {
     id: nextId(),
     name: `Test Product ${n}`,
-    sku: `SKU-${String(n).padStart(5, '0')}`,
-    barcode: null,
     price: 10000 + n * 1000,
     costPrice: 5000 + n * 500,
     stock: 100,

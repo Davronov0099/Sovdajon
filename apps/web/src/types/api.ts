@@ -41,8 +41,6 @@ export interface ProductItem {
   id: string;
   code: number | null;
   name: string;
-  sku: string | null;
-  barcode: string | null;
   price: string; // Decimal from Prisma comes as string
   costPrice: string;
   stock: number;

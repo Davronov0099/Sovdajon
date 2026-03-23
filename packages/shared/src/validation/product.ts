@@ -3,8 +3,6 @@ import { priceSchema } from './common.js';
 
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
-  sku: z.string().max(50).optional(),
-  barcode: z.string().max(50).optional(),
   price: priceSchema,
   costPrice: priceSchema,
   dollarRate: z.number().min(0).optional(),

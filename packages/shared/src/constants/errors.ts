@@ -17,8 +17,6 @@ export const ERROR_CODES = {
 
   // Product
   PRODUCT_NOT_FOUND: 'PRODUCT_NOT_FOUND',
-  PRODUCT_SKU_EXISTS: 'PRODUCT_SKU_EXISTS',
-  PRODUCT_BARCODE_EXISTS: 'PRODUCT_BARCODE_EXISTS',
   PRODUCT_DELETED: 'PRODUCT_DELETED',
 
   // Category
@@ -140,12 +138,6 @@ export const ERROR_MESSAGES: Record<ErrorCode, { uz: string; en: string; ru: str
     ru: 'Пароль должен содержать минимум 6 символов, буквы и цифры',
   },
   PRODUCT_NOT_FOUND: { uz: 'Mahsulot topilmadi', en: 'Product not found', ru: 'Товар не найден' },
-  PRODUCT_SKU_EXISTS: { uz: 'Bu SKU mavjud', en: 'SKU already exists', ru: 'SKU уже существует' },
-  PRODUCT_BARCODE_EXISTS: {
-    uz: 'Bu shtrixkod mavjud',
-    en: 'Barcode already exists',
-    ru: 'Штрихкод уже существует',
-  },
   PRODUCT_DELETED: {
     uz: "Mahsulot o'chirilgan",
     en: 'Product has been deleted',

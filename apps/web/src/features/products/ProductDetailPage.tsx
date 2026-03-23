@@ -145,18 +145,6 @@ export function ProductDetailPage() {
                 <dt className="text-text-muted">{t('product.category')}</dt>
                 <dd className="text-text-primary">{product.category.name}</dd>
               </div>
-              {product.sku && (
-                <div className="flex justify-between">
-                  <dt className="text-text-muted">{t('product.sku')}</dt>
-                  <dd className="font-mono text-text-primary">{product.sku}</dd>
-                </div>
-              )}
-              {product.barcode && (
-                <div className="flex justify-between">
-                  <dt className="text-text-muted">{t('product.barcode')}</dt>
-                  <dd className="font-mono text-text-primary">{product.barcode}</dd>
-                </div>
-              )}
             </dl>
           </div>
 

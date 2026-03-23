@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, Phone, MapPin, Pencil, ShoppingBag, DollarSign, Clock, AlertTriangle, CheckCircle, X, Calendar, Tag, Shield } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Pencil, ShoppingBag, DollarSign, Clock, AlertTriangle, CheckCircle, X, Calendar, Tag } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -42,7 +42,7 @@ export function CustomerDetailPage() {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
-  const [editLimit, setEditLimit] = useState('');
+
   const [editNote, setEditNote] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
 
@@ -50,7 +50,6 @@ export function CustomerDetailPage() {
     if (!customer) return;
     setEditName(customer.name); setEditPhone(customer.phone);
     setEditAddress(customer.address || '');
-    setEditLimit(customer.debtLimit ? String(Number(customer.debtLimit)) : '');
     setEditNote(customer.note || '');
     setEditStartDate(customer.startDate ? customer.startDate.slice(0, 10) : '');
     setEditOpen(true);
@@ -59,7 +58,7 @@ export function CustomerDetailPage() {
   async function handleUpdate() {
     if (!editName.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, debtLimit: editLimit ? Number(editLimit) : undefined, note: editNote || undefined, startDate: editStartDate || undefined });
+      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, note: editNote || undefined, startDate: editStartDate || undefined });
       toast('Yangilandi', 'success');
       setEditOpen(false);
     } catch { toast('Xatolik', 'error'); }
@@ -112,11 +111,7 @@ export function CustomerDetailPage() {
               <span className="inline-flex items-center gap-1 rounded-lg bg-surface-tertiary px-2 py-1 text-[11px] font-medium text-text-secondary">
                 <Calendar className="h-3 w-3" />Qo'shilgan: {formatDate(customer.startDate || customer.createdAt)}
               </span>
-              {customer.debtLimit && Number(customer.debtLimit) > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-lg bg-warning-50 px-2 py-1 text-[11px] font-medium text-warning-700">
-                  <Shield className="h-3 w-3" />Limit: {formatCurrency(Number(customer.debtLimit))}
-                </span>
-              )}
+
               {customer.loyaltyPoints > 0 && (
                 <span className="inline-flex items-center gap-1 rounded-lg bg-success-50 px-2 py-1 text-[11px] font-medium text-success-700">
                   Ball: {customer.loyaltyPoints}
@@ -278,7 +273,6 @@ export function CustomerDetailPage() {
           <Input id="ed-phone" label="Telefon" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
           <Input id="ed-address" label="Manzil" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
           <Input id="ed-start" label="Ishlash boshlanish sanasi" type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
-          <Input id="ed-limit" label="Qarz chegarasi" type="number" value={editLimit} onChange={(e) => setEditLimit(e.target.value)} />
           <Input id="ed-note" label="Izoh" value={editNote} onChange={(e) => setEditNote(e.target.value)} />
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={updateMut.isPending}>Bekor qilish</Button>

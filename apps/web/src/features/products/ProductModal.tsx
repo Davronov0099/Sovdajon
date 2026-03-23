@@ -14,8 +14,6 @@ import { useUsdRateStore } from '@/stores/usdRate';
 export interface ProductData {
   id: string;
   name: string;
-  sku: string | null;
-  barcode: string | null;
   price: string;
   costPrice: string;
   stock: number;
@@ -81,8 +79,6 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
       const rate = Number(product.dollarRate) || usdRate;
       reset({
         name: product.name,
-        sku: product.sku ?? undefined,
-        barcode: product.barcode ?? undefined,
         price: cp,
         costPrice: cost,
         dollarRate: rate,

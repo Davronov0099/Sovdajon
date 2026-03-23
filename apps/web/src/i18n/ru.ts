@@ -73,8 +73,6 @@ export const ru = {
     stock: 'Остаток',
     unit: 'Единица',
     category: 'Категория',
-    sku: 'Артикул',
-    barcode: 'Штрихкод',
     lowStock: 'Мало на складе',
     outOfStock: 'Нет в наличии',
     inStock: 'В наличии',

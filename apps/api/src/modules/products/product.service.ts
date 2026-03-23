@@ -26,8 +26,6 @@ export async function listProducts(query: ListProductsQuery) {
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search, mode: 'insensitive' } },
         ...(/^\d+$/.test(search) ? [{ code: parseInt(search, 10) }] : []),
       ],
     }),
@@ -101,15 +99,15 @@ export async function getProductStats() {
   return { total, lowStock, outOfStock, totalValue };
 }
 
-export async function getProductByBarcode(barcode: string) {
+export async function getProductByCode(code: number) {
   const product = await prisma.product.findFirst({
-    where: { barcode, isDeleted: false },
+    where: { code, isDeleted: false },
     include: {
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },
     },
   });
-  if (!product) throw notFound('PRODUCT_NOT_FOUND', `Barcode: ${barcode}`);
+  if (!product) throw notFound('PRODUCT_NOT_FOUND', `Code: ${code}`);
   return product;
 }
 
@@ -145,23 +143,11 @@ async function getNextAvailableCode(): Promise<number> {
 }
 
 export async function createProduct(input: CreateProductInput, userId: string) {
-  // Check unique constraints
-  if (input.sku) {
-    const existing = await prisma.product.findFirst({ where: { sku: input.sku, isDeleted: false } });
-    if (existing) throw conflict('PRODUCT_SKU_EXISTS');
-  }
-  if (input.barcode) {
-    const existing = await prisma.product.findFirst({ where: { barcode: input.barcode, isDeleted: false } });
-    if (existing) throw conflict('PRODUCT_BARCODE_EXISTS');
-  }
-
   const code = await getNextAvailableCode();
 
   const product = await prisma.product.create({
     data: {
       name: input.name,
-      sku: input.sku,
-      barcode: input.barcode,
       price: input.price,
       costPrice: input.costPrice,
       stock: input.stock ?? 0,
@@ -192,16 +178,6 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
   const existing = await prisma.product.findFirst({ where: { id, isDeleted: false } });
   if (!existing) throw notFound('PRODUCT_NOT_FOUND');
 
-  // Check unique constraints if changing sku/barcode
-  if (input.sku && input.sku !== existing.sku) {
-    const dup = await prisma.product.findFirst({ where: { sku: input.sku, isDeleted: false, NOT: { id } } });
-    if (dup) throw conflict('PRODUCT_SKU_EXISTS');
-  }
-  if (input.barcode && input.barcode !== existing.barcode) {
-    const dup = await prisma.product.findFirst({ where: { barcode: input.barcode, isDeleted: false, NOT: { id } } });
-    if (dup) throw conflict('PRODUCT_BARCODE_EXISTS');
-  }
-
   // Price change → auto log to PriceHistory
   const priceChanged =
     (input.price !== undefined && Number(input.price) !== Number(existing.price)) ||
@@ -224,8 +200,6 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
 
     const updateData: Prisma.ProductUpdateInput = {};
     if (input.name !== undefined) updateData.name = input.name;
-    if (input.sku !== undefined) updateData.sku = input.sku;
-    if (input.barcode !== undefined) updateData.barcode = input.barcode;
     if (input.price !== undefined) updateData.price = input.price;
     if (input.costPrice !== undefined) updateData.costPrice = input.costPrice;
     if (input.stock !== undefined) updateData.stock = input.stock;

@@ -157,6 +157,7 @@ button, a, [role="button"] {
 
 input, select, textarea {
   min-height: 44px;
+  font-size: 16px; /* iOS zoom oldini olish — 16px dan kichik bo'lsa zoom qiladi */
 }
 
 /* POS da kattaroq target */

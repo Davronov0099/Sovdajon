@@ -6,8 +6,6 @@ interface Product {
   id: string;
   code: number | null;
   name: string;
-  sku: string | null;
-  barcode: string | null;
   price: number;
   costPrice: number;
   stock: number;

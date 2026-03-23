@@ -124,8 +124,6 @@ model Product {
   id            String      @id @default(uuid())
   code          Int?        @unique // Tez qidirish — kassir kod yozadi (o'chirilganda null bo'ladi, kod qayta ishlatiladi)
   name          String
-  sku           String?     @unique
-  barcode       String?     @unique
   price         Decimal     @db.Decimal(12, 2)
   costPrice     Decimal     @db.Decimal(12, 2)
   dollarRate    Decimal?    @db.Decimal(12, 4)  // O'sha paytdagi dollar kursi (masalan 12800.0000)

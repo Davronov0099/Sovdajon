@@ -73,8 +73,6 @@ export const uz = {
     stock: 'Zaxira',
     unit: "O'lchov birligi",
     category: 'Kategoriya',
-    sku: 'SKU',
-    barcode: 'Shtrixkod',
     lowStock: 'Kam qolgan',
     outOfStock: 'Tugagan',
     inStock: 'Bor',
