@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, ShoppingCart, Package, Loader2, X } from 'lucide-react';
+import { Search, ShoppingCart, Package, Loader2, X, ClipboardList, Check, Trash2 } from 'lucide-react';
 import { formatCurrency, getStockStatus } from '@sardorbek/shared';
 import { useInfiniteProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
+import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useCartStore } from '@/stores/cart';
 import { useUiStore } from '@/stores/ui';
 import { useSound } from '@/hooks/useSound';
+import { useToast } from '@/components/ui/toast';
+import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/cn';
 import { CartPanel } from './CartPanel';
 import { PaymentModal } from './PaymentModal';
@@ -92,11 +95,55 @@ export function POSPage() {
   const [numPadOpen, setNumPadOpen] = useState(false);
   const [numPadTarget, setNumPadTarget] = useState<string | null>(null);
   const [numPadProduct, setNumPadProduct] = useState<{ id: string; name: string; price: number; costPrice: number; unit: string; stock: number; discountTiers?: { qty: number; pct: number }[] } | null>(null);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const { play } = useSound();
+  const { toast } = useToast();
+
+  // Buyurtmalar
+  const { data: ordersData } = useOrders('PENDING');
+  const pendingOrders = ordersData?.data ?? [];
+  const updateStatus = useUpdateOrderStatus();
+  const addItem = useCartStore((s) => s.addItem);
+  const setCustomer = useCartStore((s) => s.setCustomer);
+  const clearCart = useCartStore((s) => s.clearCart);
+
+  function loadOrderToCart(order: typeof pendingOrders[0]) {
+    clearCart();
+    for (const item of order.items) {
+      addItem({
+        productId: item.productId,
+        name: item.product.name,
+        price: Number(item.unitPrice),
+        costPrice: Number(item.product.costPrice),
+        unit: 'PIECE',
+        stock: item.product.stock,
+      });
+      // Miqdorni to'g'rilash (addItem 1 qo'shadi, biz quantity-1 marta qo'shimcha)
+      for (let i = 1; i < item.quantity; i++) {
+        addItem({
+          productId: item.productId,
+          name: item.product.name,
+          price: Number(item.unitPrice),
+          costPrice: Number(item.product.costPrice),
+          unit: 'PIECE',
+          stock: item.product.stock,
+        });
+      }
+    }
+    if (order.customer) {
+      setCustomer(order.customer.id, order.customer.name);
+    }
+    updateStatus.mutate({ id: order.id, status: 'CONFIRMED' }, {
+      onSuccess: () => {
+        toast(`Buyurtma #${order.number} savatga yuklandi`, 'success');
+        setOrdersOpen(false);
+      },
+    });
+  }
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteProducts({
     search,
@@ -125,7 +172,6 @@ export function POSPage() {
     return () => obs.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const addItem = useCartStore((s) => s.addItem);
   const itemCount = useCartStore((s) => s.getItemCount());
 
   // Auto-collapse sidebar on POS (desktop only)
@@ -168,9 +214,23 @@ export function POSPage() {
     <div className="flex h-[calc(100vh-var(--header-height))] overflow-hidden">
       {/* ─── Left — Products ─── */}
       <div className="flex flex-1 flex-col overflow-hidden bg-surface-secondary">
-        {/* Search bar */}
+        {/* Search bar + Orders button */}
         <div className="bg-surface px-4 py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-          <div className="relative">
+          <div className="flex items-center gap-2">
+          {pendingOrders.length > 0 && (
+            <button
+              onClick={() => setOrdersOpen(true)}
+              className="relative shrink-0 flex items-center gap-1.5 rounded-xl bg-warning-50 px-3 py-2.5 text-[13px] font-semibold text-warning-700 hover:bg-warning-100 active:scale-[0.97] transition-all"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Buyurtmalar</span>
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-warning-600 px-1 text-[10px] font-bold text-white">
+                {pendingOrders.length}
+              </span>
+            </button>
+          )}
+          <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
             <input
               ref={searchRef}
@@ -192,6 +252,7 @@ export function POSPage() {
                 <span className="text-xs font-medium">ESC</span>
               </button>
             )}
+          </div>
           </div>
         </div>
 
@@ -476,6 +537,65 @@ export function POSPage() {
           }}
         />
       )}
+
+      {/* Orders modal */}
+      <Modal open={ordersOpen} onClose={() => setOrdersOpen(false)} title={`Buyurtmalar (${pendingOrders.length})`} size="md">
+        {pendingOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-text-muted">
+            <ClipboardList className="h-10 w-10 mb-2 opacity-20" />
+            <p className="text-sm">Kutilayotgan buyurtma yo'q</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pendingOrders.map((order) => (
+              <div key={order.id} className="rounded-xl p-3" style={{ border: '1px solid var(--color-border-subtle)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">#{order.number}</span>
+                    {order.customer && (
+                      <span className="ml-2 text-xs text-text-muted">{order.customer.name}</span>
+                    )}
+                  </div>
+                  <span className="text-base font-bold text-primary-600 tabular-nums">{formatCurrency(Number(order.total))}</span>
+                </div>
+                <div className="space-y-1 mb-2.5">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between text-[12px]">
+                      <span className="text-text-secondary truncate flex-1 mr-2">{item.product.name}</span>
+                      <span className="text-text-muted tabular-nums shrink-0">{item.quantity} × {formatCurrency(Number(item.unitPrice))}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-text-muted mb-2.5">
+                  <span>{order.createdBy?.name ?? 'Noma\'lum'}</span>
+                  <span>{new Date(order.createdAt).toLocaleTimeString('uz', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => loadOrderToCart(order)}
+                    disabled={updateStatus.isPending}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success-600 py-2 text-[13px] font-semibold text-white hover:bg-success-700 active:scale-[0.97] transition-all"
+                    style={{ minHeight: 'auto' }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Savatga yuklash
+                  </button>
+                  <button
+                    onClick={() => updateStatus.mutate({ id: order.id, status: 'CANCELLED' }, {
+                      onSuccess: () => toast(`Buyurtma #${order.number} bekor qilindi`, 'success'),
+                    })}
+                    disabled={updateStatus.isPending}
+                    className="flex items-center justify-center rounded-lg bg-danger-50 px-3 py-2 text-danger-600 hover:bg-danger-100 transition-colors"
+                    style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
