@@ -23,7 +23,7 @@ interface ProductCardProps {
     subCategory: { id: string; name: string } | null;
   };
   onEdit: (id: string) => void;
-  onQr: (p: { name: string; id: string; price: string }) => void;
+  onQr: (p: { name: string; id: string; price: string; code: number | null }) => void;
   onDelete: (id: string, name: string) => void;
 }
 
@@ -76,7 +76,7 @@ const ProductCard = memo(function ProductCard({ product, onEdit, onQr, onDelete 
 
       <div className="flex items-center gap-1 px-2 pb-2" onClick={(e) => e.stopPropagation()}>
         <button
-          onClick={() => onQr({ name: product.name, id: product.id, price: product.price })}
+          onClick={() => onQr({ name: product.name, id: product.id, price: product.price, code: product.code })}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
           style={{ minHeight: 'auto', minWidth: 'auto' }}
           title="QR code"
@@ -114,7 +114,7 @@ export function ProductsPage() {
   const [stockFilter, setStockFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Record<string, unknown> | null>(null);
-  const [qrProduct, setQrProduct] = useState<{ name: string; id: string; price: string } | null>(null);
+  const [qrProduct, setQrProduct] = useState<{ name: string; id: string; price: string; code: number | null } | null>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
   const subScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -163,7 +163,7 @@ export function ProductsPage() {
     setModalOpen(true);
   }, []);
 
-  const handleQr = useCallback((p: { name: string; id: string; price: string }) => {
+  const handleQr = useCallback((p: { name: string; id: string; price: string; code: number | null }) => {
     setQrProduct(p);
   }, []);
 
@@ -335,26 +335,57 @@ export function ProductsPage() {
       {qrProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setQrProduct(null)} data-no-swipe>
           <div className="absolute inset-0 bg-black/40 animate-fade-in" />
-          <div className="relative z-10 bg-surface rounded-2xl p-6 shadow-modal text-center max-w-[300px] w-full mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-text-primary mb-3">{qrProduct.name}</h3>
-            <div className="bg-white p-4 rounded-xl inline-block mx-auto">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrProduct.id)}`}
-                alt="QR Code"
-                className="w-[200px] h-[200px]"
-              />
+          <div className="relative z-10 bg-surface rounded-2xl p-5 shadow-modal max-w-[340px] w-full mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            {/* Preview — narx yorlig'i ko'rinishi */}
+            <div className="bg-[#e8f540] rounded-xl p-3 mb-4" style={{ border: '2px solid #333' }}>
+              {/* Tepa: QR + Kod va Nom */}
+              <div className="flex items-start gap-2.5 mb-2">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrProduct.id)}`}
+                  alt="QR"
+                  className="w-[60px] h-[60px] rounded shrink-0"
+                  style={{ background: '#fff', padding: '2px' }}
+                />
+                <div className="min-w-0 flex-1">
+                  {qrProduct.code != null && (
+                    <p className="text-[11px] font-bold text-gray-700 tabular-nums">#{qrProduct.code}</p>
+                  )}
+                  <p className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-2">{qrProduct.name}</p>
+                </div>
+              </div>
+              {/* Past: Katta narx */}
+              <div className="text-center" style={{ borderTop: '1.5px dashed #555', paddingTop: '6px' }}>
+                <p className="text-[32px] font-black text-gray-900 tabular-nums leading-none tracking-tight">
+                  {formatCurrency(Number(qrProduct.price))}
+                </p>
+              </div>
             </div>
-            <p className="mt-3 text-lg font-bold text-primary-600 tabular-nums">{formatCurrency(Number(qrProduct.price))}</p>
-            <div className="flex gap-2 mt-4">
+
+            <div className="flex gap-2">
               <button
                 onClick={() => {
                   const win = window.open('', '_blank');
                   if (win) {
-                    win.document.write(`<html><body style="text-align:center;font-family:sans-serif;padding:20px">
-                      <h2>${qrProduct.name}</h2>
-                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrProduct.id)}" />
-                      <h3>${formatCurrency(Number(qrProduct.price))}</h3>
-                      <script>setTimeout(()=>{window.print();window.close()},500)<\/script>
+                    const price = formatCurrency(Number(qrProduct.price));
+                    const code = qrProduct.code != null ? `<p style="font-size:11px;font-weight:bold;color:#333;margin:0">#${qrProduct.code}</p>` : '';
+                    win.document.write(`<html><head><style>
+                      @page{size:60mm 40mm;margin:1mm}
+                      *{margin:0;padding:0;box-sizing:border-box}
+                      body{font-family:Arial,sans-serif;width:60mm;height:40mm;background:#e8f540;padding:2mm}
+                      .top{display:flex;align-items:flex-start;gap:2mm;margin-bottom:1.5mm}
+                      .qr{width:14mm;height:14mm;background:#fff;padding:0.5mm;border-radius:1mm;flex-shrink:0}
+                      .qr img{width:100%;height:100%}
+                      .info{flex:1;min-width:0;overflow:hidden}
+                      .name{font-size:9px;font-weight:600;color:#111;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+                      .bottom{border-top:1px dashed #555;padding-top:1mm;text-align:center}
+                      .price{font-size:28px;font-weight:900;color:#111;letter-spacing:-0.5px}
+                    </style></head><body>
+                      <div class="top">
+                        <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrProduct.id)}" /></div>
+                        <div class="info">${code}<p class="name">${qrProduct.name}</p></div>
+                      </div>
+                      <div class="bottom"><p class="price">${price}</p></div>
+                      <script>setTimeout(()=>{window.print();window.close()},600)<\/script>
                     </body></html>`);
                   }
                 }}
