@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Camera, CameraOff, Keyboard, Search, Minus, Plus, X,
-  ShoppingBag, Send, User, Check, Loader2, ScanBarcode,
+  ShoppingBag, Send, User, Check, Loader2, ScanBarcode, Package,
 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { api } from '@/services/api';
+import { useInfiniteProducts } from '@/hooks/useProducts';
 import { useCustomerSearch } from '@/hooks/useCustomers';
 import { useSound } from '@/hooks/useSound';
 import { useToast } from '@/components/ui/toast';
@@ -69,6 +70,11 @@ export function HelperPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
   const { data: searchResults } = useCustomerSearch(customerSearch);
+
+  // Product search
+  const [productSearch, setProductSearch] = useState('');
+  const { data: productData } = useInfiniteProducts({ search: productSearch, limit: 20 });
+  const searchProducts = useMemo(() => productData?.pages.flatMap((p) => p.data) ?? [], [productData]);
 
   // Camera refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -235,6 +241,24 @@ export function HelperPage() {
     }
   }
 
+  /* ─── Add product from search ─── */
+  function addProduct(product: { id: string; name: string; price: number | string; costPrice: number | string; stock: number }) {
+    play('add-to-cart');
+    setCart((prev) => {
+      const existing = prev.find((item) => item.productId === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.productId === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+        );
+      }
+      return [
+        { productId: product.id, name: product.name, price: Number(product.price), costPrice: Number(product.costPrice), quantity: 1, discount: 0 },
+        ...prev,
+      ];
+    });
+    setProductSearch('');
+  }
+
   /* ─── Cart operations ─── */
   function updateQuantity(productId: string, delta: number) {
     setCart((prev) =>
@@ -257,38 +281,34 @@ export function HelperPage() {
     play('delete');
   }
 
-  /* ─── Submit to cashier ─── */
+  /* ─── Submit order to admin ─── */
   async function handleSubmit() {
     if (cart.length === 0) return;
     setSubmitting(true);
 
     try {
-      await api.post('receipts/helper-cart', {
+      await api.post('orders', {
         json: {
           items: cart.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
-            discount: item.discount,
+            unitPrice: item.price,
           })),
-          paymentMethod: 'CASH',
-          discountPercent: 0,
           customerId: selectedCustomer?.id ?? undefined,
         },
       }).json();
 
       play('success');
-      toast('Kassaga muvaffaqiyatli yuborildi!', 'success');
+      toast('Buyurtma kassaga yuborildi!', 'success');
       setCart([]);
       setSelectedCustomer(null);
       setCustomerSearch('');
       setSuccess(true);
-
-      // Auto-reset success state after 3 seconds
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       play('error');
       console.error('Submit error:', err);
-      toast("Kassaga yuborishda xatolik yuz berdi", 'error');
+      toast("Buyurtma yuborishda xatolik", 'error');
     } finally {
       setSubmitting(false);
     }
@@ -300,119 +320,113 @@ export function HelperPage() {
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))] flex-col overflow-hidden bg-surface-secondary">
-      {/* ═══ Top: Scanner Area ═══ */}
+      {/* ═══ Top: Search + Scanner ═══ */}
       <div className="shrink-0 bg-surface" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-              <ScanBarcode className="h-4 w-4" />
+              <ShoppingBag className="h-4 w-4" />
             </div>
-            <h1 className="text-base font-bold text-text-primary">Skaner</h1>
+            <h1 className="text-base font-bold text-text-primary">Buyurtma</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {detectorSupported && (
               <button
-                onClick={() => {
-                  if (scanning) {
-                    stopCamera();
-                  } else {
-                    setManualMode(false);
-                    startCamera();
-                  }
-                }}
+                onClick={() => { if (scanning) stopCamera(); else { setManualMode(false); startCamera(); } }}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors',
-                  scanning
-                    ? 'bg-danger-50 text-danger-600 hover:bg-danger-100'
-                    : 'bg-primary-50 text-primary-600 hover:bg-primary-100',
+                  'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                  scanning ? 'bg-danger-50 text-danger-600' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
                 )}
                 style={{ minHeight: 'auto', minWidth: 'auto' }}
               >
                 {scanning ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
-                {scanning ? "To'xtatish" : 'Kamera'}
+                {scanning ? "Stop" : 'Skaner'}
               </button>
             )}
             <button
-              onClick={() => {
-                if (scanning) stopCamera();
-                setManualMode(!manualMode);
-                setTimeout(() => manualInputRef.current?.focus(), 100);
-              }}
+              onClick={() => { if (scanning) stopCamera(); setManualMode(!manualMode); setTimeout(() => manualInputRef.current?.focus(), 100); }}
               className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors',
-                manualMode
-                  ? 'bg-primary-100 text-primary-700'
-                  : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
+                'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                manualMode ? 'bg-primary-100 text-primary-700' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
               )}
               style={{ minHeight: 'auto', minWidth: 'auto' }}
             >
               <Keyboard className="h-3.5 w-3.5" />
-              Qo'lda
+              Kod
             </button>
           </div>
         </div>
 
+        {/* Product search */}
+        <div className="relative px-4 pb-3">
+          <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            placeholder="Mahsulot nomi yoki kodi..."
+            className="input !bg-surface-secondary w-full"
+            style={{ paddingLeft: '40px' }}
+          />
+        </div>
+
+        {/* Search results dropdown */}
+        {productSearch.trim().length > 0 && searchProducts.length > 0 && (
+          <div className="mx-4 mb-3 max-h-48 overflow-auto rounded-xl border border-border bg-surface shadow-md">
+            {searchProducts.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => addProduct(p)}
+                className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-surface-secondary active:bg-surface-tertiary transition-colors"
+                style={{ minHeight: 'auto', borderBottom: '1px solid var(--color-border-subtle)' }}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-text-primary leading-snug truncate">{p.name}</p>
+                  <p className="text-[11px] text-text-muted">
+                    {p.code != null && <span className="font-bold">#{p.code} · </span>}
+                    {p.stock} ta · {formatCurrency(Number(p.price))}
+                  </p>
+                </div>
+                <Plus className="h-4 w-4 shrink-0 text-primary-600" />
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Camera view */}
         {scanning && (
-          <div className="relative mx-4 mb-3 overflow-hidden rounded-xl bg-black" style={{ aspectRatio: '16/9', maxHeight: '240px' }}>
-            <video
-              ref={videoRef}
-              className="h-full w-full object-cover"
-              playsInline
-              muted
-              autoPlay
-            />
-            {/* Scan overlay */}
+          <div className="relative mx-4 mb-3 overflow-hidden rounded-xl bg-black" style={{ aspectRatio: '16/9', maxHeight: '200px' }}>
+            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {/* Corner markers */}
               <div className="relative h-[60%] w-[70%]">
-                {/* Top-left */}
                 <div className="absolute left-0 top-0 h-5 w-5 border-l-[3px] border-t-[3px] border-primary-400 rounded-tl-md" />
-                {/* Top-right */}
                 <div className="absolute right-0 top-0 h-5 w-5 border-r-[3px] border-t-[3px] border-primary-400 rounded-tr-md" />
-                {/* Bottom-left */}
                 <div className="absolute bottom-0 left-0 h-5 w-5 border-b-[3px] border-l-[3px] border-primary-400 rounded-bl-md" />
-                {/* Bottom-right */}
                 <div className="absolute bottom-0 right-0 h-5 w-5 border-b-[3px] border-r-[3px] border-primary-400 rounded-br-md" />
-                {/* Scan line animation */}
                 <div className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-primary-400 to-transparent animate-scan-line" />
               </div>
             </div>
-
-            {/* Loading indicator */}
             {lookupLoading && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[11px] text-white backdrop-blur-sm">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Qidirilmoqda...
               </div>
             )}
           </div>
         )}
 
-        {/* No camera / initial state */}
-        {!scanning && !manualMode && (
-          <div className="mx-4 mb-3 flex flex-col items-center justify-center rounded-xl bg-surface-secondary py-8">
-            <ScanBarcode className="h-10 w-10 text-text-muted/30 mb-2" />
-            <p className="text-sm font-medium text-text-muted">Skanerlashni boshlang</p>
-            <p className="text-xs text-text-muted/70 mt-1">
-              {detectorSupported ? "Kamera yoki qo'lda rejimni tanlang" : "Qo'lda rejimni tanlang"}
-            </p>
-          </div>
-        )}
-
-        {/* Manual barcode input */}
+        {/* Manual code input */}
         {manualMode && (
           <form onSubmit={handleManualSubmit} className="mx-4 mb-3 flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
                 ref={manualInputRef}
                 type="text"
                 inputMode="numeric"
                 value={manualBarcode}
                 onChange={(e) => setManualBarcode(e.target.value)}
-                placeholder="Shtrix kodni kiriting..."
+                placeholder="Kodni kiriting..."
                 className="input !bg-surface-secondary"
                 style={{ paddingLeft: '40px' }}
                 autoFocus
@@ -423,17 +437,11 @@ export function HelperPage() {
               disabled={!manualBarcode.trim() || lookupLoading}
               className={cn(
                 'flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white transition-all',
-                manualBarcode.trim() && !lookupLoading
-                  ? 'bg-primary-600 hover:bg-primary-700 active:scale-[0.97]'
-                  : 'bg-gray-300 cursor-not-allowed',
+                manualBarcode.trim() && !lookupLoading ? 'bg-primary-600 hover:bg-primary-700' : 'bg-gray-300 cursor-not-allowed',
               )}
               style={{ minHeight: 'auto', minWidth: 'auto' }}
             >
-              {lookupLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Qidirish'
-              )}
+              {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             </button>
           </form>
         )}
@@ -445,7 +453,7 @@ export function HelperPage() {
           <div className="flex h-full flex-col items-center justify-center text-text-muted px-6">
             <ShoppingBag className="h-12 w-12 mb-3 opacity-20" />
             <p className="text-sm font-medium">Savatcha bo'sh</p>
-            <p className="mt-1 text-xs text-center">Mahsulot shtrix kodini skanerlang</p>
+            <p className="mt-1 text-xs text-center">Mahsulotni qidiring yoki skanerlang</p>
           </div>
         ) : (
           <div className="px-3 py-2">
@@ -588,7 +596,7 @@ export function HelperPage() {
           {success ? (
             <div className="flex items-center justify-center gap-2 rounded-xl bg-success-50 py-3 text-success-700">
               <Check className="h-5 w-5" />
-              <span className="text-sm font-bold">Kassaga yuborildi!</span>
+              <span className="text-sm font-bold">Buyurtma yuborildi!</span>
             </div>
           ) : (
             <button
@@ -607,7 +615,7 @@ export function HelperPage() {
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Kassaga yuborish
+                  Buyurtma yuborish
                 </>
               )}
             </button>

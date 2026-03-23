@@ -41,6 +41,12 @@ export const ERROR_CODES = {
   DEBT_LIMIT_EXCEEDED: 'DEBT_LIMIT_EXCEEDED',
   DEBT_OVERPAYMENT: 'DEBT_OVERPAYMENT',
 
+  // Order
+  ORDER_NOT_FOUND: 'ORDER_NOT_FOUND',
+  ORDER_NOT_PENDING: 'ORDER_NOT_PENDING',
+  ORDER_INVALID_STATUS: 'ORDER_INVALID_STATUS',
+  ORDER_EMPTY_ITEMS: 'ORDER_EMPTY_ITEMS',
+
   // Customer
   CUSTOMER_NOT_FOUND: 'CUSTOMER_NOT_FOUND',
   CUSTOMER_HAS_ACTIVE_DEBTS: 'CUSTOMER_HAS_ACTIVE_DEBTS',
@@ -200,6 +206,22 @@ export const ERROR_MESSAGES: Record<ErrorCode, { uz: string; en: string; ru: str
     uz: 'To\'lov qarz summasidan oshib ketdi',
     en: 'Payment exceeds debt amount',
     ru: 'Платеж превышает сумму долга',
+  },
+  ORDER_NOT_FOUND: { uz: 'Buyurtma topilmadi', en: 'Order not found', ru: 'Заказ не найден' },
+  ORDER_NOT_PENDING: {
+    uz: 'Faqat kutilayotgan buyurtmani o\'zgartirish mumkin',
+    en: 'Only pending orders can be modified',
+    ru: 'Можно изменить только ожидающие заказы',
+  },
+  ORDER_INVALID_STATUS: {
+    uz: 'Buyurtma holati noto\'g\'ri',
+    en: 'Invalid order status transition',
+    ru: 'Неверный переход статуса заказа',
+  },
+  ORDER_EMPTY_ITEMS: {
+    uz: 'Buyurtmada kamida 1 ta mahsulot bo\'lishi kerak',
+    en: 'Order must have at least 1 item',
+    ru: 'В заказе должен быть хотя бы 1 товар',
   },
   CUSTOMER_NOT_FOUND: { uz: 'Mijoz topilmadi', en: 'Customer not found', ru: 'Клиент не найден' },
   CUSTOMER_HAS_ACTIVE_DEBTS: {

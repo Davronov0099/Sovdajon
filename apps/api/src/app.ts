@@ -29,6 +29,7 @@ import { warehouseRoutes } from './modules/warehouses/warehouse.routes.js';
 import { contactRoutes } from './modules/contacts/contact.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
+import { orderRoutes } from './modules/orders/order.routes.js';
 import { versionRoutes } from './modules/version/version.routes.js';
 
 export async function buildApp() {
@@ -148,6 +149,7 @@ export async function buildApp() {
   await app.register(contactRoutes, { prefix: '/api/v1/contacts' });
   await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
   await app.register(userRoutes, { prefix: '/api/v1/users' });
+  await app.register(orderRoutes, { prefix: '/api/v1/orders' });
 
   return app;
 }

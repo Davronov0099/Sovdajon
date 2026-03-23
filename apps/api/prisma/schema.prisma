@@ -105,6 +105,7 @@ model User {
   expenses       Expense[]
   customersCreated Customer[]    @relation("CustomerCreator")
   contactsCreated  Contact[]     @relation("ContactCreator")
+  ordersCreated    Order[]       @relation("OrderCreator")
 
   @@index([login])
   @@index([role])
@@ -298,6 +299,7 @@ model Customer {
   createdBy User?     @relation("CustomerCreator", fields: [createdById], references: [id])
   receipts  Receipt[]
   debts     Debt[]
+  orders    Order[]
 
   @@index([phone])
   @@index([name])
@@ -602,10 +604,13 @@ model Order {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  items OrderItem[]
+  customer    Customer?   @relation(fields: [customerId], references: [id])
+  createdBy   User        @relation("OrderCreator", fields: [createdById], references: [id])
+  items       OrderItem[]
 
   @@index([status])
   @@index([createdAt])
+  @@index([customerId])
 }
 
 model OrderItem {
