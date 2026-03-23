@@ -166,15 +166,15 @@ export function SuppliersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
-                    <Link to="/suppliers/$supplierId/import" params={{ supplierId: sup.id }} className="flex h-6 w-6 items-center justify-center rounded-md bg-info-50 text-info-600 hover:bg-info-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Kirim">
-                      <ArrowDownToLine className="h-3 w-3" />
+                  <div className="mt-auto flex items-center gap-1.5 pt-1.5" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
+                    <Link to="/suppliers/$supplierId/import" params={{ supplierId: sup.id }} className="flex h-8 w-8 items-center justify-center rounded-lg bg-info-50 text-info-600 hover:bg-info-100 active:bg-info-200 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Kirim">
+                      <ArrowDownToLine className="h-3.5 w-3.5" />
                     </Link>
-                    <button onClick={() => openEdit(sup)} className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-surface-secondary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
-                      <Pencil className="h-3 w-3" />
+                    <button onClick={() => openEdit(sup)} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary active:bg-surface-tertiary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
+                      <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setDeleteConfirm({ id: sup.id, name: sup.name })} className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="O'chirish">
-                      <Trash2 className="h-3 w-3" />
+                    <button onClick={() => setDeleteConfirm({ id: sup.id, name: sup.name })} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger-50 hover:text-danger-600 active:bg-danger-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="O'chirish">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>

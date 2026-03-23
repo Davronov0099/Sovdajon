@@ -47,8 +47,6 @@ async function checkForUpdate() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') checkForUpdate();
 });
-// Har 3 daqiqada tekshirish
-setInterval(checkForUpdate, 3 * 60 * 1000);
 
 const router = createRouter({
   routeTree,
@@ -60,6 +58,9 @@ const router = createRouter({
     }
   },
 });
+
+// Har sahifa o'tishda yangi deploy tekshirish
+router.subscribe('onResolved', checkForUpdate);
 
 declare module '@tanstack/react-router' {
   interface Register {

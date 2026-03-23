@@ -35,7 +35,7 @@ export function CustomersPage() {
   const [phone, setPhone] = useState('+998');
   const [formViloyat, setFormViloyat] = useState('');
   const [formTuman, setFormTuman] = useState('');
-  const [debtLimit, setDebtLimit] = useState('');
+
   const [note, setNote] = useState('');
   const [formCategoryId, setFormCategoryId] = useState('');
 
@@ -100,7 +100,7 @@ export function CustomersPage() {
 
   const [formStartDate, setFormStartDate] = useState('');
 
-  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setDebtLimit(''); setNote(''); setFormCategoryId(''); setFormStartDate(''); }
+  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setNote(''); setFormCategoryId(''); setFormStartDate(''); }
 
   function getWorkDuration(startDate: string | null): string {
     if (!startDate) return '';
@@ -123,20 +123,20 @@ export function CustomersPage() {
     if (!name.trim()) { toast('Ismni kiriting', 'error'); return; }
     if (!phone || phone.length < 13) { toast('Telefon raqamni kiriting', 'error'); return; }
     try {
-      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
+      await createMut.mutateAsync({ name: name.trim(), phone, address: buildAddress(), note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
       toast('Mijoz yaratildi', 'success');
       setModalOpen(false); resetForm();
     } catch { toast("Yaratish xatosi", 'error'); }
-  }, [name, phone, formViloyat, formTuman, debtLimit, note, formStartDate, formCategoryId, createMut, toast]);
+  }, [name, phone, formViloyat, formTuman, note, formStartDate, formCategoryId, createMut, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editModal || !name.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), debtLimit: debtLimit ? Number(debtLimit) : undefined, note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
+      await updateMut.mutateAsync({ id: editModal.id, name: name.trim(), phone, address: buildAddress(), note: note || undefined, startDate: formStartDate || undefined, categoryId: formCategoryId || null });
       toast('Yangilandi', 'success');
       setEditModal(null);
     } catch { toast('Yangilash xatosi', 'error'); }
-  }, [editModal, name, phone, formViloyat, formTuman, debtLimit, note, formStartDate, formCategoryId, updateMut, toast]);
+  }, [editModal, name, phone, formViloyat, formTuman, note, formStartDate, formCategoryId, updateMut, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -151,7 +151,7 @@ export function CustomersPage() {
     setName(c.name); setPhone(c.phone);
     const parts = (c.address || '').split(',').map((s) => s.trim());
     setFormViloyat(parts[0] || ''); setFormTuman(parts[1] || '');
-    setDebtLimit(c.debtLimit ? String(c.debtLimit) : ''); setNote(c.note || '');
+    setNote(c.note || '');
     setFormCategoryId(c.categoryId || '');
     setFormStartDate(c.startDate ? c.startDate.slice(0, 10) : '');
     setEditModal({ id: c.id });
@@ -360,12 +360,12 @@ export function CustomersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => openEdit(c)} className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-surface-secondary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
-                      <Pencil className="h-3 w-3" />
+                  <div className="mt-auto flex items-center gap-1.5 pt-1.5" style={{ borderTop: '1px solid var(--color-border-subtle)' }} onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => openEdit(c)} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary active:bg-surface-tertiary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
+                      <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setDeleteConfirm({ id: c.id, name: c.name })} className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="O'chirish">
-                      <Trash2 className="h-3 w-3" />
+                    <button onClick={() => setDeleteConfirm({ id: c.id, name: c.name })} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger-50 hover:text-danger-600 active:bg-danger-100 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="O'chirish">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -408,7 +408,6 @@ export function CustomersPage() {
             </div>
           </div>
           <Input id="c-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
-          <Input id="c-limit" label="Qarz chegarasi" type="number" value={debtLimit} onChange={(e) => setDebtLimit(e.target.value)} placeholder="0 = chegarasiz" />
           <Input id="c-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={createMut.isPending}>{t('common.cancel')}</Button>
@@ -442,7 +441,6 @@ export function CustomersPage() {
             </div>
           </div>
           <Input id="e-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
-          <Input id="e-limit" label="Qarz chegarasi" type="number" value={debtLimit} onChange={(e) => setDebtLimit(e.target.value)} />
           <Input id="e-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setEditModal(null)} disabled={updateMut.isPending}>{t('common.cancel')}</Button>
