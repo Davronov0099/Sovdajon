@@ -20,7 +20,7 @@ window.addEventListener('vite:preloadError', () => {
 });
 sessionStorage.removeItem('chunk-reload');
 
-/* ─── SSE orqali real-time deploy bildirishnomasi ─── */
+/* ─── Real-time deploy bildirishnomasi (SSE + fallback) ─── */
 function showUpdateBanner() {
   if (document.getElementById('update-banner')) return;
   const banner = document.createElement('div');
@@ -36,7 +36,17 @@ function showUpdateBanner() {
   setTimeout(() => window.location.reload(), 1500);
 }
 
+const CURRENT_SCRIPT = document.querySelector('script[src*="/assets/index-"]')?.getAttribute('src') ?? '';
 let initialVersion: string | null = null;
+
+// Fallback: index.html orqali tekshirish (SSE ishlamasa)
+async function checkViaHtml() {
+  try {
+    const html = await fetch('/index.html', { cache: 'no-store' }).then((r) => r.text());
+    const match = html.match(/src="(\/assets\/index-[^"]+)"/);
+    if (match && match[1] && match[1] !== CURRENT_SCRIPT) showUpdateBanner();
+  } catch { /* ignore */ }
+}
 
 function connectVersionSSE() {
   const es = new EventSource('/api/v1/version/stream');
@@ -45,20 +55,30 @@ function connectVersionSSE() {
     try {
       const { version } = JSON.parse(event.data);
       if (!initialVersion) {
-        // Birinchi ulanish — versiyani eslab qolish
         initialVersion = version;
       } else if (version !== initialVersion) {
-        // Versiya o'zgargan — yangi deploy!
         showUpdateBanner();
       }
-    } catch { /* ignore parse errors */ }
+    } catch { /* ignore */ }
   };
 
   es.onerror = () => {
-    // Ulanish uzildi (pm2 restart) — browser avtomatik qayta ulanadi
-    // EventSource o'zi reconnect qiladi, biz hech narsa qilmaymiz
+    // Ulanish uzildi — backend restart bo'lgan
+    es.close();
+    // 3s kutib qayta ulanish (backend ishga tushguncha)
+    setTimeout(() => {
+      // Avval HTML fallback bilan tekshirish (frontend yangilangan bo'lishi mumkin)
+      checkViaHtml();
+      // Keyin SSE qayta ulanish
+      connectVersionSSE();
+    }, 3000);
   };
 }
+
+// Tab'ga qaytganda ham tekshirish (fallback)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkViaHtml();
+});
 
 const router = createRouter({
   routeTree,
