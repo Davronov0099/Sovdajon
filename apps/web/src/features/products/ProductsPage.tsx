@@ -360,7 +360,7 @@ export function ProductsPage() {
             .price{font-size:${priceFontPrint};font-weight:900;color:#111;letter-spacing:-0.5px}
           </style></head><body>
             <div class="top">
-              <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrProduct!.id)}"/></div>
+              <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(String(qrProduct!.code ?? qrProduct!.id))}"/></div>
               <div class="info">${code}<p class="name">${qrProduct!.name}</p></div>
             </div>
             <div class="bottom"><p class="price">${priceText}</p></div>
@@ -380,7 +380,7 @@ export function ProductsPage() {
               <div className="bg-[#e8f540] rounded-xl p-3 mb-4" style={{ border: '2px solid #333' }}>
                 <div className="flex items-start gap-2.5 mb-2">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrProduct.id)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(String(qrProduct.code ?? qrProduct.id))}`}
                     alt="QR"
                     className="w-[56px] h-[56px] rounded shrink-0"
                     style={{ background: '#fff', padding: '2px' }}
