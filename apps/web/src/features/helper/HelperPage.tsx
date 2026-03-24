@@ -89,14 +89,10 @@ export function HelperPage() {
   const lastScannedTimeRef = useRef(0);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
-  const [detectorSupported, setDetectorSupported] = useState(false);
-  const [hasCamera, setHasCamera] = useState(true);
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.BarcodeDetector) setDetectorSupported(true);
-    // Kamera borligini tekshirish
-    navigator.mediaDevices?.enumerateDevices?.().then((devices) => {
-      setHasCamera(devices.some((d) => d.kind === 'videoinput'));
-    }).catch(() => setHasCamera(false));
+    if (typeof window !== 'undefined' && window.BarcodeDetector) {
+      detectorRef.current = null; // will be created when camera starts
+    }
   }, []);
 
   /* ─── Camera ─── */
@@ -567,7 +563,7 @@ export function HelperPage() {
               </div>
             </div>
 
-            {/* Quantity selector — tugmali, klaviatura chiqmaydi */}
+            {/* Quantity selector — input + tugmalar */}
             <div className="mb-4">
               <div className="flex items-center justify-center gap-3 mb-3">
                 <button
@@ -577,9 +573,17 @@ export function HelperPage() {
                 >
                   <Minus className="h-6 w-6" />
                 </button>
-                <div className="flex h-16 w-28 items-center justify-center rounded-2xl bg-surface-secondary text-3xl font-black text-text-primary tabular-nums select-none" style={{ border: '2px solid var(--color-border)' }}>
-                  {qtyValue}
-                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={qtyValue}
+                  onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQtyValue(v); else if (e.target.value === '') setQtyValue(1); }}
+                  onFocus={(e) => e.target.select()}
+                  className="h-16 w-28 rounded-2xl bg-surface-secondary text-center text-3xl font-black text-text-primary tabular-nums focus:outline-2 focus:outline-primary-500"
+                  style={{ border: '2px solid var(--color-border)', fontSize: '28px', caretColor: 'var(--color-primary-600)' }}
+                  autoFocus
+                />
                 <button
                   onClick={() => setQtyValue(qtyValue + 1)}
                   className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-tertiary text-text-primary hover:bg-success-50 hover:text-success-600 active:scale-[0.93] transition-all"
@@ -588,7 +592,7 @@ export function HelperPage() {
                   <Plus className="h-6 w-6" />
                 </button>
               </div>
-              {/* Tez tanlash tugmalari */}
+              {/* Tez tanlash */}
               <div className="flex items-center justify-center gap-2">
                 {[1, 5, 10, 20, 50, 100].map((n) => (
                   <button
