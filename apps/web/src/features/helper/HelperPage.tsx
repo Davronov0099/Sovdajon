@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Camera, CameraOff, Keyboard, Search, Minus, Plus, X,
-  ShoppingBag, Send, User, Check, Loader2, ScanBarcode, Package,
+  ShoppingBag, Send, User, Check, Loader2, ScanBarcode, Package, Trash2,
 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { api } from '@/services/api';
@@ -18,7 +18,7 @@ interface HelperCartItem {
   price: number;
   costPrice: number;
   quantity: number;
-  discount: number;
+  stock: number;
 }
 
 interface ProductLookupResult {
@@ -27,14 +27,14 @@ interface ProductLookupResult {
   price: string | number;
   costPrice: string | number;
   stock: number;
+  code: number | null;
+  images: string[];
 }
 
-/* ─── BarcodeDetector type (native API) ─── */
+/* ─── BarcodeDetector type ─── */
 interface DetectedBarcode {
   rawValue: string;
   format: string;
-  boundingBox: DOMRectReadOnly;
-  cornerPoints: { x: number; y: number }[];
 }
 
 interface BarcodeDetectorInstance {
@@ -50,21 +50,25 @@ declare global {
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   HelperPage — Barcode skaner + savatcha + kassaga yuborish
-   ═══════════════════════════════════════════════════ */
+/* ═════════════════════════════════════════
+   HelperPage — Professional buyurtma tizimi
+   ═════════════════════════════════════════ */
 export function HelperPage() {
   const { play } = useSound();
   const { toast } = useToast();
 
-  // Cart state (local, helper-specific)
+  // Cart
   const [cart, setCart] = useState<HelperCartItem[]>([]);
   const [scanning, setScanning] = useState(false);
   const [manualMode, setManualMode] = useState(false);
-  const [manualBarcode, setManualBarcode] = useState('');
+  const [manualCode, setManualCode] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Quantity modal
+  const [qtyModal, setQtyModal] = useState<ProductLookupResult | null>(null);
+  const [qtyValue, setQtyValue] = useState(1);
 
   // Customer
   const [customerSearch, setCustomerSearch] = useState('');
@@ -81,223 +85,145 @@ export function HelperPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastScannedRef = useRef<string>('');
-  const lastScannedTimeRef = useRef<number>(0);
+  const lastScannedRef = useRef('');
+  const lastScannedTimeRef = useRef(0);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
-  // BarcodeDetector support check
   const [detectorSupported, setDetectorSupported] = useState(false);
-
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.BarcodeDetector) {
-      setDetectorSupported(true);
-    }
+    if (typeof window !== 'undefined' && window.BarcodeDetector) setDetectorSupported(true);
   }, []);
 
-  /* ─── Camera start/stop ─── */
+  /* ─── Camera ─── */
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
       setScanning(true);
-
-      // Create detector
       if (window.BarcodeDetector) {
         detectorRef.current = new window.BarcodeDetector({
           formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'code_93', 'upc_a', 'upc_e', 'qr_code'],
         });
       }
-    } catch (err) {
-      console.error('Camera error:', err);
-      toast("Kamerani ochib bo'lmadi. Ruxsat berilganini tekshiring.", 'error');
+    } catch {
+      toast("Kamerani ochib bo'lmadi", 'error');
       setManualMode(true);
     }
   }, [toast]);
 
   const stopCamera = useCallback(() => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    if (scanIntervalRef.current) { clearInterval(scanIntervalRef.current); scanIntervalRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+    if (videoRef.current) videoRef.current.srcObject = null;
     detectorRef.current = null;
     setScanning(false);
   }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stopCamera]);
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
-  /* ─── Product lookup by barcode ─── */
-  const lookupBarcode = useCallback(async (barcode: string) => {
-    if (!barcode.trim()) return;
-
-    // Debounce same barcode within 2 seconds
+  /* ─── Product lookup — modal chiqaradi ─── */
+  const lookupCode = useCallback(async (code: string) => {
+    if (!code.trim()) return;
     const now = Date.now();
-    if (barcode === lastScannedRef.current && now - lastScannedTimeRef.current < 2000) {
-      return;
-    }
-    lastScannedRef.current = barcode;
+    if (code === lastScannedRef.current && now - lastScannedTimeRef.current < 2000) return;
+    lastScannedRef.current = code;
     lastScannedTimeRef.current = now;
 
     setLookupLoading(true);
     try {
-      const res = await api.get(`products/code/${encodeURIComponent(Number(barcode.trim()))}`).json<{
+      const res = await api.get(`products/code/${encodeURIComponent(Number(code.trim()))}`).json<{
         success: boolean;
         data: ProductLookupResult;
       }>();
-
       if (res.success && res.data) {
-        const product = res.data;
-        play('add-to-cart');
-
-        setCart((prev) => {
-          const existing = prev.find((item) => item.productId === product.id);
-          if (existing) {
-            return prev.map((item) =>
-              item.productId === product.id
-                ? { ...item, quantity: item.quantity + 1 }
-                : item,
-            );
-          }
-          return [
-            ...prev,
-            {
-              productId: product.id,
-              name: product.name,
-              price: Number(product.price),
-              costPrice: Number(product.costPrice),
-              quantity: 1,
-              discount: 0,
-            },
-          ];
-        });
-
-        toast(`${product.name} qo'shildi`, 'success');
+        play('scan');
+        // Agar savatchada bo'lsa, quantity modal ochish
+        const existing = cart.find((i) => i.productId === res.data.id);
+        setQtyValue(existing ? existing.quantity + 1 : 1);
+        setQtyModal(res.data);
       }
-    } catch (err) {
+    } catch {
       play('error');
-      console.error('Barcode lookup error:', err);
-      toast(`Shtrix kod topilmadi: ${barcode}`, 'error');
+      toast(`Kod topilmadi: ${code}`, 'error');
     } finally {
       setLookupLoading(false);
     }
-  }, [play, toast]);
+  }, [play, toast, cart]);
 
-  /* ─── Barcode scanning loop ─── */
+  /* ─── Scan loop ─── */
   useEffect(() => {
     if (!scanning || !detectorRef.current || !videoRef.current) return;
-
     const detector = detectorRef.current;
     const video = videoRef.current;
-
     scanIntervalRef.current = setInterval(async () => {
       if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
       try {
         const barcodes = await detector.detect(video);
-        if (barcodes.length > 0 && barcodes[0]) {
-          const code = barcodes[0].rawValue;
-          if (code) {
-            play('scan');
-            lookupBarcode(code);
-          }
+        if (barcodes.length > 0 && barcodes[0]?.rawValue) {
+          lookupCode(barcodes[0].rawValue);
         }
-      } catch {
-        // Ignore detection errors
-      }
+      } catch { /* ignore */ }
     }, 500);
+    return () => { if (scanIntervalRef.current) { clearInterval(scanIntervalRef.current); scanIntervalRef.current = null; } };
+  }, [scanning, lookupCode]);
 
-    return () => {
-      if (scanIntervalRef.current) {
-        clearInterval(scanIntervalRef.current);
-        scanIntervalRef.current = null;
-      }
-    };
-  }, [scanning, lookupBarcode, play]);
-
-  /* ─── Manual barcode submit ─── */
-  function handleManualSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (manualBarcode.trim()) {
-      lookupBarcode(manualBarcode.trim());
-      setManualBarcode('');
-      manualInputRef.current?.focus();
-    }
-  }
-
-  /* ─── Add product from search ─── */
-  function addProduct(product: { id: string; name: string; price: number | string; costPrice: number | string; stock: number }) {
+  /* ─── Quantity modal → savatga qo'shish ─── */
+  function confirmAddToCart() {
+    if (!qtyModal || qtyValue < 1) return;
+    const p = qtyModal;
     play('add-to-cart');
     setCart((prev) => {
-      const existing = prev.find((item) => item.productId === product.id);
+      const existing = prev.find((i) => i.productId === p.id);
       if (existing) {
-        return prev.map((item) =>
-          item.productId === product.id ? { ...item, quantity: item.quantity + 1 } : item,
-        );
+        return prev.map((i) => i.productId === p.id ? { ...i, quantity: qtyValue } : i);
       }
       return [
-        { productId: product.id, name: product.name, price: Number(product.price), costPrice: Number(product.costPrice), quantity: 1, discount: 0 },
+        { productId: p.id, name: p.name, price: Number(p.price), costPrice: Number(p.costPrice), quantity: qtyValue, stock: p.stock },
         ...prev,
       ];
+    });
+    toast(`${p.name} — ${qtyValue} ta qo'shildi`, 'success');
+    setQtyModal(null);
+    setQtyValue(1);
+  }
+
+  /* ─── Add from search ─── */
+  function addFromSearch(p: typeof searchProducts[0]) {
+    const existing = cart.find((i) => i.productId === p.id);
+    setQtyValue(existing ? existing.quantity + 1 : 1);
+    setQtyModal({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      costPrice: p.costPrice,
+      stock: p.stock,
+      code: p.code ?? null,
+      images: p.images ?? [],
     });
     setProductSearch('');
   }
 
-  /* ─── Cart operations ─── */
+  /* ─── Cart ops ─── */
   function updateQuantity(productId: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-            : item,
-        ),
-    );
+    setCart((prev) => prev.map((i) => i.productId === productId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   }
+  function removeItem(productId: string) { setCart((prev) => prev.filter((i) => i.productId !== productId)); play('delete'); }
+  function clearCart() { setCart([]); play('delete'); }
 
-  function removeItem(productId: string) {
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
-    play('delete');
-  }
-
-  function clearCart() {
-    setCart([]);
-    play('delete');
-  }
-
-  /* ─── Submit order to admin ─── */
+  /* ─── Submit ─── */
   async function handleSubmit() {
     if (cart.length === 0) return;
     setSubmitting(true);
-
     try {
       await api.post('orders', {
         json: {
-          items: cart.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.price,
-          })),
+          items: cart.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.price })),
           customerId: selectedCustomer?.id ?? undefined,
         },
       }).json();
-
       play('success');
       toast('Buyurtma kassaga yuborildi!', 'success');
       setCart([]);
@@ -305,58 +231,124 @@ export function HelperPage() {
       setCustomerSearch('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch {
       play('error');
-      console.error('Submit error:', err);
       toast("Buyurtma yuborishda xatolik", 'error');
     } finally {
       setSubmitting(false);
     }
   }
 
-  /* ─── Calculated values ─── */
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity * (1 - item.discount / 100), 0);
-  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const itemCount = cart.reduce((s, i) => s + i.quantity, 0);
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))] flex-col overflow-hidden bg-surface-secondary">
-      {/* ═══ Top: Search + Scanner ═══ */}
+
+      {/* ═══ Top: Scanner + Search ═══ */}
       <div className="shrink-0 bg-surface" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-              <ShoppingBag className="h-4 w-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+              <ShoppingBag className="h-4.5 w-4.5" />
             </div>
-            <h1 className="text-base font-bold text-text-primary">Buyurtma</h1>
+            <div>
+              <h1 className="text-base font-bold text-text-primary leading-none">Buyurtma</h1>
+              {itemCount > 0 && (
+                <p className="text-[11px] text-text-muted mt-0.5">{itemCount} ta mahsulot · {formatCurrency(total)}</p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {detectorSupported && (
               <button
                 onClick={() => { if (scanning) stopCamera(); else { setManualMode(false); startCamera(); } }}
                 className={cn(
-                  'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
-                  scanning ? 'bg-danger-50 text-danger-600' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
+                  'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
+                  scanning
+                    ? 'bg-danger-600 text-white shadow-sm'
+                    : 'bg-primary-600 text-white shadow-sm hover:bg-primary-700',
                 )}
                 style={{ minHeight: 'auto', minWidth: 'auto' }}
               >
-                {scanning ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
-                {scanning ? "Stop" : 'Skaner'}
+                {scanning ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+                {scanning ? 'Stop' : 'Skaner'}
               </button>
             )}
             <button
               onClick={() => { if (scanning) stopCamera(); setManualMode(!manualMode); setTimeout(() => manualInputRef.current?.focus(), 100); }}
               className={cn(
-                'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
-                manualMode ? 'bg-primary-100 text-primary-700' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
+                'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
+                manualMode ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary text-text-secondary hover:bg-surface-tertiary/80',
               )}
               style={{ minHeight: 'auto', minWidth: 'auto' }}
             >
-              <Keyboard className="h-3.5 w-3.5" />
+              <Keyboard className="h-4 w-4" />
               Kod
             </button>
           </div>
         </div>
+
+        {/* Camera */}
+        {scanning && (
+          <div className="relative mx-4 mb-3 overflow-hidden rounded-2xl bg-black shadow-lg" style={{ aspectRatio: '16/9', maxHeight: '220px' }}>
+            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
+            {/* Scanner frame */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="relative h-[55%] w-[65%]">
+                <div className="absolute left-0 top-0 h-6 w-6 border-l-[3px] border-t-[3px] border-white rounded-tl-lg" />
+                <div className="absolute right-0 top-0 h-6 w-6 border-r-[3px] border-t-[3px] border-white rounded-tr-lg" />
+                <div className="absolute bottom-0 left-0 h-6 w-6 border-b-[3px] border-l-[3px] border-white rounded-bl-lg" />
+                <div className="absolute bottom-0 right-0 h-6 w-6 border-b-[3px] border-r-[3px] border-white rounded-br-lg" />
+                <div className="absolute left-2 right-2 top-1/2 h-[2px] bg-gradient-to-r from-transparent via-primary-400 to-transparent animate-pulse" />
+              </div>
+            </div>
+            {/* Hint */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1.5 text-[11px] text-white/80 backdrop-blur-sm">
+              {lookupLoading ? (
+                <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Qidirilmoqda...</span>
+              ) : (
+                'QR yoki shtrix kodni ko\'rsating'
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Manual code input */}
+        {manualMode && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (manualCode.trim()) { lookupCode(manualCode.trim()); setManualCode(''); } }}
+            className="mx-4 mb-3 flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <input
+                ref={manualInputRef}
+                type="text"
+                inputMode="numeric"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                placeholder="Mahsulot kodini kiriting..."
+                className="input !bg-surface-secondary w-full"
+                style={{ paddingLeft: '40px', fontSize: '16px' }}
+                autoFocus
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!manualCode.trim() || lookupLoading}
+              className={cn(
+                'flex h-11 w-11 items-center justify-center rounded-xl text-white transition-all shrink-0',
+                manualCode.trim() && !lookupLoading ? 'bg-primary-600 hover:bg-primary-700 active:scale-[0.95]' : 'bg-gray-300',
+              )}
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </button>
+          </form>
+        )}
 
         {/* Product search */}
         <div className="relative px-4 pb-3">
@@ -365,219 +357,150 @@ export function HelperPage() {
             type="text"
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
-            placeholder="Mahsulot nomi yoki kodi..."
+            placeholder="Mahsulot nomi yoki kodi bilan qidirish..."
             className="input !bg-surface-secondary w-full"
-            style={{ paddingLeft: '40px' }}
+            style={{ paddingLeft: '40px', fontSize: '16px' }}
           />
+          {productSearch && (
+            <button
+              onClick={() => setProductSearch('')}
+              className="absolute right-7 top-1/2 -translate-y-1/2 p-1 text-text-muted"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Search results dropdown */}
+        {/* Search results */}
         {productSearch.trim().length > 0 && searchProducts.length > 0 && (
-          <div className="mx-4 mb-3 max-h-48 overflow-auto rounded-xl border border-border bg-surface shadow-md">
-            {searchProducts.map((p) => (
+          <div className="mx-4 mb-3 max-h-52 overflow-auto rounded-xl bg-surface shadow-lg" style={{ border: '1px solid var(--color-border)' }}>
+            {searchProducts.map((p, i) => (
               <button
                 key={p.id}
-                onClick={() => addProduct(p)}
-                className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-surface-secondary active:bg-surface-tertiary transition-colors"
-                style={{ minHeight: 'auto', borderBottom: '1px solid var(--color-border-subtle)' }}
+                onClick={() => addFromSearch(p)}
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-secondary active:bg-surface-tertiary transition-colors"
+                style={{ minHeight: 'auto', borderBottom: i < searchProducts.length - 1 ? '1px solid var(--color-border-subtle)' : undefined }}
               >
+                {p.images?.[0] ? (
+                  <img src={p.images[0]} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" loading="lazy" />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-tertiary shrink-0"><Package className="h-4 w-4 text-text-muted/30" /></div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-semibold text-text-primary leading-snug truncate">{p.name}</p>
-                  <p className="text-[11px] text-text-muted">
-                    {p.code != null && <span className="font-bold">#{p.code} · </span>}
-                    {p.stock} ta · {formatCurrency(Number(p.price))}
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    {p.code != null && <span className="font-bold text-primary-600">#{p.code}</span>}
+                    {p.code != null && ' · '}{p.stock} ta · <span className="font-semibold text-text-primary">{formatCurrency(Number(p.price))}</span>
                   </p>
                 </div>
-                <Plus className="h-4 w-4 shrink-0 text-primary-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600 shrink-0">
+                  <Plus className="h-4 w-4" />
+                </div>
               </button>
             ))}
           </div>
         )}
-
-        {/* Camera view */}
-        {scanning && (
-          <div className="relative mx-4 mb-3 overflow-hidden rounded-xl bg-black" style={{ aspectRatio: '16/9', maxHeight: '200px' }}>
-            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="relative h-[60%] w-[70%]">
-                <div className="absolute left-0 top-0 h-5 w-5 border-l-[3px] border-t-[3px] border-primary-400 rounded-tl-md" />
-                <div className="absolute right-0 top-0 h-5 w-5 border-r-[3px] border-t-[3px] border-primary-400 rounded-tr-md" />
-                <div className="absolute bottom-0 left-0 h-5 w-5 border-b-[3px] border-l-[3px] border-primary-400 rounded-bl-md" />
-                <div className="absolute bottom-0 right-0 h-5 w-5 border-b-[3px] border-r-[3px] border-primary-400 rounded-br-md" />
-                <div className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-primary-400 to-transparent animate-scan-line" />
-              </div>
-            </div>
-            {lookupLoading && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[11px] text-white backdrop-blur-sm">
-                <Loader2 className="h-3 w-3 animate-spin" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Manual code input */}
-        {manualMode && (
-          <form onSubmit={handleManualSubmit} className="mx-4 mb-3 flex items-center gap-2">
-            <div className="relative flex-1">
-              <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
-              <input
-                ref={manualInputRef}
-                type="text"
-                inputMode="numeric"
-                value={manualBarcode}
-                onChange={(e) => setManualBarcode(e.target.value)}
-                placeholder="Kodni kiriting..."
-                className="input !bg-surface-secondary"
-                style={{ paddingLeft: '40px' }}
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!manualBarcode.trim() || lookupLoading}
-              className={cn(
-                'flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white transition-all',
-                manualBarcode.trim() && !lookupLoading ? 'bg-primary-600 hover:bg-primary-700' : 'bg-gray-300 cursor-not-allowed',
-              )}
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-            >
-              {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            </button>
-          </form>
-        )}
       </div>
 
-      {/* ═══ Middle: Cart Items ═══ */}
+      {/* ═══ Middle: Cart ═══ */}
       <div className="flex-1 overflow-auto">
         {cart.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-text-muted px-6">
-            <ShoppingBag className="h-12 w-12 mb-3 opacity-20" />
-            <p className="text-sm font-medium">Savatcha bo'sh</p>
-            <p className="mt-1 text-xs text-center">Mahsulotni qidiring yoki skanerlang</p>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-tertiary/50 mb-4">
+              <ShoppingBag className="h-8 w-8 opacity-20" />
+            </div>
+            <p className="text-sm font-semibold text-text-secondary">Savatcha bo'sh</p>
+            <p className="mt-1 text-xs text-center">Mahsulotni skanerlang yoki qidiruvdan toping</p>
           </div>
         ) : (
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 space-y-1.5">
             {/* Cart header */}
-            <div className="flex items-center justify-between px-1 pb-2">
+            <div className="flex items-center justify-between px-1 pb-1.5">
               <p className="text-[13px] font-bold text-text-primary">
                 Savatcha
                 <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-bold text-white">
                   {itemCount}
                 </span>
               </p>
-              <button
-                onClick={clearCart}
-                className="text-[11px] font-medium text-danger-600 hover:text-danger-700 transition-colors"
-                style={{ minHeight: 'auto', minWidth: 'auto' }}
-              >
+              <button onClick={clearCart} className="flex items-center gap-1 text-[11px] font-medium text-danger-600 hover:text-danger-700" style={{ minHeight: 'auto', minWidth: 'auto' }}>
+                <Trash2 className="h-3 w-3" />
                 Tozalash
               </button>
             </div>
 
-            {/* Items */}
-            <div className="space-y-1">
-              {cart.map((item) => {
-                const lineTotal = item.price * item.quantity * (1 - item.discount / 100);
-                return (
-                  <div
-                    key={item.productId}
-                    className="rounded-xl bg-surface px-3 py-2.5 transition-colors"
-                    style={{ border: '1px solid var(--color-border-subtle)' }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[13px] font-semibold text-text-primary leading-snug line-clamp-2 flex-1 min-w-0">
-                        {item.name}
-                      </p>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[13px] font-bold text-text-primary tabular-nums whitespace-nowrap">
-                          {formatCurrency(lineTotal)}
-                        </span>
-                        <button
-                          onClick={() => removeItem(item.productId)}
-                          className="rounded-md p-0.5 text-danger-400 hover:bg-danger-50 hover:text-danger-600 transition-all"
-                          style={{ minHeight: 'auto', minWidth: 'auto' }}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-1.5 flex items-center justify-between">
-                      <p className="text-xs text-text-muted tabular-nums">
-                        {formatCurrency(item.price)} x {item.quantity}
-                      </p>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateQuantity(item.productId, -1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
-                          style={{ minHeight: 'auto', minWidth: 'auto' }}
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="flex h-7 min-w-[32px] items-center justify-center rounded-lg border border-border bg-surface-secondary/80 text-xs font-bold text-text-primary tabular-nums px-2">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.productId, 1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
-                          style={{ minHeight: 'auto', minWidth: 'auto' }}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
+            {cart.map((item) => (
+              <div key={item.productId} className="rounded-xl bg-surface px-3 py-2.5" style={{ border: '1px solid var(--color-border-subtle)' }}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[13px] font-semibold text-text-primary leading-snug line-clamp-2 flex-1 min-w-0">
+                    {item.name}
+                  </p>
+                  <button onClick={() => removeItem(item.productId)} className="rounded-md p-1 text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-all shrink-0" style={{ minHeight: 'auto', minWidth: 'auto' }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => updateQuantity(item.productId, -1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-text-muted hover:bg-surface-tertiary active:scale-[0.95] transition-all" style={{ minHeight: 'auto', minWidth: 'auto' }}>
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="flex h-8 min-w-[36px] items-center justify-center rounded-lg bg-surface-secondary text-sm font-bold text-text-primary tabular-nums px-2">
+                      {item.quantity}
+                    </span>
+                    <button onClick={() => updateQuantity(item.productId, 1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-text-muted hover:bg-surface-tertiary active:scale-[0.95] transition-all" style={{ minHeight: 'auto', minWidth: 'auto' }}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="text-right">
+                    <p className="text-[13px] font-bold text-text-primary tabular-nums">{formatCurrency(item.price * item.quantity)}</p>
+                    <p className="text-[10px] text-text-muted tabular-nums">{formatCurrency(item.price)} × {item.quantity}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
       {/* ═══ Bottom: Customer + Submit ═══ */}
       {cart.length > 0 && (
-        <div className="shrink-0 bg-surface p-4 space-y-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-          {/* Customer selector */}
+        <div className="shrink-0 bg-surface p-4 space-y-3" style={{ borderTop: '1px solid var(--color-border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)' }}>
+          {/* Customer */}
           <div>
-            <p className="text-[12px] font-semibold text-text-secondary mb-1.5">Mijoz (ixtiyoriy)</p>
             {selectedCustomer ? (
-              <div className="flex items-center justify-between rounded-lg bg-surface-secondary px-3 py-2">
+              <div className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-primary-600">
-                    <User className="h-3 w-3" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-primary-600">
+                    <User className="h-3.5 w-3.5" />
                   </div>
-                  <span className="text-[13px] font-medium text-text-primary">{selectedCustomer.name}</span>
+                  <span className="text-[13px] font-semibold text-text-primary">{selectedCustomer.name}</span>
                 </div>
-                <button
-                  onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}
-                  className="text-[11px] font-medium text-danger-600 hover:text-danger-700"
-                  style={{ minHeight: 'auto', minWidth: 'auto' }}
-                >
+                <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }} className="text-[11px] font-medium text-danger-600" style={{ minHeight: 'auto', minWidth: 'auto' }}>
                   Bekor
                 </button>
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
                 <input
                   type="text"
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Mijoz qidirish..."
-                  className="input !text-[13px] !py-2"
+                  placeholder="Mijoz qidirish (ixtiyoriy)..."
+                  className="input !text-[13px] w-full"
+                  style={{ paddingLeft: '36px', fontSize: '16px' }}
                 />
-                {searchResults?.data && searchResults.data.length > 0 && (
-                  <div className="max-h-28 overflow-auto rounded-lg border border-border">
+                {searchResults?.data && searchResults.data.length > 0 && customerSearch && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-36 overflow-auto rounded-xl bg-surface shadow-lg" style={{ border: '1px solid var(--color-border)' }}>
                     {searchResults.data.map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => {
-                          setSelectedCustomer({ id: c.id, name: c.name });
-                          setCustomerSearch('');
-                        }}
-                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] hover:bg-surface-secondary transition-colors"
+                        onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerSearch(''); }}
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-surface-secondary transition-colors"
                         style={{ minHeight: 'auto' }}
                       >
-                        <span className="font-medium text-text-primary">{c.name}</span>
-                        <span className="text-text-muted">{c.phone}</span>
+                        <span className="text-[13px] font-medium text-text-primary">{c.name}</span>
+                        <span className="text-[11px] text-text-muted">{c.phone}</span>
                       </button>
                     ))}
                   </div>
@@ -586,40 +509,113 @@ export function HelperPage() {
             )}
           </div>
 
-          {/* Total */}
-          <div className="flex justify-between items-baseline pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-            <span className="text-sm font-semibold text-text-primary">Jami</span>
-            <span className="text-xl font-bold text-text-primary tabular-nums">{formatCurrency(total)}</span>
-          </div>
-
-          {/* Submit button */}
-          {success ? (
-            <div className="flex items-center justify-center gap-2 rounded-xl bg-success-50 py-3 text-success-700">
-              <Check className="h-5 w-5" />
-              <span className="text-sm font-bold">Buyurtma yuborildi!</span>
+          {/* Total + Submit */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-[11px] text-text-muted">Jami summa</p>
+              <p className="text-xl font-bold text-text-primary tabular-nums leading-tight">{formatCurrency(total)}</p>
             </div>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || cart.length === 0}
-              className={cn(
-                'flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-all',
-                !submitting && cart.length > 0
-                  ? 'bg-success-600 hover:bg-success-700 active:scale-[0.98] shadow-sm'
-                  : 'bg-gray-300 cursor-not-allowed',
-              )}
-              style={{ minHeight: 'auto' }}
-            >
-              {submitting ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+            {success ? (
+              <div className="flex items-center gap-2 rounded-xl bg-success-50 px-5 py-3 text-success-700">
+                <Check className="h-5 w-5" />
+                <span className="text-sm font-bold">Yuborildi!</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl px-6 py-3 text-[14px] font-bold text-white transition-all active:scale-[0.97]',
+                  !submitting ? 'bg-success-600 hover:bg-success-700 shadow-md' : 'bg-gray-300',
+                )}
+                style={{ minHeight: 'auto' }}
+              >
+                {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Send className="h-4 w-4" />Yuborish</>}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Quantity Modal ═══ */}
+      {qtyModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setQtyModal(null)}>
+          <div className="absolute inset-0 bg-black/40 animate-fade-in" />
+          <div
+            className="relative z-10 w-full max-w-sm mx-auto bg-surface rounded-t-2xl sm:rounded-2xl p-5 animate-slide-up sm:animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Product info */}
+            <div className="flex items-start gap-3 mb-5">
+              {qtyModal.images?.[0] ? (
+                <img src={qtyModal.images[0]} alt="" className="h-14 w-14 rounded-xl object-cover shrink-0" />
               ) : (
-                <>
-                  <Send className="h-4 w-4" />
-                  Buyurtma yuborish
-                </>
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-surface-tertiary shrink-0">
+                  <Package className="h-6 w-6 text-text-muted/30" />
+                </div>
               )}
-            </button>
-          )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-bold text-text-primary leading-snug line-clamp-2">{qtyModal.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {qtyModal.code != null && <span className="text-[11px] font-bold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">#{qtyModal.code}</span>}
+                  <span className="text-[12px] text-text-muted">{qtyModal.stock} ta mavjud</span>
+                </div>
+                <p className="text-base font-bold text-primary-600 tabular-nums mt-1">{formatCurrency(Number(qtyModal.price))}</p>
+              </div>
+            </div>
+
+            {/* Quantity selector */}
+            <div className="flex items-center justify-center gap-4 mb-5">
+              <button
+                onClick={() => setQtyValue(Math.max(1, qtyValue - 1))}
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-secondary text-text-primary hover:bg-surface-tertiary active:scale-[0.95] transition-all"
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+              >
+                <Minus className="h-5 w-5" />
+              </button>
+              <input
+                type="number"
+                value={qtyValue}
+                onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQtyValue(v); }}
+                className="h-14 w-24 rounded-xl bg-surface-secondary text-center text-2xl font-bold text-text-primary tabular-nums focus:outline-2 focus:outline-primary-500"
+                style={{ fontSize: '24px' }}
+                min={1}
+                autoFocus
+              />
+              <button
+                onClick={() => setQtyValue(qtyValue + 1)}
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-secondary text-text-primary hover:bg-surface-tertiary active:scale-[0.95] transition-all"
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Total for this item */}
+            <div className="text-center mb-4">
+              <span className="text-[12px] text-text-muted">Summa: </span>
+              <span className="text-lg font-bold text-text-primary tabular-nums">{formatCurrency(Number(qtyModal.price) * qtyValue)}</span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setQtyModal(null)}
+                className="flex-1 rounded-xl py-3 text-[14px] font-semibold text-text-secondary hover:bg-surface-secondary transition-colors"
+                style={{ minHeight: 'auto', border: '1px solid var(--color-border)' }}
+              >
+                Bekor
+              </button>
+              <button
+                onClick={confirmAddToCart}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white bg-primary-600 hover:bg-primary-700 active:scale-[0.97] transition-all shadow-sm"
+                style={{ minHeight: 'auto' }}
+              >
+                <Plus className="h-4 w-4" />
+                Qo'shish
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
