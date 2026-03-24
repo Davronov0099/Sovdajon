@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Camera, CameraOff, Keyboard, Search, Minus, Plus, X,
+  Search, Minus, Plus, X,
   ShoppingBag, Send, User, Check, Loader2, ScanBarcode, Package, Trash2,
 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
@@ -60,9 +60,9 @@ export function HelperPage() {
   // Cart
   const [cart, setCart] = useState<HelperCartItem[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualCode, setManualCode] = useState('');
-  const [lookupLoading, setLookupLoading] = useState(false);
+  const [scannerManualCode, setScannerManualCode] = useState('');
+  const [scanLookupLoading, setScanLookupLoading] = useState(false);
+  const [lastFoundName, setLastFoundName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -87,7 +87,7 @@ export function HelperPage() {
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastScannedRef = useRef('');
   const lastScannedTimeRef = useRef(0);
-  const manualInputRef = useRef<HTMLInputElement>(null);
+  const scannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.BarcodeDetector) {
@@ -111,7 +111,7 @@ export function HelperPage() {
       }
     } catch {
       toast("Kamerani ochib bo'lmadi", 'error');
-      setManualMode(true);
+      setScanning(false);
     }
   }, [toast]);
 
@@ -120,8 +120,14 @@ export function HelperPage() {
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
     if (videoRef.current) videoRef.current.srcObject = null;
     detectorRef.current = null;
-    setScanning(false);
   }, []);
+
+  function closeScannerModal() {
+    stopCamera();
+    setScanning(false);
+    setScannerManualCode('');
+    setLastFoundName('');
+  }
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
@@ -133,7 +139,7 @@ export function HelperPage() {
     lastScannedRef.current = code;
     lastScannedTimeRef.current = now;
 
-    setLookupLoading(true);
+    setScanLookupLoading(true);
     try {
       const res = await api.get(`products/code/${encodeURIComponent(Number(code.trim()))}`).json<{
         success: boolean;
@@ -141,7 +147,7 @@ export function HelperPage() {
       }>();
       if (res.success && res.data) {
         play('scan');
-        // Agar savatchada bo'lsa, quantity modal ochish
+        setLastFoundName(res.data.name);
         const existing = cart.find((i) => i.productId === res.data.id);
         setQtyValue(existing ? existing.quantity + 1 : 1);
         setQtyModal(res.data);
@@ -150,7 +156,7 @@ export function HelperPage() {
       play('error');
       toast(`Kod topilmadi: ${code}`, 'error');
     } finally {
-      setLookupLoading(false);
+      setScanLookupLoading(false);
     }
   }, [play, toast, cart]);
 
@@ -262,92 +268,15 @@ export function HelperPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => { if (scanning) stopCamera(); else { setManualMode(false); startCamera(); } }}
-              className={cn(
-                'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
-                scanning
-                  ? 'bg-danger-600 text-white shadow-sm'
-                  : 'bg-primary-600 text-white shadow-sm hover:bg-primary-700',
-              )}
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-            >
-              {scanning ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-              {scanning ? 'Stop' : 'Skaner'}
-            </button>
-            <button
-              onClick={() => { if (scanning) stopCamera(); setManualMode(!manualMode); setTimeout(() => manualInputRef.current?.focus(), 100); }}
-              className={cn(
-                'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
-                manualMode ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary text-text-secondary hover:bg-surface-tertiary/80',
-              )}
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-            >
-              <Keyboard className="h-4 w-4" />
-              Kod
-            </button>
-          </div>
-        </div>
-
-        {/* Camera */}
-        {scanning && (
-          <div className="relative mx-4 mb-3 overflow-hidden rounded-2xl bg-black shadow-lg" style={{ aspectRatio: '16/9', maxHeight: '220px' }}>
-            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
-            {/* Scanner frame */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="relative h-[55%] w-[65%]">
-                <div className="absolute left-0 top-0 h-6 w-6 border-l-[3px] border-t-[3px] border-white rounded-tl-lg" />
-                <div className="absolute right-0 top-0 h-6 w-6 border-r-[3px] border-t-[3px] border-white rounded-tr-lg" />
-                <div className="absolute bottom-0 left-0 h-6 w-6 border-b-[3px] border-l-[3px] border-white rounded-bl-lg" />
-                <div className="absolute bottom-0 right-0 h-6 w-6 border-b-[3px] border-r-[3px] border-white rounded-br-lg" />
-                <div className="absolute left-2 right-2 top-1/2 h-[2px] bg-gradient-to-r from-transparent via-primary-400 to-transparent animate-pulse" />
-              </div>
-            </div>
-            {/* Hint */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1.5 text-[11px] text-white/80 backdrop-blur-sm">
-              {lookupLoading ? (
-                <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Qidirilmoqda...</span>
-              ) : (
-                'QR yoki shtrix kodni ko\'rsating'
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Manual code input */}
-        {manualMode && (
-          <form
-            onSubmit={(e) => { e.preventDefault(); if (manualCode.trim()) { lookupCode(manualCode.trim()); setManualCode(''); } }}
-            className="mx-4 mb-3 flex items-center gap-2"
+          <button
+            onClick={() => { setScanning(true); startCamera(); }}
+            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-primary-700 active:scale-[0.95] transition-all"
+            style={{ minHeight: 'auto', minWidth: 'auto' }}
           >
-            <div className="relative flex-1">
-              <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted pointer-events-none" />
-              <input
-                ref={manualInputRef}
-                type="text"
-                inputMode="numeric"
-                value={manualCode}
-                onChange={(e) => setManualCode(e.target.value)}
-                placeholder="Mahsulot kodini kiriting..."
-                className="input !bg-surface-secondary w-full"
-                style={{ paddingLeft: '40px', fontSize: '16px' }}
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!manualCode.trim() || lookupLoading}
-              className={cn(
-                'flex h-11 w-11 items-center justify-center rounded-xl text-white transition-all shrink-0',
-                manualCode.trim() && !lookupLoading ? 'bg-primary-600 hover:bg-primary-700 active:scale-[0.95]' : 'bg-gray-300',
-              )}
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-            >
-              {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            </button>
-          </form>
-        )}
+            <ScanBarcode className="h-4.5 w-4.5" />
+            Skanerlash
+          </button>
+        </div>
 
         {/* Product search */}
         <div className="relative px-4 pb-3">
@@ -531,6 +460,112 @@ export function HelperPage() {
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Send className="h-4 w-4" />Yuborish</>}
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Scanner Modal — fullscreen ═══ */}
+      {scanning && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          {/* Header */}
+          <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm z-10">
+            <div className="min-w-0 flex-1">
+              {lastFoundName ? (
+                <div className="flex items-center gap-2 animate-fade-in">
+                  <Check className="h-4 w-4 text-success-400 shrink-0" />
+                  <p className="text-[13px] font-semibold text-success-400 truncate">{lastFoundName} qo'shildi</p>
+                </div>
+              ) : (
+                <p className="text-[13px] text-white/60">QR yoki shtrix kodni ko'rsating</p>
+              )}
+            </div>
+            <button
+              onClick={closeScannerModal}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 active:scale-[0.93] transition-all shrink-0 ml-3"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Camera view — markazda */}
+          <div className="flex-1 relative">
+            <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" playsInline muted autoPlay />
+            {/* Scanner frame */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="relative" style={{ width: '65%', maxWidth: '280px', aspectRatio: '1' }}>
+                <div className="absolute left-0 top-0 h-8 w-8 border-l-[3px] border-t-[3px] border-white rounded-tl-xl" />
+                <div className="absolute right-0 top-0 h-8 w-8 border-r-[3px] border-t-[3px] border-white rounded-tr-xl" />
+                <div className="absolute bottom-0 left-0 h-8 w-8 border-b-[3px] border-l-[3px] border-white rounded-bl-xl" />
+                <div className="absolute bottom-0 right-0 h-8 w-8 border-b-[3px] border-r-[3px] border-white rounded-br-xl" />
+                {/* Animated scan line */}
+                <div className="absolute left-3 right-3 h-[2px] bg-gradient-to-r from-transparent via-primary-400 to-transparent" style={{ animation: 'scanLine 2s ease-in-out infinite', top: '50%' }} />
+              </div>
+            </div>
+            {/* Loading overlay */}
+            {scanLookupLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <div className="flex items-center gap-2 rounded-full bg-black/70 px-5 py-2.5 text-white backdrop-blur-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-[13px] font-medium">Qidirilmoqda...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom — manual code input */}
+          <div className="shrink-0 bg-black/80 backdrop-blur-sm px-4 py-4" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (scannerManualCode.trim()) {
+                  lookupCode(scannerManualCode.trim());
+                  setScannerManualCode('');
+                  scannerInputRef.current?.focus();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <ScanBarcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40 pointer-events-none" />
+                <input
+                  ref={scannerInputRef}
+                  type="text"
+                  inputMode="numeric"
+                  value={scannerManualCode}
+                  onChange={(e) => setScannerManualCode(e.target.value)}
+                  placeholder="Kodni qo'lda kiriting..."
+                  className="w-full rounded-xl bg-white/10 text-white placeholder-white/40 px-4 py-3 focus:outline-2 focus:outline-primary-500"
+                  style={{ paddingLeft: '40px', fontSize: '16px', border: '1px solid rgba(255,255,255,0.15)' }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!scannerManualCode.trim() || scanLookupLoading}
+                className={cn(
+                  'flex h-12 w-12 items-center justify-center rounded-xl transition-all shrink-0',
+                  scannerManualCode.trim() && !scanLookupLoading
+                    ? 'bg-primary-600 text-white active:scale-[0.93]'
+                    : 'bg-white/10 text-white/30',
+                )}
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+              >
+                {scanLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-5 w-5" />}
+              </button>
+            </form>
+            {/* Savatcha holati */}
+            {itemCount > 0 && (
+              <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <p className="text-[12px] text-white/50">{itemCount} ta mahsulot savatda</p>
+                <button
+                  onClick={closeScannerModal}
+                  className="text-[13px] font-semibold text-primary-400 hover:text-primary-300"
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                >
+                  Savatga qaytish →
+                </button>
+              </div>
             )}
           </div>
         </div>
