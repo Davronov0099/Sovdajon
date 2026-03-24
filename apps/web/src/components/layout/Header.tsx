@@ -150,9 +150,10 @@ export function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  const isAdmin = user?.role === 'ADMIN';
   const { data: statsData } = useProductStats();
   const stats = statsData?.data;
-  const notifCount = (stats?.outOfStock ?? 0) + (stats?.lowStock ?? 0);
+  const notifCount = isAdmin ? (stats?.outOfStock ?? 0) + (stats?.lowStock ?? 0) : 0;
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -237,10 +238,10 @@ export function Header() {
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </button>
 
-        {/* USD Rate */}
+        {/* USD Rate — admin tahrirlaydi, boshqalar faqat ko'radi */}
         <div className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5">
           <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-          {rateEdit ? (
+          {isAdmin && rateEdit ? (
             <input
               type="number"
               defaultValue={usdRate}
@@ -254,10 +255,13 @@ export function Header() {
             />
           ) : (
             <button
-              onClick={() => setRateEdit(true)}
-              className="text-[13px] font-bold text-text-primary tabular-nums hover:text-primary-600 transition-colors"
+              onClick={() => isAdmin && setRateEdit(true)}
+              className={cn(
+                'text-[13px] font-bold text-text-primary tabular-nums transition-colors',
+                isAdmin ? 'hover:text-primary-600 cursor-pointer' : 'cursor-default',
+              )}
               style={{ minHeight: 'auto', minWidth: 'auto' }}
-              title="Dollar kursini o'zgartirish"
+              title={isAdmin ? "Dollar kursini o'zgartirish" : undefined}
             >
               {usdRate.toLocaleString()}
             </button>
@@ -265,23 +269,25 @@ export function Header() {
           <span className="text-[10px] text-text-muted hidden sm:inline">so'm</span>
         </div>
 
-        {/* Notifications */}
-        <div className="relative" ref={notifRef}>
-          <button
-            onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
-            className="relative inline-flex items-center justify-center rounded-lg p-2 sm:p-2.5 text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
-            aria-label="Bildirishnomalar"
-            style={{ minHeight: 'auto', minWidth: 'auto' }}
-          >
-            <Bell className="h-4 w-4" />
-            {notifCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[9px] font-bold text-white ring-2 ring-surface">
-                {notifCount}
-              </span>
-            )}
-          </button>
-          {notifOpen && <NotificationsPanel onClose={handleCloseNotif} />}
-        </div>
+        {/* Notifications — faqat admin */}
+        {isAdmin && (
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
+              className="relative inline-flex items-center justify-center rounded-lg p-2 sm:p-2.5 text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
+              aria-label="Bildirishnomalar"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <Bell className="h-4 w-4" />
+              {notifCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[9px] font-bold text-white ring-2 ring-surface">
+                  {notifCount}
+                </span>
+              )}
+            </button>
+            {notifOpen && <NotificationsPanel onClose={handleCloseNotif} />}
+          </div>
+        )}
 
         {/* User avatar */}
         {user && (
