@@ -90,8 +90,13 @@ export function HelperPage() {
   const manualInputRef = useRef<HTMLInputElement>(null);
 
   const [detectorSupported, setDetectorSupported] = useState(false);
+  const [hasCamera, setHasCamera] = useState(true);
   useEffect(() => {
     if (typeof window !== 'undefined' && window.BarcodeDetector) setDetectorSupported(true);
+    // Kamera borligini tekshirish
+    navigator.mediaDevices?.enumerateDevices?.().then((devices) => {
+      setHasCamera(devices.some((d) => d.kind === 'videoinput'));
+    }).catch(() => setHasCamera(false));
   }, []);
 
   /* ─── Camera ─── */
@@ -262,21 +267,19 @@ export function HelperPage() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {detectorSupported && (
-              <button
-                onClick={() => { if (scanning) stopCamera(); else { setManualMode(false); startCamera(); } }}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
-                  scanning
-                    ? 'bg-danger-600 text-white shadow-sm'
-                    : 'bg-primary-600 text-white shadow-sm hover:bg-primary-700',
-                )}
-                style={{ minHeight: 'auto', minWidth: 'auto' }}
-              >
-                {scanning ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-                {scanning ? 'Stop' : 'Skaner'}
-              </button>
-            )}
+            <button
+              onClick={() => { if (scanning) stopCamera(); else { setManualMode(false); startCamera(); } }}
+              className={cn(
+                'flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all active:scale-[0.95]',
+                scanning
+                  ? 'bg-danger-600 text-white shadow-sm'
+                  : 'bg-primary-600 text-white shadow-sm hover:bg-primary-700',
+              )}
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              {scanning ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+              {scanning ? 'Stop' : 'Skaner'}
+            </button>
             <button
               onClick={() => { if (scanning) stopCamera(); setManualMode(!manualMode); setTimeout(() => manualInputRef.current?.focus(), 100); }}
               className={cn(
@@ -564,37 +567,51 @@ export function HelperPage() {
               </div>
             </div>
 
-            {/* Quantity selector */}
-            <div className="flex items-center justify-center gap-4 mb-5">
-              <button
-                onClick={() => setQtyValue(Math.max(1, qtyValue - 1))}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-secondary text-text-primary hover:bg-surface-tertiary active:scale-[0.95] transition-all"
-                style={{ minHeight: 'auto', minWidth: 'auto' }}
-              >
-                <Minus className="h-5 w-5" />
-              </button>
-              <input
-                type="number"
-                value={qtyValue}
-                onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQtyValue(v); }}
-                className="h-14 w-24 rounded-xl bg-surface-secondary text-center text-2xl font-bold text-text-primary tabular-nums focus:outline-2 focus:outline-primary-500"
-                style={{ fontSize: '24px' }}
-                min={1}
-                autoFocus
-              />
-              <button
-                onClick={() => setQtyValue(qtyValue + 1)}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-secondary text-text-primary hover:bg-surface-tertiary active:scale-[0.95] transition-all"
-                style={{ minHeight: 'auto', minWidth: 'auto' }}
-              >
-                <Plus className="h-5 w-5" />
-              </button>
+            {/* Quantity selector — tugmali, klaviatura chiqmaydi */}
+            <div className="mb-4">
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <button
+                  onClick={() => setQtyValue(Math.max(1, qtyValue - 1))}
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-tertiary text-text-primary hover:bg-danger-50 hover:text-danger-600 active:scale-[0.93] transition-all"
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                >
+                  <Minus className="h-6 w-6" />
+                </button>
+                <div className="flex h-16 w-28 items-center justify-center rounded-2xl bg-surface-secondary text-3xl font-black text-text-primary tabular-nums select-none" style={{ border: '2px solid var(--color-border)' }}>
+                  {qtyValue}
+                </div>
+                <button
+                  onClick={() => setQtyValue(qtyValue + 1)}
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-tertiary text-text-primary hover:bg-success-50 hover:text-success-600 active:scale-[0.93] transition-all"
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                >
+                  <Plus className="h-6 w-6" />
+                </button>
+              </div>
+              {/* Tez tanlash tugmalari */}
+              <div className="flex items-center justify-center gap-2">
+                {[1, 5, 10, 20, 50, 100].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setQtyValue(n)}
+                    className={cn(
+                      'rounded-lg px-2.5 py-1.5 text-[12px] font-bold tabular-nums transition-all active:scale-[0.93]',
+                      qtyValue === n
+                        ? 'bg-primary-600 text-white shadow-sm'
+                        : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
+                    )}
+                    style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Total for this item */}
-            <div className="text-center mb-4">
-              <span className="text-[12px] text-text-muted">Summa: </span>
-              <span className="text-lg font-bold text-text-primary tabular-nums">{formatCurrency(Number(qtyModal.price) * qtyValue)}</span>
+            <div className="flex items-center justify-between rounded-xl bg-surface-secondary px-4 py-3 mb-4">
+              <span className="text-[13px] text-text-muted">Summa</span>
+              <span className="text-xl font-bold text-text-primary tabular-nums">{formatCurrency(Number(qtyModal.price) * qtyValue)}</span>
             </div>
 
             {/* Actions */}
