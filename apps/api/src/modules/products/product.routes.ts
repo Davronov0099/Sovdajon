@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { createProductSchema, updateProductSchema, idParamSchema } from '@sardorbek/shared';
+import { createProductSchema, updateProductSchema, bulkUpdateProductsSchema, idParamSchema } from '@sardorbek/shared';
 import { requireAuth, requireRole } from '../../plugins/auth.js';
 import { validateBody, validateParams } from '../../plugins/validate.js';
 import * as service from './product.service.js';
@@ -15,6 +15,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       categoryId: q.categoryId,
       subCategoryId: q.subCategoryId,
       stockStatus: q.stockStatus as 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE',
+      priceStatus: q.priceStatus as 'WITH_PRICE' | 'NO_PRICE',
       sortBy: q.sortBy,
       sortOrder: (q.sortOrder as 'asc' | 'desc') ?? 'desc',
     });
@@ -47,6 +48,15 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     );
     try { emitToAll('product:created', { id: product.id, name: product.name }); } catch { /* */ }
     reply.status(201).send({ success: true, data: product });
+  });
+
+  app.patch('/bulk', { preHandler: [requireRole('ADMIN'), validateBody(bulkUpdateProductsSchema)] }, async (req, reply) => {
+    const result = await service.bulkUpdateProducts(
+      req.body as Parameters<typeof service.bulkUpdateProducts>[0],
+      req.userId,
+    );
+    try { emitToAll('product:bulkUpdated', { count: result.updated }); } catch { /* */ }
+    reply.send({ success: true, data: result });
   });
 
   app.patch('/:id', { preHandler: [requireRole('ADMIN'), validateParams(idParamSchema), validateBody(updateProductSchema)] }, async (req, reply) => {

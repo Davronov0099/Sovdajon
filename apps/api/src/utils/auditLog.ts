@@ -5,7 +5,7 @@ import { prisma } from '../config/database.js';
 const log = pino({ name: 'audit' });
 
 export type AuditAction =
-  | 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE'
+  | 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'BULK_UPDATE' | 'DELETE'
   | 'SOFT_DELETE' | 'RESTORE' | 'SALE' | 'RETURN'
   | 'DEBT_CREATE' | 'DEBT_PAY' | 'DEBT_EXTEND'
   | 'SALARY_CALCULATE' | 'SALARY_PAY' | 'SALARY_RECALCULATE'

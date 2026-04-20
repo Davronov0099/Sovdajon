@@ -38,6 +38,7 @@ interface ProductFilters {
   categoryId?: string;
   subCategoryId?: string;
   stockStatus?: string;
+  priceStatus?: string;
 }
 
 export function useProducts(filters: ProductFilters = {}) {
@@ -51,6 +52,7 @@ export function useProducts(filters: ProductFilters = {}) {
       if (filters.categoryId) params.set('categoryId', filters.categoryId);
       if (filters.subCategoryId) params.set('subCategoryId', filters.subCategoryId);
       if (filters.stockStatus) params.set('stockStatus', filters.stockStatus);
+      if (filters.priceStatus) params.set('priceStatus', filters.priceStatus);
 
       return api.get(`products?${params.toString()}`).json<ProductsResponse>();
     },
@@ -63,6 +65,7 @@ interface InfiniteProductFilters {
   categoryId?: string;
   subCategoryId?: string;
   stockStatus?: string;
+  priceStatus?: string;
 }
 
 export function useInfiniteProducts(filters: InfiniteProductFilters = {}) {
@@ -77,6 +80,7 @@ export function useInfiniteProducts(filters: InfiniteProductFilters = {}) {
       if (filters.categoryId) params.set('categoryId', filters.categoryId);
       if (filters.subCategoryId) params.set('subCategoryId', filters.subCategoryId);
       if (filters.stockStatus) params.set('stockStatus', filters.stockStatus);
+      if (filters.priceStatus) params.set('priceStatus', filters.priceStatus);
 
       return api.get(`products?${params.toString()}`).json<ProductsResponse>();
     },
@@ -92,6 +96,7 @@ interface ProductStats {
   total: number;
   lowStock: number;
   outOfStock: number;
+  noPrice: number;
   totalValue: number;
 }
 
@@ -137,6 +142,22 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`products/${id}`).json(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
+export interface BulkUpdateInput {
+  ids: string[];
+  data: Partial<CreateProductInput>;
+}
+
+export function useBulkUpdateProducts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BulkUpdateInput) =>
+      api.patch('products/bulk', { json: input }).json<{ success: boolean; data: { updated: number; missingIds: string[] } }>(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },

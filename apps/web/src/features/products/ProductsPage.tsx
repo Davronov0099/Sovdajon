@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Archive, AlertTriangle, TrendingDown, ChevronLeft, ChevronRight, Loader2, QrCode, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Package, Archive, AlertTriangle, TrendingDown, Tag, ChevronLeft, ChevronRight, Loader2, QrCode, Pencil, Trash2, CheckSquare, Square, X, Pencil as PencilIcon } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { SearchInput } from '@/components/common/SearchInput';
 import { useInfiniteProducts, useProductStats, useDeleteProduct } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { ProductModal } from './ProductModal';
+import { BulkEditModal } from './BulkEditModal';
 import { cn } from '@/lib/cn';
 
 /* ─── Product Card (memoized) ─── */
@@ -22,14 +23,24 @@ interface ProductCardProps {
     category: { id: string; name: string } | null;
     subCategory: { id: string; name: string } | null;
   };
+  selectionMode: boolean;
+  selected: boolean;
   onEdit: (id: string) => void;
+  onToggleSelect: (id: string) => void;
   onQr: (p: { name: string; id: string; price: string; code: number | null }) => void;
   onDelete: (id: string, name: string) => void;
 }
 
-const ProductCard = memo(function ProductCard({ product, onEdit, onQr, onDelete }: ProductCardProps) {
+const ProductCard = memo(function ProductCard({ product, selectionMode, selected, onEdit, onToggleSelect, onQr, onDelete }: ProductCardProps) {
   const hasImage = product.images && product.images.length > 0 && product.images[0];
   const stockColor = product.stock === 0 ? 'bg-danger-600' : product.stock <= product.minStock ? 'bg-warning-600' : 'bg-success-600';
+  const priceNum = Number(product.price);
+  const noPrice = !Number.isFinite(priceNum) || priceNum <= 0;
+
+  const handleClick = () => {
+    if (selectionMode) onToggleSelect(product.id);
+    else onEdit(product.id);
+  };
 
   return (
     <div
@@ -37,13 +48,23 @@ const ProductCard = memo(function ProductCard({ product, onEdit, onQr, onDelete 
         'group relative flex flex-col overflow-hidden rounded-xl bg-surface cursor-pointer transition-all duration-150',
         'hover:shadow-card-hover hover:-translate-y-0.5',
         product.stock === 0 && 'opacity-50',
+        selected && 'ring-2 ring-primary-500 ring-offset-1',
       )}
       style={{ border: '1px solid var(--color-border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
-      onClick={() => onEdit(product.id)}
+      onClick={handleClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onEdit(product.id)}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
     >
+      {selectionMode && (
+        <div className="absolute top-2 right-2 z-10 rounded-md bg-white/90 p-0.5 shadow-sm">
+          {selected ? (
+            <CheckSquare className="h-5 w-5 text-primary-600" />
+          ) : (
+            <Square className="h-5 w-5 text-text-muted" />
+          )}
+        </div>
+      )}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
         {hasImage ? (
           <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" loading="lazy" />
@@ -69,9 +90,16 @@ const ProductCard = memo(function ProductCard({ product, onEdit, onQr, onDelete 
         <p className="mt-0.5 text-[10px] sm:text-[11px] text-text-muted truncate">
           {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
         </p>
-        <p className="mt-1 text-sm sm:text-base font-bold text-primary-600 tabular-nums">
-          {formatCurrency(Number(product.price))}
-        </p>
+        {noPrice ? (
+          <p className="mt-1 inline-flex w-fit items-center gap-1 rounded-md bg-warning-50 px-1.5 py-0.5 text-[11px] sm:text-xs font-semibold text-warning-700">
+            <Tag className="h-3 w-3" />
+            Narxsiz
+          </p>
+        ) : (
+          <p className="mt-1 text-sm sm:text-base font-bold text-primary-600 tabular-nums">
+            {formatCurrency(priceNum)}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-1 px-2 pb-2" onClick={(e) => e.stopPropagation()}>
@@ -112,6 +140,10 @@ export function ProductsPage() {
   const [categoryId, setCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
   const [stockFilter, setStockFilter] = useState('');
+  const [priceFilter, setPriceFilter] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Record<string, unknown> | null>(null);
   const [qrProduct, setQrProduct] = useState<{ name: string; id: string; price: string; code: number | null } | null>(null);
@@ -120,7 +152,7 @@ export function ProductsPage() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteProducts({
-    search, categoryId, subCategoryId, stockStatus: stockFilter, limit: 200,
+    search, categoryId, subCategoryId, stockStatus: stockFilter, priceStatus: priceFilter, limit: 200,
   });
   const { data: statsData, isLoading: statsLoading } = useProductStats();
   const { data: catData } = useCategories();
@@ -173,6 +205,30 @@ export function ProductsPage() {
     }
   }, [deleteMut]);
 
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const p of productsRef.current) next.add(p.id);
+      return next;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
   return (
     <div className="p-4 sm:p-6 animate-fade-in">
       {/* Header */}
@@ -181,11 +237,62 @@ export function ProductsPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-text-primary">{t('nav.products')}</h1>
           <p className="text-sm text-text-muted mt-0.5">Mahsulot boshqaruvi</p>
         </div>
-        <button onClick={() => { setEditProduct(null); setModalOpen(true); }} className="btn btn-primary btn-md">
-          <Plus className="h-4 w-4" />
-          {t('common.create')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+              selectionMode ? 'bg-primary-600 text-white shadow-sm' : 'bg-surface text-text-secondary hover:bg-surface-secondary',
+            )}
+            style={!selectionMode ? { border: '1px solid var(--color-border)' } : undefined}
+            title={selectionMode ? "Chiqish" : "Tanlash rejimi"}
+          >
+            {selectionMode ? <X className="h-4 w-4" /> : <CheckSquare className="h-4 w-4" />}
+            {selectionMode ? 'Chiqish' : 'Tanlash'}
+          </button>
+          <button onClick={() => { setEditProduct(null); setModalOpen(true); }} className="btn btn-primary btn-md">
+            <Plus className="h-4 w-4" />
+            {t('common.create')}
+          </button>
+        </div>
       </div>
+
+      {/* Selection action bar */}
+      {selectionMode && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-primary-50 px-3 py-2" style={{ border: '1px solid var(--color-primary-200, #c7d2fe)' }}>
+          <span className="text-sm font-semibold text-primary-700">
+            {selectedIds.size} ta tanlandi
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={handleSelectAllVisible}
+              className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary"
+              style={{ border: '1px solid var(--color-border)', minHeight: 'auto' }}
+            >
+              <CheckSquare className="h-3 w-3" />
+              Ko'ringanlarini belgilash
+            </button>
+            <button
+              onClick={handleClearSelection}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary disabled:opacity-40"
+              style={{ border: '1px solid var(--color-border)', minHeight: 'auto' }}
+            >
+              <Square className="h-3 w-3" />
+              Tozalash
+            </button>
+            <button
+              onClick={() => setBulkOpen(true)}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-1 rounded-md bg-primary-600 px-3 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40"
+              style={{ minHeight: 'auto' }}
+            >
+              <PencilIcon className="h-3 w-3" />
+              Birga tahrirlash
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stat filters */}
       <div className="mb-4 flex flex-wrap gap-2">
@@ -199,12 +306,12 @@ export function ProductsPage() {
         ) : stats ? (
           <>
             <button
-              onClick={() => setStockFilter('')}
+              onClick={() => { setStockFilter(''); setPriceFilter(''); }}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
-                !stockFilter ? 'bg-primary-600 text-white shadow-sm' : 'bg-surface text-text-secondary hover:bg-surface-secondary',
+                !stockFilter && !priceFilter ? 'bg-primary-600 text-white shadow-sm' : 'bg-surface text-text-secondary hover:bg-surface-secondary',
               )}
-              style={stockFilter ? { border: '1px solid var(--color-border)' } : undefined}
+              style={stockFilter || priceFilter ? { border: '1px solid var(--color-border)' } : undefined}
             >
               <Package className="h-3.5 w-3.5" />
               Jami <span className="font-bold tabular-nums">{stats.total}</span>
@@ -231,6 +338,28 @@ export function ProductsPage() {
               <TrendingDown className="h-3.5 w-3.5" />
               Tugagan <span className="font-bold tabular-nums">{stats.outOfStock}</span>
             </button>
+            <button
+              onClick={() => setPriceFilter(priceFilter === 'NO_PRICE' ? '' : 'NO_PRICE')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                priceFilter === 'NO_PRICE' ? 'bg-warning-600 text-white shadow-sm' : 'bg-surface text-text-secondary hover:bg-surface-secondary',
+              )}
+              style={priceFilter !== 'NO_PRICE' ? { border: '1px solid var(--color-border)' } : undefined}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Narxsiz <span className="font-bold tabular-nums">{stats.noPrice ?? 0}</span>
+            </button>
+            <button
+              onClick={() => setPriceFilter(priceFilter === 'WITH_PRICE' ? '' : 'WITH_PRICE')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                priceFilter === 'WITH_PRICE' ? 'bg-success-600 text-white shadow-sm' : 'bg-surface text-text-secondary hover:bg-surface-secondary',
+              )}
+              style={priceFilter !== 'WITH_PRICE' ? { border: '1px solid var(--color-border)' } : undefined}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Narxli <span className="font-bold tabular-nums">{(stats.total ?? 0) - (stats.noPrice ?? 0)}</span>
+            </button>
             <div className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-sm text-text-muted" style={{ border: '1px solid var(--color-border)' }}>
               <Archive className="h-3.5 w-3.5 text-info-500" />
               Qiymat: <span className="font-bold text-text-primary tabular-nums">{formatCurrency(stats.totalValue)}</span>
@@ -253,7 +382,7 @@ export function ProductsPage() {
           <ChevronRight className="h-4 w-4" />
         </button>
         <div ref={catScrollRef} className="flex gap-1.5 px-8 py-1.5 overflow-x-auto no-scrollbar" onWheel={(e) => { if (catScrollRef.current && e.deltaY !== 0) { e.preventDefault(); catScrollRef.current.scrollBy({ left: e.deltaY * 2, behavior: 'auto' }); } }}>
-          <button onClick={() => { setCategoryId(''); setSubCategoryId(''); setStockFilter(''); }} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', !categoryId ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
+          <button onClick={() => { setCategoryId(''); setSubCategoryId(''); setStockFilter(''); setPriceFilter(''); }} className={cn('shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all', !categoryId ? 'bg-sidebar text-white shadow-sm' : 'bg-surface-tertiary/70 text-text-secondary hover:bg-surface-tertiary')} style={{ minHeight: '32px', minWidth: 'auto' }}>
             Barchasi
           </button>
           {categories.map((cat) => (
@@ -306,7 +435,10 @@ export function ProductsPage() {
               <ProductCard
                 key={product.id}
                 product={product}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(product.id)}
                 onEdit={handleEdit}
+                onToggleSelect={handleToggleSelect}
                 onQr={handleQr}
                 onDelete={handleDelete}
               />
@@ -331,6 +463,13 @@ export function ProductsPage() {
 
       {/* Modals — grid dan tashqarida, qayta render qilmaydi */}
       <ProductModal open={modalOpen} onClose={() => { setModalOpen(false); setEditProduct(null); }} product={editProduct as import('./ProductModal').ProductData | null} />
+
+      <BulkEditModal
+        open={bulkOpen}
+        selectedIds={Array.from(selectedIds)}
+        onClose={() => setBulkOpen(false)}
+        onApplied={exitSelectionMode}
+      />
 
       {qrProduct && (() => {
         const priceText = formatCurrency(Number(qrProduct.price));

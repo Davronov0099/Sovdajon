@@ -22,6 +22,14 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = createProductSchema.partial();
 
+export const bulkUpdateProductsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500),
+  data: createProductSchema.partial().refine(
+    (d) => Object.keys(d).length > 0,
+    { message: 'At least one field must be provided' },
+  ),
+});
+
 export const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
   icon: z.string().max(50).optional(),
@@ -43,5 +51,6 @@ export const reorderCategoriesSchema = z.object({
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+export type BulkUpdateProductsInput = z.infer<typeof bulkUpdateProductsSchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type CreateSubCategoryInput = z.infer<typeof createSubCategorySchema>;

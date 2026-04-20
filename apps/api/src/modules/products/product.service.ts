@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import { notFound, badRequest } from '../../utils/errors.js';
 import { createAuditLog } from '../../utils/auditLog.js';
-import type { CreateProductInput, UpdateProductInput } from '@sardorbek/shared';
+import type { CreateProductInput, UpdateProductInput, BulkUpdateProductsInput } from '@sardorbek/shared';
 
 interface ListProductsQuery {
   page: number;
@@ -11,12 +11,13 @@ interface ListProductsQuery {
   categoryId?: string;
   subCategoryId?: string;
   stockStatus?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE';
+  priceStatus?: 'WITH_PRICE' | 'NO_PRICE';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
 
 export async function listProducts(query: ListProductsQuery) {
-  const { page, limit, search, categoryId, subCategoryId, stockStatus, sortBy, sortOrder } = query;
+  const { page, limit, search, categoryId, subCategoryId, stockStatus, priceStatus, sortBy, sortOrder } = query;
   const skip = (page - 1) * limit;
 
   const where: Prisma.ProductWhereInput = {
@@ -32,6 +33,8 @@ export async function listProducts(query: ListProductsQuery) {
     ...(stockStatus === 'OUT_OF_STOCK' && { stock: 0 }),
     ...(stockStatus === 'NEGATIVE' && { stock: { lt: 0 } }),
     ...(stockStatus === 'IN_STOCK' && { stock: { gt: 0 } }),
+    ...(priceStatus === 'NO_PRICE' && { price: { lte: 0 } }),
+    ...(priceStatus === 'WITH_PRICE' && { price: { gt: 0 } }),
   };
 
   // LOW_STOCK: stock > 0 AND stock <= minStock (column-to-column — raw SQL kerak)
@@ -82,7 +85,7 @@ export async function listProducts(query: ListProductsQuery) {
 }
 
 export async function getProductStats() {
-  const [total, lowStock, outOfStock, totalValue] = await Promise.all([
+  const [total, lowStock, outOfStock, noPrice, totalValue] = await Promise.all([
     prisma.product.count({ where: { isDeleted: false } }),
     // LOW_STOCK: stock > 0 AND stock <= minStock (raw SQL — column comparison)
     prisma.$queryRaw<[{ count: bigint }]>`
@@ -90,13 +93,14 @@ export async function getProductStats() {
       WHERE stock > 0 AND stock <= "minStock" AND "isDeleted" = false
     `.then((r) => Number(r[0]?.count ?? 0)),
     prisma.product.count({ where: { isDeleted: false, stock: 0 } }),
+    prisma.product.count({ where: { isDeleted: false, price: { lte: 0 } } }),
     prisma.$queryRaw<[{ total: number }]>`
       SELECT COALESCE(SUM(price * stock), 0)::float as total FROM "Product"
       WHERE "isDeleted" = false AND stock > 0
     `.then((r) => r[0]?.total ?? 0),
   ]);
 
-  return { total, lowStock, outOfStock, totalValue };
+  return { total, lowStock, outOfStock, noPrice, totalValue };
 }
 
 export async function getProductByCode(code: number) {
@@ -229,6 +233,65 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
   });
 
   return product;
+}
+
+export async function bulkUpdateProducts(input: BulkUpdateProductsInput, userId: string) {
+  const { ids, data } = input;
+
+  const existing = await prisma.product.findMany({
+    where: { id: { in: ids }, isDeleted: false },
+    select: { id: true, name: true, price: true, costPrice: true },
+  });
+  if (existing.length === 0) throw notFound('PRODUCT_NOT_FOUND');
+
+  const foundIds = new Set(existing.map((p) => p.id));
+  const missingIds = ids.filter((id) => !foundIds.has(id));
+
+  // Fields go directly into Product update; categoryId/subCategoryId need relation connect
+  const { categoryId, subCategoryId, ...rest } = data as Record<string, unknown>;
+  const updateData: Prisma.ProductUpdateManyMutationInput = { ...(rest as Prisma.ProductUpdateManyMutationInput) };
+
+  await prisma.$transaction(async (tx) => {
+    // Update scalar fields in bulk
+    if (Object.keys(updateData).length > 0 || categoryId !== undefined || subCategoryId !== undefined) {
+      await tx.product.updateMany({
+        where: { id: { in: existing.map((p) => p.id) } },
+        data: {
+          ...updateData,
+          ...(categoryId !== undefined && { categoryId: categoryId as string }),
+          ...(subCategoryId !== undefined && { subCategoryId: (subCategoryId as string) || null }),
+        },
+      });
+    }
+
+    // Price-history entries — bir necha bo'lsa ham har biri uchun alohida
+    const priceChanged = data.price !== undefined || data.costPrice !== undefined;
+    if (priceChanged) {
+      for (const p of existing) {
+        await tx.priceHistory.create({
+          data: {
+            productId: p.id,
+            oldPrice: p.price,
+            newPrice: data.price ?? p.price,
+            oldCostPrice: p.costPrice,
+            newCostPrice: data.costPrice ?? p.costPrice,
+            reason: 'BULK_UPDATE',
+            createdById: userId,
+          },
+        });
+      }
+    }
+  });
+
+  await createAuditLog({
+    action: 'BULK_UPDATE',
+    entity: 'Product',
+    entityId: existing.map((p) => p.id).join(','),
+    userId,
+    newData: { count: existing.length, fields: Object.keys(data) },
+  });
+
+  return { updated: existing.length, missingIds };
 }
 
 export async function softDeleteProduct(id: string, userId: string) {
