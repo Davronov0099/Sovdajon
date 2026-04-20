@@ -55,20 +55,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const change = remaining < -0.5 ? Math.abs(remaining) : 0;
   const canConfirm = paidTotal > 0 || items.length > 0;
 
-  // Determine payment method from filled amounts
-  function getPaymentMethod() {
-    const filled = [
-      cashAmount > 0 && 'CASH',
-      cardAmount > 0 && 'CARD',
-      clickAmount > 0 && 'CLICK',
-      debtAmount > 0 && 'DEBT',
-    ].filter(Boolean) as string[];
-
-    if (filled.length === 0) return 'CASH';
-    if (filled.length === 1) return filled[0]!;
-    return 'MIXED';
-  }
-
   // Reset on open
   useEffect(() => {
     if (!open) return;
@@ -221,22 +207,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       setNewCustomerPhone('');
       setShowNewCustomer(false);
     } catch { /* ignore */ }
-  }
-
-  function setFull(setter: (v: number) => void) {
-    const others = [cashAmount, cardAmount, clickAmount, debtAmount];
-    // reset the current one and calculate remaining
-    setter(0);
-    const otherTotal = others.reduce((a, b) => a + b, 0);
-    // Recalculate: we need to subtract out the old value of this field
-    // Since we just set it to 0, let's compute from scratch
-    setTimeout(() => {
-      const currentOthers = cashAmount + cardAmount + clickAmount + debtAmount;
-      const t = debtAmount > 0 ? rawSubtotal : total;
-      const rem = t - currentOthers;
-      if (rem > 0) setter(rem);
-      else setter(t);
-    }, 0);
   }
 
   function handleSetFullCash() {

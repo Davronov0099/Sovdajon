@@ -141,7 +141,7 @@ export const useCartStore = create<CartState>()(
               : 0,
           }));
         }
-        return state as CartState;
+        return state as unknown as CartState;
       },
     },
   ),

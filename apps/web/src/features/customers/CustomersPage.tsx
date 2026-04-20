@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
 import { formatCurrency, formatPhone, UZ_VILOYATLAR, getTumanlar } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';

@@ -17,6 +17,12 @@ interface Product {
   description: string | null;
   category: { id: string; name: string };
   subCategory: { id: string; name: string } | null;
+  discount1Qty: number;
+  discount1Pct: number;
+  discount2Qty: number;
+  discount2Pct: number;
+  discount3Qty: number;
+  discount3Pct: number;
   createdAt: string;
 }
 

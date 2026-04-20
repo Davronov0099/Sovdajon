@@ -15,7 +15,7 @@ interface ProductCardProps {
     id: string;
     code: number | null;
     name: string;
-    price: string;
+    price: string | number;
     stock: number;
     minStock: number;
     unit: string;
@@ -27,7 +27,7 @@ interface ProductCardProps {
   selected: boolean;
   onEdit: (id: string) => void;
   onToggleSelect: (id: string) => void;
-  onQr: (p: { name: string; id: string; price: string; code: number | null }) => void;
+  onQr: (p: { name: string; id: string; price: string | number; code: number | null }) => void;
   onDelete: (id: string, name: string) => void;
 }
 
@@ -146,7 +146,7 @@ export function ProductsPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Record<string, unknown> | null>(null);
-  const [qrProduct, setQrProduct] = useState<{ name: string; id: string; price: string; code: number | null } | null>(null);
+  const [qrProduct, setQrProduct] = useState<{ name: string; id: string; price: string | number; code: number | null } | null>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
   const subScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -182,7 +182,7 @@ export function ProductsPage() {
   const subCategories = useMemo(() => {
     if (!categoryId) return [];
     const cat = categories.find((c) => c.id === categoryId);
-    return ((cat as Record<string, unknown>)?.subCategories as Array<{ id: string; name: string }>) ?? [];
+    return ((cat as unknown as Record<string, unknown>)?.subCategories as Array<{ id: string; name: string }>) ?? [];
   }, [categoryId, categories]);
 
   // Stable callbacks — card qayta renderlanmaydi
@@ -195,7 +195,7 @@ export function ProductsPage() {
     setModalOpen(true);
   }, []);
 
-  const handleQr = useCallback((p: { name: string; id: string; price: string; code: number | null }) => {
+  const handleQr = useCallback((p: { name: string; id: string; price: string | number; code: number | null }) => {
     setQrProduct(p);
   }, []);
 

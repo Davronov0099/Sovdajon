@@ -1,5 +1,4 @@
 import { forwardRef } from 'react';
-import { formatCurrency } from '@sardorbek/shared';
 
 interface ReceiptItem {
   name: string;
@@ -27,12 +26,6 @@ interface ReceiptData {
 
 function formatNum(n: number): string {
   return n.toLocaleString('uz-UZ');
-}
-
-function pad(str: string, len: number, align: 'left' | 'right' = 'left'): string {
-  if (str.length >= len) return str.slice(0, len);
-  const spaces = ' '.repeat(len - str.length);
-  return align === 'right' ? spaces + str : str + spaces;
 }
 
 function now(): string {

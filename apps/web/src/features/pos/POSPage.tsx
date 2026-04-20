@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Search, ShoppingCart, Package, Loader2, X, ClipboardList, Check, Trash2 } from 'lucide-react';
 import { formatCurrency, getStockStatus } from '@sardorbek/shared';
 import { useInfiniteProducts } from '@/hooks/useProducts';
@@ -86,7 +85,6 @@ const POSProductCard = memo(function POSProductCard({ product, onClick }: { prod
 });
 
 export function POSPage() {
-  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
@@ -99,7 +97,6 @@ export function POSPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const { play } = useSound();
   const { toast } = useToast();
 
@@ -326,7 +323,7 @@ export function POSPage() {
           {/* Sub-categories — arrow scroll + mouse wheel */}
           {categoryId && (() => {
             const selectedCat = categories.find((c) => c.id === categoryId);
-            const subs = (selectedCat as Record<string, unknown>)?.subCategories as Array<{ id: string; name: string }> | undefined;
+            const subs = (selectedCat as unknown as Record<string, unknown>)?.subCategories as Array<{ id: string; name: string }> | undefined;
             if (!subs || subs.length === 0) return null;
             return (
               <div className="relative" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
