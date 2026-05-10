@@ -45,17 +45,15 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
     customerName, cashierName,
   } = data;
 
-  const actualPaid = paidCash + paidCard + paidClick + paidDebt;
-  const finalTotal = bonus > 0 ? actualPaid : total;
+  const finalTotal = total;
   const LINE = '─'.repeat(40);
   const DLINE = '═'.repeat(40);
 
   return (
     <div ref={ref} className="receipt-print">
       {/* ─── Header ─── */}
-      <div className="r-center r-bold r-lg">SARDORBEK</div>
-      <div className="r-center r-sm">FURNITURA</div>
-      <div className="r-center r-sm r-light">Mebel furnitura do'koni</div>
+      <div className="r-center r-bold r-xl">SovdaJON</div>
+      <div className="r-center r-sm r-bold">ONLINE MARKETPLACE</div>
       <div className="r-line">{LINE}</div>
 
       {/* ─── Info ─── */}
@@ -102,12 +100,6 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
         <div className="r-row">
           <span>Chegirma ({discountPercent}%):</span>
           <span>-{formatNum(Math.round(discountAmount))}</span>
-        </div>
-      )}
-      {bonus > 0 && (
-        <div className="r-row">
-          <span>Bonus:</span>
-          <span>-{formatNum(Math.round(bonus))}</span>
         </div>
       )}
       <div className="r-line">{DLINE}</div>
@@ -157,7 +149,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
         Xaridingiz uchun rahmat!
       </div>
       <div className="r-center r-xs r-light">
-        Sardorbek Furnitura
+        SovdaJON
       </div>
       <div className="r-center r-xs r-light" style={{ marginTop: '1mm' }}>
         {now()}

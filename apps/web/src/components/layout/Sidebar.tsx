@@ -38,18 +38,14 @@ export function Sidebar() {
       )}>
         {sidebarOpen ? (
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500 text-white text-sm font-bold shadow-sm">
-              SF
-            </div>
+            <img src="/logo.png" alt="SovdaJON" className="h-9 w-9 rounded-lg object-cover shadow-sm" />
             <div>
-              <p className="text-sm font-bold text-white tracking-tight leading-none">Sardorbek</p>
-              <p className="text-[10px] text-sidebar-text mt-0.5">Furnitura</p>
+              <p className="text-sm font-bold text-white tracking-tight leading-none">SovdaJON</p>
+              <p className="text-[10px] text-sidebar-text mt-0.5">Online Marketplace</p>
             </div>
           </div>
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500 text-white text-sm font-bold">
-            SF
-          </div>
+          <img src="/logo.png" alt="SovdaJON" className="h-9 w-9 rounded-lg object-cover" />
         )}
         <button
           onClick={toggleSidebar}

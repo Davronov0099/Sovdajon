@@ -73,7 +73,7 @@ function DashboardPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary">Boshqaruv paneli</h1>
-          <p className="text-[11px] sm:text-sm text-text-muted mt-0.5 hidden sm:block">Sardorbek Furnitura — umumiy ko'rinish</p>
+          <p className="text-[11px] sm:text-sm text-text-muted mt-0.5 hidden sm:block">SovdaJON — umumiy ko'rinish</p>
         </div>
 
         {/* Period — mobile: compact pills, desktop: avvalgidek */}

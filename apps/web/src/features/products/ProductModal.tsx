@@ -137,6 +137,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
   }
 
   async function onSubmit(data: CreateProductInput) {
+    if (!data.description) data.description = undefined;
     if (isEdit && product) {
       await updateMut.mutateAsync({ id: product.id, data });
     } else {
@@ -194,7 +195,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
           </div>
           <div>
             <label htmlFor="subCategoryId" className="mb-1 block text-[12px] font-medium text-text-secondary">Bo'lim</label>
-            <select id="subCategoryId" className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm" disabled={!selectedCategory || selectedCategory.subCategories.length === 0} {...register('subCategoryId')}>
+            <select id="subCategoryId" className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm" disabled={!selectedCategory || selectedCategory.subCategories.length === 0} value={watch('subCategoryId') ?? ''} onChange={(e) => setValue('subCategoryId', e.target.value || undefined)}>
               <option value="">-</option>
               {selectedCategory?.subCategories.map((sub) => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
             </select>
