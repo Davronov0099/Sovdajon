@@ -12,7 +12,6 @@ interface ReceiptData {
   subtotal: number;
   discountPercent: number;
   discountAmount: number;
-  bonus: number;
   total: number;
   paidCash: number;
   paidCard: number;
@@ -40,7 +39,7 @@ function now(): string {
 
 export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data }, ref) => {
   const {
-    items, subtotal, discountPercent, discountAmount, bonus, total,
+    items, subtotal, discountPercent, discountAmount, total,
     paidCash, paidCard, paidClick, paidDebt, change,
     customerName, cashierName,
   } = data;

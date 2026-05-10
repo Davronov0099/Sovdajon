@@ -254,7 +254,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
                 subtotal,
                 discountPercent: globalDiscount,
                 discountAmount: subtotal - total,
-                bonus: 0,
                 total,
                 paidCash: cashAmount,
                 paidCard: cardAmount,
