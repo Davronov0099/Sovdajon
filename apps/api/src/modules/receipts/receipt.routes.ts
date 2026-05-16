@@ -17,12 +17,10 @@ const offlineReceiptSchema = z.object({
   items: z.array(z.object({
     productId: z.string().uuid(),
     quantity: z.number().int().min(1),
-    discount: z.number().min(0).max(100).default(0),
   })).min(1),
   paymentMethod: z.enum(['CASH', 'CARD', 'CLICK', 'TRANSFER', 'DEBT', 'MIXED']),
   customerId: z.string().uuid().optional(),
   cashReceived: z.number().min(0).optional(),
-  discountPercent: z.number().min(0).max(100).default(0),
 });
 
 const offlineSyncSchema = z.object({

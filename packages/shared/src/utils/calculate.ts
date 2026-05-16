@@ -1,32 +1,4 @@
 /**
- * Auto-discount based on quantity.
- * If product-specific tiers are provided, uses those.
- * Otherwise falls back to generic: 10+ → 5%, 50+ → 10%, 100+ → 15%
- */
-export function calculateAutoDiscount(
-  quantity: number,
-  tiers?: { qty: number; pct: number }[],
-): number {
-  if (tiers && tiers.length > 0) {
-    let bestPct = 0;
-    for (const tier of tiers) {
-      if (tier.qty > 0 && quantity >= tier.qty && tier.pct > bestPct) {
-        bestPct = tier.pct;
-      }
-    }
-    return bestPct;
-  }
-  return 0;
-}
-
-/**
- * Calculate discount amount from percent
- */
-export function calculateDiscount(subtotal: number, discountPercent: number): number {
-  return Math.round(subtotal * (discountPercent / 100));
-}
-
-/**
  * Calculate profit: revenue - cost
  * Sof foyda = (sotish narxi * miqdor) - (tan narx * miqdor)
  */

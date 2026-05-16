@@ -1,92 +1,55 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Plus, Trash2, Package, DollarSign, ArrowDownToLine, Search, X, TrendingUp, Warehouse, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, ArrowDownToLine, Search, X, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSupplier, useSupplierImport } from '@/hooks/useSuppliers';
 import { useProducts } from '@/hooks/useProducts';
-import { useWarehouses } from '@/hooks/useWarehouses';
-import { useUsdRateStore } from '@/stores/usdRate';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
-
-type Currency = 'UZS' | 'USD';
 
 interface ImportItem {
   productId: string;
   productName: string;
   quantity: number;
-  costPrice: number;
-  costCurrency: Currency;
-  sellingPrice: number;
-  sellCurrency: Currency;
+  costPrice: number;    // UZS
+  sellingPrice: number; // UZS
 }
 
 export function SupplierImportPage() {
   const { supplierId } = useParams({ from: '/_auth/suppliers_/$supplierId_/import' });
   const navigate = useNavigate();
   const { toast } = useToast();
-  const usdRate = useUsdRateStore((s) => s.rate);
 
   const { data: supplierData, isLoading: supplierLoading } = useSupplier(supplierId);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supplier = (supplierData as any)?.data as any;
 
   const [items, setItems] = useState<ImportItem[]>([]);
-  const [defaultCostCur, setDefaultCostCur] = useState<Currency>('USD');
-  const [defaultSellCur, setDefaultSellCur] = useState<Currency>('UZS');
   const [note, setNote] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
-  const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
 
-  const { data: warehousesData } = useWarehouses();
-  const warehouses = warehousesData?.data ?? [];
-  const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) ?? null;
-
-  const { data: productsData } = useProducts({
-    search: productSearch,
-    limit: 20,
-    ...(selectedWarehouseId && { warehouseId: selectedWarehouseId }),
-  });
+  const { data: productsData } = useProducts({ search: productSearch, limit: 20 });
   const importMut = useSupplierImport();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = ((productsData as any)?.data as Array<Record<string, unknown>>) ?? [];
-
-  const rate = usdRate || 13000;
-
-  /** Qiymatni UZS ga o'tkazish */
-  function toUzs(value: number, cur: Currency): number {
-    return cur === 'USD' ? value * rate : value;
-  }
-  /** Qiymatni boshqa valyutaga ko'rsatish */
-  function toAltDisplay(value: number, cur: Currency): string {
-    if (cur === 'USD') return formatCurrency(value * rate);
-    return rate > 0 ? `$${(value / rate).toFixed(2)}` : '$0';
-  }
 
   function addProduct(product: Record<string, unknown>) {
     if (items.find((i) => i.productId === product.id)) {
       toast("Bu mahsulot allaqachon qo'shilgan", 'error');
       return;
     }
-    const currentCostPrice = Number(product.costPrice) || 0;
-    const currentSellingPrice = Number(product.price) || 0;
-    // Default valyutalarga moslashtirish
-    const costVal = defaultCostCur === 'USD' ? (rate > 0 ? Math.round(currentCostPrice / rate * 100) / 100 : 0) : currentCostPrice;
-    const sellVal = defaultSellCur === 'USD' ? (rate > 0 ? Math.round(currentSellingPrice / rate * 100) / 100 : 0) : currentSellingPrice;
-
+    const costPrice = Number(product.costPrice) || 0;
+    const sellingPrice = Number(product.price) || 0;
     setItems([...items, {
       productId: product.id as string,
       productName: product.name as string,
       quantity: 1,
-      costPrice: costVal,
-      costCurrency: defaultCostCur,
-      sellingPrice: sellVal,
-      sellCurrency: defaultSellCur,
+      costPrice,
+      sellingPrice,
     }]);
     setProductSearch('');
     setSearchFocused(false);
@@ -100,45 +63,34 @@ export function SupplierImportPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Jami — har bir item'ni UZS ga o'tkazib hisoblash
-  const totalCost = items.reduce((sum, item) => sum + item.quantity * toUzs(item.costPrice, item.costCurrency), 0);
+  const totalCost = items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
 
   const marginStats = useMemo(() => {
     let totalMargin = 0;
     for (const item of items) {
-      const costUzs = toUzs(item.costPrice, item.costCurrency);
-      const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
-      totalMargin += (sellUzs - costUzs) * item.quantity;
+      totalMargin += (item.sellingPrice - item.costPrice) * item.quantity;
     }
     return { totalMargin };
-  }, [items, rate]);
+  }, [items]);
 
   async function handleSubmit() {
-    if (!selectedWarehouseId) {
-      toast("Avval omborni tanlang (majburiy)", 'error');
-      return;
-    }
     if (items.length === 0) { toast("Kamida 1 ta mahsulot qo'shing", 'error'); return; }
     for (const item of items) {
       if (item.costPrice <= 0) { toast(`${item.productName}: Tan narxi 0 dan katta bo'lishi kerak`, 'error'); return; }
     }
     try {
-      // API ga UZS da yuboramiz
       await importMut.mutateAsync({
         supplierId,
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
-          unitPrice: toUzs(i.costPrice, i.costCurrency),
-          sellingPrice: i.sellingPrice > 0 ? toUzs(i.sellingPrice, i.sellCurrency) : undefined,
+          unitPrice: i.costPrice,
+          sellingPrice: i.sellingPrice > 0 ? i.sellingPrice : undefined,
         })),
-        currency: 'UZS',
-        rate: 1,
         note: note || undefined,
-        warehouseId: selectedWarehouseId,
       });
-      toast(`Kirim "${selectedWarehouse?.name}" omborga muvaffaqiyatli saqlandi`, 'success');
+      toast('Kirim muvaffaqiyatli saqlandi', 'success');
       navigate({ to: '/suppliers/$supplierId', params: { supplierId } });
     } catch (err) {
       const msg = (err as { message?: string }).message ?? 'Kirim saqlashda xatolik';
@@ -165,93 +117,13 @@ export function SupplierImportPage() {
               </>
             )}
           </div>
-          {/* Default valyutalar */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex flex-col items-center">
-              <span className="text-[7px] text-text-muted leading-none mb-0.5">Tan</span>
-              <div className="flex rounded border border-border overflow-hidden h-6">
-                {(['UZS', 'USD'] as const).map((c) => (
-                  <button key={c} type="button" onClick={() => setDefaultCostCur(c)}
-                    className={cn('px-1.5 text-[9px] font-bold transition-colors', defaultCostCur === c ? 'bg-emerald-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}>
-                    {c === 'USD' ? '$' : "so'm"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[7px] text-text-muted leading-none mb-0.5">Sotuv</span>
-              <div className="flex rounded border border-border overflow-hidden h-6">
-                {(['UZS', 'USD'] as const).map((c) => (
-                  <button key={c} type="button" onClick={() => setDefaultSellCur(c)}
-                    className={cn('px-1.5 text-[9px] font-bold transition-colors', defaultSellCur === c ? 'bg-blue-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}>
-                    {c === 'USD' ? '$' : "so'm"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <span className="hidden sm:flex items-center gap-1 text-[11px] text-text-muted shrink-0">
-            <DollarSign className="h-3 w-3" />{formatCurrency(rate, '')}
+          <span className="hidden sm:flex items-center gap-1 text-[11px] text-text-muted font-medium shrink-0">
+            Valyuta: <span className="font-bold text-text-primary">so'm (UZS)</span>
           </span>
         </div>
       </div>
 
       <div className="px-4 sm:px-6 pt-3">
-        {/* ── Ombor tanlash (MAJBURIY) ── */}
-        <div className="relative mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-              Ombor <span className="text-danger-600">*</span>
-            </p>
-            {!selectedWarehouseId && (
-              <span className="text-[10px] text-danger-600 font-medium">Majburiy</span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setWarehouseDropdownOpen((v) => !v)}
-            className={cn(
-              'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-              selectedWarehouse
-                ? 'border-primary-400 bg-primary-50/50 text-primary-700'
-                : 'border-danger-300 bg-danger-50/30 text-danger-700 hover:bg-danger-50/50',
-            )}
-          >
-            <Warehouse className="h-4 w-4 shrink-0" />
-            <span className="flex-1 text-left text-[13px] font-medium truncate">
-              {selectedWarehouse ? selectedWarehouse.name : "Avval ombor tanlang"}
-            </span>
-            <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', warehouseDropdownOpen && 'rotate-180')} />
-          </button>
-          {warehouseDropdownOpen && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-dropdown overflow-hidden">
-              {warehouses.map((w) => (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => { setSelectedWarehouseId(w.id); setWarehouseDropdownOpen(false); }}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-primary-50/50 border-b border-border/10 last:border-0',
-                    selectedWarehouseId === w.id ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-text-primary',
-                  )}
-                >
-                  <Warehouse className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-                  <span className="flex-1 truncate">{w.name}</span>
-                  {w._count && (
-                    <span className="text-[10px] text-text-muted shrink-0">{w._count.products} ta</span>
-                  )}
-                </button>
-              ))}
-              {warehouses.length === 0 && (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-[12px] text-text-muted mb-1">Hali ombor yo'q</p>
-                  <p className="text-[10px] text-danger-600">Avval ombor yarating</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* ── Search ── */}
         <div className="relative mb-3">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
@@ -314,18 +186,18 @@ export function SupplierImportPage() {
                     <th className="px-2.5 py-1.5 text-left w-8">#</th>
                     <th className="px-2.5 py-1.5 text-left">Mahsulot</th>
                     <th className="px-2.5 py-1.5 text-center w-24">Miqdor</th>
-                    <th className="px-2.5 py-1.5 text-left">Tan narxi</th>
-                    <th className="px-2.5 py-1.5 text-left">Sotuv narxi</th>
-                    <th className="px-2.5 py-1.5 text-right w-28">Jami</th>
+                    <th className="px-2.5 py-1.5 text-left">Tan narxi (so'm)</th>
+                    <th className="px-2.5 py-1.5 text-left">Sotuv narxi (so'm)</th>
+                    <th className="px-2.5 py-1.5 text-right w-32">Jami</th>
                     <th className="w-8" />
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, i) => {
-                    const costUzs = toUzs(item.costPrice, item.costCurrency);
-                    const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
-                    const itemTotal = item.quantity * costUzs;
-                    const margin = sellUzs > 0 && costUzs > 0 ? ((sellUzs - costUzs) / costUzs * 100) : 0;
+                    const itemTotal = item.quantity * item.costPrice;
+                    const margin = item.sellingPrice > 0 && item.costPrice > 0
+                      ? ((item.sellingPrice - item.costPrice) / item.costPrice * 100)
+                      : 0;
                     return (
                       <tr key={item.productId} className="border-b border-border/15 hover:bg-surface-secondary/20">
                         <td className="px-2.5 py-1.5 text-text-muted text-xs">{i + 1}</td>
@@ -344,30 +216,16 @@ export function SupplierImportPage() {
                           />
                         </td>
                         <td className="px-2.5 py-1.5">
-                          <div className="flex items-center gap-1">
-                            <input type="text" inputMode="decimal" value={item.costPrice}
-                              onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
-                              className={cn(inputCls, 'flex-1')}
-                            />
-                            <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, costCurrency: it.costCurrency === 'USD' ? 'UZS' : 'USD', costPrice: it.costCurrency === 'USD' ? Math.round(it.costPrice * rate) : (rate > 0 ? Math.round(it.costPrice / rate * 100) / 100 : 0) } : it))}
-                              className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors', item.costCurrency === 'USD' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-tertiary text-text-muted')}>
-                              {item.costCurrency === 'USD' ? '$' : "so'm"}
-                            </button>
-                          </div>
-                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {toAltDisplay(item.costPrice, item.costCurrency)}</p>
+                          <input type="text" inputMode="decimal" value={item.costPrice}
+                            onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
+                            className={inputCls}
+                          />
                         </td>
                         <td className="px-2.5 py-1.5">
-                          <div className="flex items-center gap-1">
-                            <input type="text" inputMode="decimal" value={item.sellingPrice}
-                              onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
-                              className={cn(inputCls, 'flex-1')}
-                            />
-                            <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, sellCurrency: it.sellCurrency === 'USD' ? 'UZS' : 'USD', sellingPrice: it.sellCurrency === 'USD' ? Math.round(it.sellingPrice * rate) : (rate > 0 ? Math.round(it.sellingPrice / rate * 100) / 100 : 0) } : it))}
-                              className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors', item.sellCurrency === 'USD' ? 'bg-blue-100 text-blue-700' : 'bg-surface-tertiary text-text-muted')}>
-                              {item.sellCurrency === 'USD' ? '$' : "so'm"}
-                            </button>
-                          </div>
-                          <p className="text-[9px] text-text-muted mt-px tabular-nums">≈ {toAltDisplay(item.sellingPrice, item.sellCurrency)}</p>
+                          <input type="text" inputMode="decimal" value={item.sellingPrice}
+                            onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
+                            className={inputCls}
+                          />
                         </td>
                         <td className="px-2.5 py-1.5 text-right font-semibold text-text-primary tabular-nums">{formatCurrency(itemTotal)}</td>
                         <td className="px-1 py-1.5">
@@ -385,10 +243,10 @@ export function SupplierImportPage() {
             {/* ── Mobile Cards ── */}
             <div className="sm:hidden space-y-1.5 mb-3">
               {items.map((item, i) => {
-                const costUzs = toUzs(item.costPrice, item.costCurrency);
-                const sellUzs = toUzs(item.sellingPrice, item.sellCurrency);
-                const itemTotal = item.quantity * costUzs;
-                const margin = sellUzs > 0 && costUzs > 0 ? ((sellUzs - costUzs) / costUzs * 100) : 0;
+                const itemTotal = item.quantity * item.costPrice;
+                const margin = item.sellingPrice > 0 && item.costPrice > 0
+                  ? ((item.sellingPrice - item.costPrice) / item.costPrice * 100)
+                  : 0;
 
                 return (
                   <div key={item.productId} className="rounded-lg border border-border/50 bg-surface p-2">
@@ -418,32 +276,18 @@ export function SupplierImportPage() {
                         />
                       </div>
                       <div>
-                        <div className="flex items-center justify-between mb-px">
-                          <label className="text-[8px] text-text-muted">Tan</label>
-                          <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, costCurrency: it.costCurrency === 'USD' ? 'UZS' : 'USD', costPrice: it.costCurrency === 'USD' ? Math.round(it.costPrice * rate) : (rate > 0 ? Math.round(it.costPrice / rate * 100) / 100 : 0) } : it))}
-                            className={cn('text-[7px] font-bold px-1 rounded', item.costCurrency === 'USD' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-tertiary text-text-muted')}>
-                            {item.costCurrency === 'USD' ? '$' : "so'm"}
-                          </button>
-                        </div>
+                        <label className="text-[8px] text-text-muted block mb-px">Tan (so'm)</label>
                         <input type="text" inputMode="decimal" value={item.costPrice}
                           onChange={(e) => updateItem(i, 'costPrice', Math.max(0, Number(e.target.value) || 0))}
                           className="w-full rounded border border-border bg-surface-secondary/40 px-1 py-1 text-[11px] tabular-nums focus:outline-2 focus:outline-primary-500 focus:bg-surface"
                         />
-                        <p className="text-[7px] text-text-muted tabular-nums">≈ {toAltDisplay(item.costPrice, item.costCurrency)}</p>
                       </div>
                       <div>
-                        <div className="flex items-center justify-between mb-px">
-                          <label className="text-[8px] text-text-muted">Sotuv</label>
-                          <button type="button" onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, sellCurrency: it.sellCurrency === 'USD' ? 'UZS' : 'USD', sellingPrice: it.sellCurrency === 'USD' ? Math.round(it.sellingPrice * rate) : (rate > 0 ? Math.round(it.sellingPrice / rate * 100) / 100 : 0) } : it))}
-                            className={cn('text-[7px] font-bold px-1 rounded', item.sellCurrency === 'USD' ? 'bg-blue-100 text-blue-700' : 'bg-surface-tertiary text-text-muted')}>
-                            {item.sellCurrency === 'USD' ? '$' : "so'm"}
-                          </button>
-                        </div>
+                        <label className="text-[8px] text-text-muted block mb-px">Sotuv (so'm)</label>
                         <input type="text" inputMode="decimal" value={item.sellingPrice}
                           onChange={(e) => updateItem(i, 'sellingPrice', Math.max(0, Number(e.target.value) || 0))}
                           className="w-full rounded border border-border bg-surface-secondary/40 px-1 py-1 text-[11px] tabular-nums focus:outline-2 focus:outline-primary-500 focus:bg-surface"
                         />
-                        <p className="text-[7px] text-text-muted tabular-nums">≈ {toAltDisplay(item.sellingPrice, item.sellCurrency)}</p>
                       </div>
                     </div>
 
@@ -491,12 +335,7 @@ export function SupplierImportPage() {
             {/* ── Desktop Actions ── */}
             <div className="hidden sm:flex items-center justify-between gap-3 pb-2">
               <Link to="/suppliers/$supplierId" params={{ supplierId }} className="btn btn-secondary btn-sm">Bekor qilish</Link>
-              <Button
-                onClick={handleSubmit}
-                loading={importMut.isPending}
-                disabled={items.length === 0 || !selectedWarehouseId}
-                title={!selectedWarehouseId ? 'Avval omborni tanlang' : undefined}
-              >
+              <Button onClick={handleSubmit} loading={importMut.isPending} disabled={items.length === 0}>
                 <ArrowDownToLine className="h-4 w-4" />Kirimni saqlash
               </Button>
             </div>
@@ -514,11 +353,11 @@ export function SupplierImportPage() {
             </div>
             <button
               onClick={handleSubmit}
-              disabled={importMut.isPending || !selectedWarehouseId}
+              disabled={importMut.isPending}
               className="btn btn-primary px-4 py-1.5 text-[11px] shrink-0 disabled:opacity-50"
             >
               {importMut.isPending ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
-              {!selectedWarehouseId ? 'Ombor tanlang' : 'Saqlash'}
+              Saqlash
             </button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, FolderTree,
   CreditCard, Users, Truck, Receipt, UserCog, Settings,
   SlidersHorizontal, GripVertical, Eye, EyeOff, RotateCcw, X,
-  ScanBarcode, Map, Warehouse, ShoppingBag, AlertTriangle,
+  ScanBarcode, Map, ShoppingBag, AlertTriangle, Archive,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useNavSettingsStore } from '@/stores/navSettings';
@@ -22,14 +22,18 @@ const NAV_META: Record<string, { to: string; icon: typeof LayoutDashboard; roles
   prospecting: { to: '/prospecting', icon: Map, roles: ['ADMIN', 'CASHIER'] },
   suppliers: { to: '/suppliers', icon: Truck, roles: ['ADMIN'] },
   expenses: { to: '/expenses', icon: Receipt, roles: ['ADMIN'] },
+  archive: { to: '/archive', icon: Archive, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
+  // ── Quyidagilar Arxiv ichida ko'rinadi (sidebar'da to'g'ridan-to'g'ri emas) ──
   hr: { to: '/hr', icon: UserCog, roles: ['ADMIN'] },
   settings: { to: '/settings', icon: Settings, roles: ['ADMIN'] },
   helper: { to: '/helper', icon: ScanBarcode, roles: ['ADMIN', 'HELPER'] },
-  warehouses: { to: '/warehouses', icon: Warehouse, roles: ['ADMIN'] },
   orders: { to: '/orders', icon: ShoppingBag, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
   receipts: { to: '/receipts', icon: Receipt, roles: ['ADMIN', 'CASHIER'] },
   'stock-alerts': { to: '/stock-alerts', icon: AlertTriangle, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
 };
+
+/** Sidebar'da to'g'ridan-to'g'ri ko'rinmaydigan, Arxiv ichidagi key'lar */
+export const ARCHIVE_KEYS = ['hr', 'settings', 'helper', 'orders', 'receipts', 'stock-alerts'] as const;
 
 export { NAV_META };
 
@@ -210,10 +214,11 @@ export function MobileTopNav() {
   const navItems = useNavSettingsStore((s) => s.items);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Role + visible filter
+  // Role + visible filter — Arxiv ichidagi item'lar sidebar/topnav'da to'g'ridan-to'g'ri chiqmaydi
   const visibleItems = navItems.filter((item) => {
     const meta = NAV_META[item.key];
-    return meta && item.visible && user && meta.roles.includes(user.role);
+    if (!meta || !item.visible || !user || !meta.roles.includes(user.role)) return false;
+    return !(ARCHIVE_KEYS as readonly string[]).includes(item.key);
   });
 
   const handleCloseSettings = useCallback(() => setSettingsOpen(false), []);

@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const receiptItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().min(1),
-  discount: z.number().min(0).max(100).default(0),
 });
 
 export const mixedPaymentSchema = z.object({
@@ -18,7 +17,6 @@ export const createReceiptSchema = z
     customerId: z.string().uuid().optional(),
     cashReceived: z.number().min(0).optional(),
     mixedPayments: z.array(mixedPaymentSchema).optional(),
-    discountPercent: z.number().min(0).max(100).default(0),
     debtDueDate: z.string().optional(),
   })
   .refine(

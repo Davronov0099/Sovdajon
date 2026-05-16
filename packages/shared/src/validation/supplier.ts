@@ -18,10 +18,7 @@ export const supplierImportItemSchema = z.object({
 
 export const supplierImportSchema = z.object({
   items: z.array(supplierImportItemSchema).min(1, 'Kamida 1 ta mahsulot kerak'),
-  currency: z.enum(['UZS', 'USD']).default('UZS'),
-  rate: z.number().min(0).default(1),
   note: z.string().max(500).optional(),
-  warehouseId: z.string().uuid({ message: 'Ombor tanlang' }),
 });
 
 export const supplierPaymentSchema = z.object({

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck, Warehouse } from 'lucide-react';
+import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -211,7 +211,6 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
   const [expanded, setExpanded] = useState(false);
   const isImport = txn.type === 'IMPORT';
   const total = Number(txn.total) || 0;
-  const isUSD = txn.currency === 'USD';
 
   return (
     <div className="card p-3 sm:p-4 stagger-item">
@@ -229,14 +228,7 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
             </p>
             <p className="text-[10px] sm:text-[11px] text-text-muted">
               {formatDateTime(txn.createdAt)}
-              {isImport && isUSD && <span className="ml-1.5 text-info-600">USD (kurs: {formatCurrency(Number(txn.rate), '')})</span>}
             </p>
-            {isImport && txn.warehouse && (
-              <p className="flex items-center gap-1 text-[10px] text-primary-600 mt-0.5">
-                <Warehouse className="h-2.5 w-2.5" />
-                {txn.warehouse.name}
-              </p>
-            )}
           </div>
         </div>
         <p className={cn(

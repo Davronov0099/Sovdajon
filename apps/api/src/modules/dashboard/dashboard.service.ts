@@ -29,7 +29,7 @@ export async function getSummaryStats(start?: string, end?: string) {
   const cacheKey = `dashboard:summary:${startDate.toISOString()}:${endDate.toISOString()}`;
 
   return cached(cacheKey, async () => {
-    const [receipts, profitData, discountData, expenses, debts] = await Promise.all([
+    const [receipts, profitData, expenses, debts] = await Promise.all([
       // All non-draft receipts with mixedPayments
       prisma.receipt.findMany({
         where: { createdAt: { gte: startDate, lte: endDate }, isDraft: false },
@@ -41,11 +41,6 @@ export async function getSummaryStats(start?: string, end?: string) {
           (SELECT COALESCE(SUM(total), 0)::float FROM "Receipt" WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate} AND "isDraft" = false) AS revenue,
           (SELECT COALESCE(SUM(ri."costPrice" * ri.quantity), 0)::float FROM "ReceiptItem" ri JOIN "Receipt" r ON r.id = ri."receiptId" WHERE r."createdAt" >= ${startDate} AND r."createdAt" <= ${endDate} AND r."isDraft" = false) AS cost
       `,
-      // Jami chegirma
-      prisma.receipt.aggregate({
-        where: { createdAt: { gte: startDate, lte: endDate }, isDraft: false },
-        _sum: { discount: true },
-      }),
       // Total expenses
       prisma.expense.aggregate({
         where: { date: { gte: startDate, lte: endDate } },
@@ -109,7 +104,6 @@ export async function getSummaryStats(start?: string, end?: string) {
       card,
       click,
       debt,
-      totalDiscount: Number(discountData._sum.discount ?? 0),
       totalExpenses,
       activeDebts: Number(debts._sum.remainingAmount ?? 0),
       debtCount: debts._count,

@@ -112,7 +112,7 @@ function DashboardPage() {
               {[
                 { label: 'Jami sotuv', value: summary?.totalSales ?? 0, sub: `${summary?.totalCount ?? 0} chek`, icon: ShoppingCart, bg: 'bg-primary-50', color: 'text-primary-600' },
                 { label: 'Sof foyda', value: summary?.profit ?? 0, icon: TrendingUp, bg: 'bg-success-50', color: 'text-success-600' },
-                { label: 'Chegirma', value: summary?.totalDiscount ?? 0, icon: Receipt, bg: 'bg-orange-50', color: 'text-orange-600' },
+                { label: 'Xarajatlar', value: summary?.totalExpenses ?? 0, icon: Receipt, bg: 'bg-orange-50', color: 'text-orange-600' },
                 { label: 'Qarzlar', value: summary?.activeDebts ?? 0, sub: `${summary?.debtCount ?? 0} ta`, icon: CreditCard, bg: 'bg-danger-50', color: 'text-danger-600' },
               ].map((card) => {
                 const Icon = card.icon;
@@ -133,7 +133,7 @@ function DashboardPage() {
           <div className="hidden sm:grid grid-cols-2 gap-3 md:grid-cols-4">
             <StatCard label="Jami sotuv" value={formatCurrency(summary?.totalSales ?? 0)} subtext={`${summary?.totalCount ?? 0} ta chek`} icon={ShoppingCart} iconBg="bg-primary-50" iconColor="text-primary-600" href={`/reports/sales?period=${period}&start=${start}&end=${end}`} />
             <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?period=${period}&start=${start}&end=${end}`} />
-            <StatCard label="Chegirma" value={formatCurrency(summary?.totalDiscount ?? 0)} icon={Receipt} iconBg="bg-orange-50" iconColor="text-orange-600" />
+            <StatCard label="Xarajatlar" value={formatCurrency(summary?.totalExpenses ?? 0)} icon={Receipt} iconBg="bg-orange-50" iconColor="text-orange-600" />
             <StatCard label="Faol qarzlar" value={formatCurrency(summary?.activeDebts ?? 0)} subtext={`${summary?.debtCount ?? 0} ta`} icon={CreditCard} iconBg="bg-danger-50" iconColor="text-danger-600" href="/debts?status=ACTIVE" />
           </div>
 

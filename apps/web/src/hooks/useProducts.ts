@@ -6,8 +6,10 @@ interface Product {
   id: string;
   code: number | null;
   name: string;
-  price: number;
-  costPrice: number;
+  price: number;                       // Dona narxi
+  costPrice: number;                   // Tan narxi
+  minSellingPrice: number | null;      // Min sotuv narxi
+  wholesalePrice: number | null;       // Optom narxi
   stock: number;
   minStock: number;
   unit: string;
@@ -17,12 +19,6 @@ interface Product {
   description: string | null;
   category: { id: string; name: string };
   subCategory: { id: string; name: string } | null;
-  discount1Qty: number;
-  discount1Pct: number;
-  discount2Qty: number;
-  discount2Pct: number;
-  discount3Qty: number;
-  discount3Pct: number;
   createdAt: string;
 }
 

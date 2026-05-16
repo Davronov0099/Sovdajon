@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Store, Globe, Shield, DollarSign, Save, Loader2 } from 'lucide-react';
+import { Store, Globe, Shield, Save, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { useSettings, useUpdateSetting, useUpdateCurrencyRate } from '@/hooks/useSettings';
-import { useUsdRateStore } from '@/stores/usdRate';
+import { useSettings, useUpdateSetting } from '@/hooks/useSettings';
 import { i18n } from '@/i18n';
 
 const LANGS = [
@@ -16,14 +15,12 @@ export function SettingsPage() {
   const { toast } = useToast();
   const { data } = useSettings();
   const updateMut = useUpdateSetting();
-  const currencyMut = useUpdateCurrencyRate();
 
   const settings = data?.data as Record<string, string> | undefined;
 
   const [storeName, setStoreName] = useState('');
   const [storePhone, setStorePhone] = useState('');
   const [storeAddress, setStoreAddress] = useState('');
-  const [currencyRate, setCurrencyRate] = useState('');
   const [returnDays, setReturnDays] = useState('');
   const [negativeStock, setNegativeStock] = useState(true);
   const [lang, setLang] = useState(i18n.language);
@@ -33,11 +30,6 @@ export function SettingsPage() {
       setStoreName(settings.storeName ?? '');
       setStorePhone(settings.storePhone ?? '');
       setStoreAddress(settings.storeAddress ?? '');
-      const apiRate = settings.currencyRate ?? '12800';
-      setCurrencyRate(apiRate);
-      // Zustand store'ni API bilan sinxronlash
-      const rateNum = Number(apiRate);
-      if (rateNum > 0) useUsdRateStore.getState().setRate(rateNum);
       setReturnDays(settings.returnPeriodDays ?? '14');
       setNegativeStock(settings.allowNegativeStock === 'true');
     }
@@ -49,16 +41,6 @@ export function SettingsPage() {
       await updateMut.mutateAsync({ key: 'storePhone', value: storePhone });
       await updateMut.mutateAsync({ key: 'storeAddress', value: storeAddress });
       toast("Do'kon ma'lumotlari saqlandi", 'success');
-    } catch { toast('Saqlash xatosi', 'error'); }
-  }
-
-  async function handleSaveCurrency() {
-    const rate = Number(currencyRate);
-    if (!rate || rate <= 0) { toast('Kursni kiriting', 'error'); return; }
-    try {
-      await currencyMut.mutateAsync(rate);
-      useUsdRateStore.getState().setRate(rate);
-      toast('Valyuta kursi saqlandi', 'success');
     } catch { toast('Saqlash xatosi', 'error'); }
   }
 
@@ -104,26 +86,6 @@ export function SettingsPage() {
           <div className="mt-4 flex justify-end">
             <button onClick={handleSaveStore} className="btn btn-primary btn-md" disabled={updateMut.isPending}>
               {updateMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Saqlash
-            </button>
-          </div>
-        </section>
-
-        {/* Currency */}
-        <section className="card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success-50">
-              <DollarSign className="h-5 w-5 text-success-600" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-text-primary">Valyuta kursi</h2>
-              <p className="text-xs text-text-muted">USD → UZS konvertatsiya</p>
-            </div>
-          </div>
-          <Input id="s-rate" label="1 USD = ? UZS" type="number" value={currencyRate} onChange={(e) => setCurrencyRate(e.target.value)} />
-          <div className="mt-4 flex justify-end">
-            <button onClick={handleSaveCurrency} className="btn btn-primary btn-md" disabled={currencyMut.isPending}>
-              {currencyMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Saqlash
             </button>
           </div>

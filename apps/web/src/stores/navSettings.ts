@@ -6,7 +6,11 @@ export interface NavItem {
   visible: boolean;
 }
 
-// Default tartib
+// Tozalanishi kerak bo'lgan eski key'lar (warehouses olib tashlandi)
+const REMOVED_KEYS = new Set(['warehouses', 'marketplace-settings']);
+
+// Default tartib — Arxiv guruhga ko'chirilganlar ham bu yerda (mavjud bo'lishi shart),
+// lekin sidebar/topnav filter qiladi (ARCHIVE_KEYS bo'yicha)
 const DEFAULT_NAV: NavItem[] = [
   { key: 'dashboard', visible: true },
   { key: 'pos', visible: true },
@@ -17,10 +21,11 @@ const DEFAULT_NAV: NavItem[] = [
   { key: 'prospecting', visible: true },
   { key: 'suppliers', visible: true },
   { key: 'expenses', visible: true },
+  { key: 'archive', visible: true },
+  // Arxiv ichidagilar (sidebar'da chiqmaydi, lekin metadata uchun kerak):
   { key: 'hr', visible: true },
   { key: 'settings', visible: true },
   { key: 'helper', visible: true },
-  { key: 'warehouses', visible: true },
   { key: 'orders', visible: true },
   { key: 'receipts', visible: true },
   { key: 'stock-alerts', visible: true },
@@ -56,14 +61,15 @@ export const useNavSettingsStore = create<NavSettingsState>()(
     }),
     {
       name: 'sardorbek-nav-settings',
-      // Yangi key'lar qo'shilsa, eski persist'dan yo'qolmasligi uchun merge
       merge: (persisted, current) => {
         const p = persisted as Partial<NavSettingsState> | undefined;
         if (!p?.items) return current;
-        // Barcha mavjud key'larni saqlab, yangilarini qo'shish
-        const existingKeys = new Set(p.items.map((i) => i.key));
+        // 1) Eski/olib tashlangan key'larni filtrlash
+        const cleaned = p.items.filter((i) => !REMOVED_KEYS.has(i.key));
+        // 2) Yangi default key'larni qo'shish
+        const existingKeys = new Set(cleaned.map((i) => i.key));
         const merged = [
-          ...p.items,
+          ...cleaned,
           ...DEFAULT_NAV.filter((d) => !existingKeys.has(d.key)),
         ];
         return { ...current, items: merged };

@@ -37,11 +37,3 @@ export async function updateSetting(key: string, value: string, userId: string) 
   return setting;
 }
 
-export async function updateCurrencyRate(rate: number, userId: string) {
-  return updateSetting('currencyRate', String(rate), userId);
-}
-
-export async function getCurrencyRate(): Promise<number> {
-  const value = await getSetting('currencyRate');
-  return value ? Number(value) : 12800;
-}

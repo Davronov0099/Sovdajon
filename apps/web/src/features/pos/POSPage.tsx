@@ -29,13 +29,6 @@ const POSProductCard = memo(function POSProductCard({ product, onClick }: { prod
   const stockStatus = getStockStatus(product.stock, product.minStock);
   const unitLabel = UNIT_LABELS[product.unit] || product.unit;
   const hasImage = product.images && product.images.length > 0 && product.images[0];
-  const d1Qty = Number(product.discount1Qty || 0);
-  const d1Pct = Number(product.discount1Pct || 0);
-  const d2Qty = Number(product.discount2Qty || 0);
-  const d2Pct = Number(product.discount2Pct || 0);
-  const d3Qty = Number(product.discount3Qty || 0);
-  const d3Pct = Number(product.discount3Pct || 0);
-  const hasDiscountTiers = d1Qty > 0 || d2Qty > 0 || d3Qty > 0;
   const price = Number(product.price);
 
   return (
@@ -72,13 +65,6 @@ const POSProductCard = memo(function POSProductCard({ product, onClick }: { prod
           {product.category?.name || ''}{product.subCategory?.name ? ` / ${product.subCategory.name}` : ''}
         </p>
         <p className="mt-1 sm:mt-1.5 text-sm sm:text-base font-bold text-primary-600 tabular-nums">{formatCurrency(price)}</p>
-        {hasDiscountTiers && (
-          <div className="mt-1 sm:mt-1.5 space-y-0.5">
-            {d1Qty > 0 && <p className="text-[10px] sm:text-[11px] text-success-600 tabular-nums">{d1Qty}+ ta → {formatCurrency(Math.round(price * (100 - d1Pct) / 100))} <span className="text-text-muted">(-{d1Pct}%)</span></p>}
-            {d2Qty > 0 && <p className="text-[10px] sm:text-[11px] text-warning-600 tabular-nums">{d2Qty}+ ta → {formatCurrency(Math.round(price * (100 - d2Pct) / 100))} <span className="text-text-muted">(-{d2Pct}%)</span></p>}
-            {d3Qty > 0 && <p className="text-[10px] sm:text-[11px] text-danger-600 tabular-nums">{d3Qty}+ ta → {formatCurrency(Math.round(price * (100 - d3Pct) / 100))} <span className="text-text-muted">(-{d3Pct}%)</span></p>}
-          </div>
-        )}
       </div>
     </button>
   );
@@ -92,7 +78,7 @@ export function POSPage() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [numPadOpen, setNumPadOpen] = useState(false);
   const [numPadTarget, setNumPadTarget] = useState<string | null>(null);
-  const [numPadProduct, setNumPadProduct] = useState<{ id: string; name: string; price: number; costPrice: number; unit: string; stock: number; discountTiers?: { qty: number; pct: number }[] } | null>(null);
+  const [numPadProduct, setNumPadProduct] = useState<{ id: string; name: string; price: number; costPrice: number; unit: string; stock: number } | null>(null);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
@@ -199,7 +185,7 @@ export function POSPage() {
   }, []);
 
   const handleProductClick = useCallback(
-    (product: { id: string; name: string; price: number; costPrice: number; unit: string; stock: number; discountTiers?: { qty: number; pct: number }[] }) => {
+    (product: { id: string; name: string; price: number; costPrice: number; unit: string; stock: number }) => {
       setNumPadProduct(product);
       setNumPadTarget(null);
       setNumPadOpen(true);
@@ -425,11 +411,6 @@ export function POSPage() {
                         costPrice: Number(product.costPrice),
                         unit: product.unit,
                         stock: product.stock,
-                        discountTiers: [
-                          { qty: Number(product.discount1Qty || 0), pct: Number(product.discount1Pct || 0) },
-                          { qty: Number(product.discount2Qty || 0), pct: Number(product.discount2Pct || 0) },
-                          { qty: Number(product.discount3Qty || 0), pct: Number(product.discount3Pct || 0) },
-                        ].filter(t => t.qty > 0),
                       })
                     }
                   />
@@ -520,7 +501,6 @@ export function POSPage() {
                   costPrice: numPadProduct.costPrice,
                   unit: numPadProduct.unit,
                   stock: numPadProduct.stock,
-                  discountTiers: numPadProduct.discountTiers,
                 });
                 if (value > 1) {
                   store.updateQuantity(numPadProduct.id, value);

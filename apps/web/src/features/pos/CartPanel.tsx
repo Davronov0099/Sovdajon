@@ -21,11 +21,8 @@ export function CartPanel({ onPayment, onNumPad }: CartPanelProps) {
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const globalDiscount = useCartStore((s) => s.globalDiscount);
-  const setGlobalDiscount = useCartStore((s) => s.setGlobalDiscount);
   const clearCart = useCartStore((s) => s.clearCart);
   const subtotal = useCartStore((s) => s.getSubtotal());
-  const discountAmount = useCartStore((s) => s.getDiscountAmount());
   const total = useCartStore((s) => s.getTotal());
   const saveDraft = useSaveDraft();
 
@@ -48,10 +45,8 @@ export function CartPanel({ onPayment, onNumPad }: CartPanelProps) {
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
-          discount: i.discount,
         })),
         paymentMethod: 'CASH',
-        discountPercent: 0,
       });
       play('success');
       clearCart();
@@ -110,14 +105,11 @@ export function CartPanel({ onPayment, onNumPad }: CartPanelProps) {
         <CartTab
           items={items}
           subtotal={subtotal}
-          discountAmount={discountAmount}
-          globalDiscount={globalDiscount}
           total={total}
           saveDraft={saveDraft}
           onRemove={handleRemove}
           onQuantityChange={handleQuantityChange}
           onNumPad={onNumPad}
-          onSetGlobalDiscount={setGlobalDiscount}
           onClearCart={() => { clearCart(); play('delete'); }}
           onSaveDraft={handleSaveDraft}
           onPayment={onPayment}
@@ -133,22 +125,19 @@ export function CartPanel({ onPayment, onNumPad }: CartPanelProps) {
 interface CartTabProps {
   items: ReturnType<typeof useCartStore.getState>['items'];
   subtotal: number;
-  discountAmount: number;
-  globalDiscount: number;
   total: number;
   saveDraft: ReturnType<typeof useSaveDraft>;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, delta: number) => void;
   onNumPad: (id: string) => void;
-  onSetGlobalDiscount: (v: number) => void;
   onClearCart: () => void;
   onSaveDraft: () => void;
   onPayment: () => void;
 }
 
 function CartTab({
-  items, subtotal, discountAmount, globalDiscount, total, saveDraft,
-  onRemove, onQuantityChange, onNumPad, onSetGlobalDiscount, onClearCart, onSaveDraft, onPayment,
+  items, subtotal, total, saveDraft,
+  onRemove, onQuantityChange, onNumPad, onClearCart, onSaveDraft, onPayment,
 }: CartTabProps) {
   return (
     <>
@@ -176,7 +165,7 @@ function CartTab({
         ) : (
           <div className="px-2 py-1">
             {items.map((item, idx) => {
-              const lineTotal = item.price * item.quantity * (1 - item.discount / 100);
+              const lineTotal = item.price * item.quantity;
               return (
                 <div
                   key={item.productId}
@@ -203,9 +192,6 @@ function CartTab({
                   <div className="mt-1.5 flex items-center justify-between">
                     <p className="text-xs text-text-muted tabular-nums">
                       {formatCurrency(item.price)} x {item.quantity.toLocaleString()}
-                      {item.discount > 0 && (
-                        <span className="ml-1 text-success-600 font-semibold">-{item.discount}%</span>
-                      )}
                     </p>
                     <div className="flex items-center gap-1">
                       <button
@@ -241,28 +227,10 @@ function CartTab({
       {/* Footer */}
       {items.length > 0 && (
         <div className="shrink-0 p-4 space-y-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-text-muted">Chegirma (%)</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={globalDiscount}
-              onChange={(e) => onSetGlobalDiscount(Number(e.target.value))}
-              className="w-14 rounded-md border border-border bg-surface px-2 py-1 text-right text-xs font-medium tabular-nums focus:border-primary-400 focus:ring-1 focus:ring-primary-400/20"
-              style={{ minHeight: '28px' }}
-            />
-          </div>
           <div className="flex justify-between text-sm text-text-secondary">
             <span>Oraliq summa</span>
             <span className="tabular-nums">{formatCurrency(subtotal)}</span>
           </div>
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-sm text-success-600">
-              <span>Chegirma ({globalDiscount}%)</span>
-              <span className="tabular-nums">-{formatCurrency(discountAmount)}</span>
-            </div>
-          )}
           <div className="flex justify-between items-baseline pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
             <span className="text-sm font-semibold text-text-primary">Jami</span>
             <span className="text-xl font-bold text-text-primary tabular-nums">{formatCurrency(total)}</span>
@@ -305,7 +273,6 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
       const price = parseFloat(String(item.unitPrice)) || 0;
       const costPrice = parseFloat(String(item.costPrice)) || 0;
       const qty = Number(item.quantity) || 1;
-      const disc = parseFloat(String(item.discount)) || 0;
       store.addItem({
         productId: item.productId,
         name: item.productName || 'Noma\'lum',
@@ -316,9 +283,6 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
       });
       if (qty > 1) {
         store.updateQuantity(item.productId, qty);
-      }
-      if (disc > 0) {
-        store.updateDiscount(item.productId, disc);
       }
     }
     if (draft.customer) {
@@ -375,9 +339,8 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
           <div className="space-y-0.5">
             {selected.items.map((item, idx) => {
               const unitPrice = parseFloat(String(item.unitPrice)) || 0;
-              const disc = parseFloat(String(item.discount)) || 0;
               const qty = Number(item.quantity) || 0;
-              const lineTotal = unitPrice * qty * (1 - disc / 100);
+              const lineTotal = unitPrice * qty;
               return (
                 <div
                   key={item.id}
@@ -394,7 +357,6 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
                   </div>
                   <p className="mt-1 text-xs text-text-muted tabular-nums">
                     {formatCurrency(unitPrice)} x {qty.toLocaleString()}
-                    {disc > 0 && <span className="ml-1 text-success-600 font-semibold">-{disc}%</span>}
                   </p>
                 </div>
               );

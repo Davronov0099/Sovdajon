@@ -3,21 +3,16 @@ import { priceSchema } from './common.js';
 
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
-  price: priceSchema,
-  costPrice: priceSchema,
-  dollarRate: z.number().min(0).optional(),
+  price: priceSchema,                                    // Dona narxi
+  costPrice: priceSchema,                                // Tan narxi
+  minSellingPrice: z.number().min(0).optional(),         // Min sotuv narxi
+  wholesalePrice: z.number().min(0).optional(),          // Optom narxi
   stock: z.number().int().default(0),
   minStock: z.number().int().min(0).default(5),
   unit: z.enum(['PIECE', 'KG', 'METER', 'SET', 'PACK', 'BOX']).default('PIECE'),
   categoryId: z.string().uuid(),
   subCategoryId: z.string().uuid().optional(),
   description: z.string().max(1000).optional(),
-  discount1Qty: z.number().int().min(0).default(0),
-  discount1Pct: z.number().min(0).max(100).default(0),
-  discount2Qty: z.number().int().min(0).default(0),
-  discount2Pct: z.number().min(0).max(100).default(0),
-  discount3Qty: z.number().int().min(0).default(0),
-  discount3Pct: z.number().min(0).max(100).default(0),
   images: z.array(z.string()).max(8).optional(),
 });
 

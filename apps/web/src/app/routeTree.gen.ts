@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
-import { Route as AuthWarehousesRouteImport } from './routes/_auth/warehouses'
 import { Route as AuthSuppliersRouteImport } from './routes/_auth/suppliers'
 import { Route as AuthStockAlertsRouteImport } from './routes/_auth/stock-alerts'
 import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
@@ -27,7 +26,7 @@ import { Route as AuthExpensesRouteImport } from './routes/_auth/expenses'
 import { Route as AuthDebtsRouteImport } from './routes/_auth/debts'
 import { Route as AuthCustomersRouteImport } from './routes/_auth/customers'
 import { Route as AuthCategoriesRouteImport } from './routes/_auth/categories'
-import { Route as AuthWarehousesWarehouseIdRouteImport } from './routes/_auth/warehouses_.$warehouseId'
+import { Route as AuthArchiveRouteImport } from './routes/_auth/archive'
 import { Route as AuthSuppliersSupplierIdRouteImport } from './routes/_auth/suppliers_.$supplierId'
 import { Route as AuthReportsSalesRouteImport } from './routes/_auth/reports/sales'
 import { Route as AuthReportsProfitRouteImport } from './routes/_auth/reports/profit'
@@ -50,11 +49,6 @@ const AuthRoute = AuthRouteImport.update({
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthWarehousesRoute = AuthWarehousesRouteImport.update({
-  id: '/warehouses',
-  path: '/warehouses',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthSuppliersRoute = AuthSuppliersRouteImport.update({
@@ -141,12 +135,11 @@ const AuthCategoriesRoute = AuthCategoriesRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/categories.lazy').then((d) => d.Route),
 )
-const AuthWarehousesWarehouseIdRoute =
-  AuthWarehousesWarehouseIdRouteImport.update({
-    id: '/warehouses_/$warehouseId',
-    path: '/warehouses/$warehouseId',
-    getParentRoute: () => AuthRoute,
-  } as any)
+const AuthArchiveRoute = AuthArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSuppliersSupplierIdRoute = AuthSuppliersSupplierIdRouteImport.update({
   id: '/suppliers_/$supplierId',
   path: '/suppliers/$supplierId',
@@ -217,6 +210,7 @@ const AuthSuppliersSupplierIdImportRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
+  '/archive': typeof AuthArchiveRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
@@ -231,7 +225,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthSettingsRoute
   '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
-  '/warehouses': typeof AuthWarehousesRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
   '/customers/add': typeof AuthCustomersAddRoute
   '/customers/map': typeof AuthCustomersMapRoute
@@ -240,11 +233,11 @@ export interface FileRoutesByFullPath {
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
-  '/warehouses/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/archive': typeof AuthArchiveRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
@@ -259,7 +252,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthSettingsRoute
   '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
-  '/warehouses': typeof AuthWarehousesRoute
   '/': typeof AuthIndexRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
   '/customers/add': typeof AuthCustomersAddRoute
@@ -269,13 +261,13 @@ export interface FileRoutesByTo {
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
-  '/warehouses/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
+  '/_auth/archive': typeof AuthArchiveRoute
   '/_auth/categories': typeof AuthCategoriesRoute
   '/_auth/customers': typeof AuthCustomersRoute
   '/_auth/debts': typeof AuthDebtsRoute
@@ -290,7 +282,6 @@ export interface FileRoutesById {
   '/_auth/settings': typeof AuthSettingsRoute
   '/_auth/stock-alerts': typeof AuthStockAlertsRoute
   '/_auth/suppliers': typeof AuthSuppliersRoute
-  '/_auth/warehouses': typeof AuthWarehousesRoute
   '/_auth/': typeof AuthIndexRoute
   '/_auth/customers_/$customerId': typeof AuthCustomersCustomerIdRoute
   '/_auth/customers_/add': typeof AuthCustomersAddRoute
@@ -300,7 +291,6 @@ export interface FileRoutesById {
   '/_auth/reports/profit': typeof AuthReportsProfitRoute
   '/_auth/reports/sales': typeof AuthReportsSalesRoute
   '/_auth/suppliers_/$supplierId': typeof AuthSuppliersSupplierIdRoute
-  '/_auth/warehouses_/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/_auth/suppliers_/$supplierId_/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRouteTypes {
@@ -308,6 +298,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/archive'
     | '/categories'
     | '/customers'
     | '/debts'
@@ -322,7 +313,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stock-alerts'
     | '/suppliers'
-    | '/warehouses'
     | '/customers/$customerId'
     | '/customers/add'
     | '/customers/map'
@@ -331,11 +321,11 @@ export interface FileRouteTypes {
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
-    | '/warehouses/$warehouseId'
     | '/suppliers/$supplierId/import'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/archive'
     | '/categories'
     | '/customers'
     | '/debts'
@@ -350,7 +340,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stock-alerts'
     | '/suppliers'
-    | '/warehouses'
     | '/'
     | '/customers/$customerId'
     | '/customers/add'
@@ -360,12 +349,12 @@ export interface FileRouteTypes {
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
-    | '/warehouses/$warehouseId'
     | '/suppliers/$supplierId/import'
   id:
     | '__root__'
     | '/_auth'
     | '/login'
+    | '/_auth/archive'
     | '/_auth/categories'
     | '/_auth/customers'
     | '/_auth/debts'
@@ -380,7 +369,6 @@ export interface FileRouteTypes {
     | '/_auth/settings'
     | '/_auth/stock-alerts'
     | '/_auth/suppliers'
-    | '/_auth/warehouses'
     | '/_auth/'
     | '/_auth/customers_/$customerId'
     | '/_auth/customers_/add'
@@ -390,7 +378,6 @@ export interface FileRouteTypes {
     | '/_auth/reports/profit'
     | '/_auth/reports/sales'
     | '/_auth/suppliers_/$supplierId'
-    | '/_auth/warehouses_/$warehouseId'
     | '/_auth/suppliers_/$supplierId_/import'
   fileRoutesById: FileRoutesById
 }
@@ -420,13 +407,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthIndexRouteImport
-      parentRoute: typeof AuthRoute
-    }
-    '/_auth/warehouses': {
-      id: '/_auth/warehouses'
-      path: '/warehouses'
-      fullPath: '/warehouses'
-      preLoaderRoute: typeof AuthWarehousesRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/suppliers': {
@@ -527,11 +507,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCategoriesRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/warehouses_/$warehouseId': {
-      id: '/_auth/warehouses_/$warehouseId'
-      path: '/warehouses/$warehouseId'
-      fullPath: '/warehouses/$warehouseId'
-      preLoaderRoute: typeof AuthWarehousesWarehouseIdRouteImport
+    '/_auth/archive': {
+      id: '/_auth/archive'
+      path: '/archive'
+      fullPath: '/archive'
+      preLoaderRoute: typeof AuthArchiveRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/suppliers_/$supplierId': {
@@ -601,6 +581,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteChildren {
+  AuthArchiveRoute: typeof AuthArchiveRoute
   AuthCategoriesRoute: typeof AuthCategoriesRoute
   AuthCustomersRoute: typeof AuthCustomersRoute
   AuthDebtsRoute: typeof AuthDebtsRoute
@@ -615,7 +596,6 @@ interface AuthRouteChildren {
   AuthSettingsRoute: typeof AuthSettingsRoute
   AuthStockAlertsRoute: typeof AuthStockAlertsRoute
   AuthSuppliersRoute: typeof AuthSuppliersRoute
-  AuthWarehousesRoute: typeof AuthWarehousesRoute
   AuthIndexRoute: typeof AuthIndexRoute
   AuthCustomersCustomerIdRoute: typeof AuthCustomersCustomerIdRoute
   AuthCustomersAddRoute: typeof AuthCustomersAddRoute
@@ -625,11 +605,11 @@ interface AuthRouteChildren {
   AuthReportsProfitRoute: typeof AuthReportsProfitRoute
   AuthReportsSalesRoute: typeof AuthReportsSalesRoute
   AuthSuppliersSupplierIdRoute: typeof AuthSuppliersSupplierIdRoute
-  AuthWarehousesWarehouseIdRoute: typeof AuthWarehousesWarehouseIdRoute
   AuthSuppliersSupplierIdImportRoute: typeof AuthSuppliersSupplierIdImportRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthArchiveRoute: AuthArchiveRoute,
   AuthCategoriesRoute: AuthCategoriesRoute,
   AuthCustomersRoute: AuthCustomersRoute,
   AuthDebtsRoute: AuthDebtsRoute,
@@ -644,7 +624,6 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthSettingsRoute: AuthSettingsRoute,
   AuthStockAlertsRoute: AuthStockAlertsRoute,
   AuthSuppliersRoute: AuthSuppliersRoute,
-  AuthWarehousesRoute: AuthWarehousesRoute,
   AuthIndexRoute: AuthIndexRoute,
   AuthCustomersCustomerIdRoute: AuthCustomersCustomerIdRoute,
   AuthCustomersAddRoute: AuthCustomersAddRoute,
@@ -654,7 +633,6 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthReportsProfitRoute: AuthReportsProfitRoute,
   AuthReportsSalesRoute: AuthReportsSalesRoute,
   AuthSuppliersSupplierIdRoute: AuthSuppliersSupplierIdRoute,
-  AuthWarehousesWarehouseIdRoute: AuthWarehousesWarehouseIdRoute,
   AuthSuppliersSupplierIdImportRoute: AuthSuppliersSupplierIdImportRoute,
 }
 

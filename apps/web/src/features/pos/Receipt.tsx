@@ -4,14 +4,11 @@ interface ReceiptItem {
   name: string;
   quantity: number;
   price: number;
-  discount: number;
 }
 
 interface ReceiptData {
   items: ReceiptItem[];
   subtotal: number;
-  discountPercent: number;
-  discountAmount: number;
   total: number;
   paidCash: number;
   paidCard: number;
@@ -39,7 +36,7 @@ function now(): string {
 
 export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data }, ref) => {
   const {
-    items, subtotal, discountPercent, discountAmount, total,
+    items, subtotal, total,
     paidCash, paidCard, paidClick, paidDebt, change,
     customerName, cashierName,
   } = data;
@@ -74,14 +71,13 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
 
       {/* ─── Items ─── */}
       {items.map((item, i) => {
-        const lineTotal = item.price * item.quantity * (1 - item.discount / 100);
+        const lineTotal = item.price * item.quantity;
         return (
           <div key={i} className="r-item">
             <div className="r-item-name">{i + 1}. {item.name}</div>
             <div className="r-row r-sm">
               <span>
                 {formatNum(item.quantity)} x {formatNum(item.price)}
-                {item.discount > 0 ? ` (-${item.discount}%)` : ''}
               </span>
               <span className="r-bold">{formatNum(Math.round(lineTotal))}</span>
             </div>
@@ -95,12 +91,6 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
         <span>Oraliq summa:</span>
         <span>{formatNum(Math.round(subtotal))}</span>
       </div>
-      {discountAmount > 0 && (
-        <div className="r-row">
-          <span>Chegirma ({discountPercent}%):</span>
-          <span>-{formatNum(Math.round(discountAmount))}</span>
-        </div>
-      )}
       <div className="r-line">{DLINE}</div>
       <div className="r-row r-bold r-lg">
         <span>JAMI:</span>

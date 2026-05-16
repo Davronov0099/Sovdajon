@@ -4,7 +4,6 @@ interface ReceiptItem {
   productName: string;
   quantity: number;
   unitPrice: number;
-  discount: number;
   total: number;
 }
 
@@ -12,8 +11,6 @@ interface ReceiptData {
   number: number;
   items: ReceiptItem[];
   subtotal: number;
-  discount: number;
-  discountPercent: number;
   total: number;
   paymentMethod: string;
   cashReceived?: number;
@@ -64,9 +61,6 @@ export function ReceiptTemplate({ receipt }: { receipt: ReceiptData }) {
                   <span>{item.quantity} x {formatCurrency(item.unitPrice, '')}</span>
                   <span>{formatCurrency(item.total, '')}</span>
                 </p>
-                {item.discount > 0 && (
-                  <p className="text-[10px]">  chegirma: -{item.discount}%</p>
-                )}
               </td>
             </tr>
           ))}
@@ -81,12 +75,6 @@ export function ReceiptTemplate({ receipt }: { receipt: ReceiptData }) {
           <span>Oraliq:</span>
           <span>{formatCurrency(receipt.subtotal, '')}</span>
         </div>
-        {receipt.discount > 0 && (
-          <div className="flex justify-between">
-            <span>Chegirma ({receipt.discountPercent}%):</span>
-            <span>-{formatCurrency(receipt.discount, '')}</span>
-          </div>
-        )}
         <div className="flex justify-between text-sm font-bold">
           <span>JAMI:</span>
           <span>{formatCurrency(receipt.total)}</span>

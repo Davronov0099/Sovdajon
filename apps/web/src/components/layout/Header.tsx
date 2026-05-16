@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronsRight, User, LogOut, Maximize, Minimize, DollarSign, Search } from 'lucide-react';
+import { ChevronsRight, User, LogOut, Maximize, Minimize, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
-import { useUsdRateStore } from '@/stores/usdRate';
-import { useUpdateCurrencyRate } from '@/hooks/useSettings';
 import { useLocation } from '@tanstack/react-router';
 import { cn } from '@/lib/cn';
 
@@ -36,15 +34,9 @@ export function Header() {
   const { sidebarOpen, toggleSidebar, toggleCommandPalette, mobileSidebarOpen, setMobileSidebarOpen } = useUiStore();
   const location = useLocation();
   const isPOS = location.pathname === '/pos';
-  const usdRate = useUsdRateStore((s) => s.rate);
-  const setUsdRate = useUsdRateStore((s) => s.setRate);
-  const currencyMut = useUpdateCurrencyRate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [rateEdit, setRateEdit] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const isAdmin = user?.role === 'ADMIN';
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -126,37 +118,6 @@ export function Header() {
         >
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </button>
-
-        {/* USD Rate — admin tahrirlaydi, boshqalar faqat ko'radi */}
-        <div className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5">
-          <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-          {isAdmin && rateEdit ? (
-            <input
-              type="number"
-              defaultValue={usdRate}
-              onBlur={(e) => { const v = Number(e.target.value) || usdRate; setUsdRate(v); currencyMut.mutate(v); setRateEdit(false); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { const v = Number((e.target as HTMLInputElement).value) || usdRate; setUsdRate(v); currencyMut.mutate(v); setRateEdit(false); }
-                if (e.key === 'Escape') setRateEdit(false);
-              }}
-              className="w-16 sm:w-20 bg-transparent text-[13px] font-bold text-text-primary outline-none tabular-nums"
-              autoFocus
-            />
-          ) : (
-            <button
-              onClick={() => isAdmin && setRateEdit(true)}
-              className={cn(
-                'text-[13px] font-bold text-text-primary tabular-nums transition-colors',
-                isAdmin ? 'hover:text-primary-600 cursor-pointer' : 'cursor-default',
-              )}
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-              title={isAdmin ? "Dollar kursini o'zgartirish" : undefined}
-            >
-              {usdRate.toLocaleString()}
-            </button>
-          )}
-          <span className="text-[10px] text-text-muted hidden sm:inline">so'm</span>
-        </div>
 
         {/* User avatar */}
         {user && (

@@ -13,8 +13,6 @@ export interface Receipt {
   id: string;
   number: number;
   subtotal: number;
-  discount: number;
-  discountPercent: number;
   total: number;
   paymentMethod: PaymentMethod;
   cashReceived: number | null;
@@ -33,7 +31,6 @@ export interface ReceiptItem {
   quantity: number;
   unitPrice: number;
   costPrice: number;
-  discount: number;
   total: number;
 }
 

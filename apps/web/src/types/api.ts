@@ -41,8 +41,10 @@ export interface ProductItem {
   id: string;
   code: number | null;
   name: string;
-  price: string; // Decimal from Prisma comes as string
-  costPrice: string;
+  price: string;                         // Dona narxi
+  costPrice: string;                     // Tan narxi
+  minSellingPrice: string | null;        // Min sotuv narxi
+  wholesalePrice: string | null;         // Optom narxi
   stock: number;
   minStock: number;
   unit: string;
@@ -78,8 +80,6 @@ export interface ReceiptItem {
   id: string;
   number: number;
   subtotal: string;
-  discount: string;
-  discountPercent: string;
   total: string;
   paymentMethod: PaymentMethod;
   cashReceived: string | null;
@@ -100,7 +100,6 @@ export interface ReceiptLineItem {
   quantity: number;
   unitPrice: string;
   costPrice: string;
-  discount: string;
   total: string;
 }
 
@@ -208,7 +207,6 @@ export interface SupplierTransactionItem {
   rate: string;
   note: string | null;
   createdAt: string;
-  warehouse: { id: string; name: string } | null;
   items: {
     id: string;
     productId: string;
@@ -401,41 +399,7 @@ export interface StoreLocationItem {
 
 // ==================== SETTINGS ====================
 
-// ==================== WAREHOUSE ====================
-
-export interface WarehouseItem {
-  id: string;
-  name: string;
-  address: string | null;
-  createdAt: string;
-  _count?: { products: number };
-}
-
-export interface WarehouseDetail extends WarehouseItem {
-  totalQuantity: number;
-  totalValue: number;
-}
-
-export interface WarehouseStockItem {
-  id: string;
-  productId: string;
-  warehouseId: string;
-  quantity: number;
-  updatedAt: string;
-  product: {
-    id: string;
-    code: number | null;
-    name: string;
-    price: string;
-    costPrice: string;
-    stock: number;        // Do'kon stock
-    minStock: number;
-    unit: string;
-    images: string[];
-    category: { id: string; name: string };
-    subCategory: { id: string; name: string } | null;
-  };
-}
+// ==================== ORDER ====================
 
 export type OrderStatusType = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 
@@ -460,23 +424,6 @@ export interface OrderEntity {
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
-}
-
-export type StockMovementType = 'IMPORT' | 'ISSUE_TO_SHOP' | 'TRANSFER' | 'SHOP_RETURN' | 'ADJUSTMENT';
-
-export interface StockMovementItem {
-  id: string;
-  type: StockMovementType;
-  productId: string;
-  quantity: number;
-  fromWarehouseId: string | null;
-  toWarehouseId: string | null;
-  note: string | null;
-  createdById: string;
-  createdAt: string;
-  product: { id: string; name: string; code: number | null };
-  fromWarehouse: { id: string; name: string } | null;
-  toWarehouse: { id: string; name: string } | null;
 }
 
 // ==================== CONTACT ====================

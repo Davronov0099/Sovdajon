@@ -328,12 +328,6 @@ export function CustomerDetailPage() {
 
               {/* Summary */}
               <div className="space-y-1.5 text-[13px]">
-                {Number(receiptDetail.discount) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Chegirma</span>
-                    <span className="font-medium text-danger-600 tabular-nums">-{formatCurrency(Number(receiptDetail.discount))}</span>
-                  </div>
-                )}
                 <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
                   <span className="font-semibold text-text-primary">Jami</span>
                   <span className="font-bold text-text-primary text-base tabular-nums">{formatCurrency(Number(receiptDetail.total))}</span>

@@ -1,9 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { CreateReceiptInput } from '@sardorbek/shared';
-import { calculateAutoDiscount, calculateDiscount } from '@sardorbek/shared';
 import { prisma } from '../../config/database.js';
 import { badRequest, notFound, forbidden } from '../../utils/errors.js';
-// Stock decrement is done inline in the transaction for atomicity
 import { createAuditLog } from '../../utils/auditLog.js';
 import { emitToAll, emitToAdmins } from '../../websocket/index.js';
 
@@ -19,7 +17,7 @@ interface ListReceiptsQuery {
 }
 
 export async function createReceipt(input: CreateReceiptInput, userId: string) {
-  const { items, paymentMethod, customerId, cashReceived, mixedPayments, discountPercent, debtDueDate } = input;
+  const { items, paymentMethod, customerId, cashReceived, mixedPayments, debtDueDate } = input;
 
   // Validate items and fetch product data
   const productIds = items.map((i) => i.productId);
@@ -67,7 +65,7 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
     }
   }
 
-  // Build receipt items with calculations
+  // Build receipt items (chegirma yo'q — narx * miqdor)
   const productMap = new Map(products.map((p) => [p.id, p]));
   const receiptItems: {
     productId: string;
@@ -75,28 +73,17 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
     quantity: number;
     unitPrice: Prisma.Decimal;
     costPrice: Prisma.Decimal;
-    discount: number;
     total: Prisma.Decimal;
   }[] = [];
 
   let subtotal = 0;
   const stockDecrements: { productId: string; quantity: number }[] = [];
 
-  // Qarzga sotganda chegirma bo'lmaydi
-  const isDebtPayment = paymentMethod === 'DEBT';
-
   for (const item of items) {
     const product = productMap.get(item.productId)!;
     const unitPrice = Number(product.price);
     const costPrice = Number(product.costPrice);
-
-    // Auto-discount based on quantity (qarz bo'lsa 0)
-    const autoDiscount = isDebtPayment ? 0 : calculateAutoDiscount(item.quantity);
-    const itemDiscount = isDebtPayment ? 0 : Math.max(item.discount ?? 0, autoDiscount);
-
-    const lineSubtotal = unitPrice * item.quantity;
-    const lineDiscount = calculateDiscount(lineSubtotal, itemDiscount);
-    const lineTotal = lineSubtotal - lineDiscount;
+    const lineTotal = unitPrice * item.quantity;
 
     receiptItems.push({
       productId: item.productId,
@@ -104,7 +91,6 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
       quantity: item.quantity,
       unitPrice: new Prisma.Decimal(unitPrice),
       costPrice: new Prisma.Decimal(costPrice),
-      discount: itemDiscount,
       total: new Prisma.Decimal(lineTotal),
     });
 
@@ -112,9 +98,7 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
     stockDecrements.push({ productId: item.productId, quantity: item.quantity });
   }
 
-  // Apply receipt-level discount (qarz bo'lsa 0)
-  const receiptDiscount = isDebtPayment ? 0 : calculateDiscount(subtotal, discountPercent ?? 0);
-  const total = subtotal - receiptDiscount;
+  const total = subtotal;
 
   // Validate mixed payment sum
   if (paymentMethod === 'MIXED' && mixedPayments) {
@@ -143,8 +127,6 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
     const created = await tx.receipt.create({
       data: {
         subtotal: new Prisma.Decimal(subtotal),
-        discount: new Prisma.Decimal(receiptDiscount),
-        discountPercent: new Prisma.Decimal(discountPercent ?? 0),
         total: new Prisma.Decimal(total),
         paymentMethod,
         cashReceived: cashReceived != null ? new Prisma.Decimal(cashReceived) : null,
@@ -272,7 +254,7 @@ export async function listReceipts(query: ListReceiptsQuery) {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, discount: true, total: true } },
+        items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, total: true } },
         customer: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
       },
@@ -305,7 +287,6 @@ export async function saveDraft(input: CreateReceiptInput, userId: string, sourc
       quantity: item.quantity,
       unitPrice: new Prisma.Decimal(unitPrice),
       costPrice: new Prisma.Decimal(Number(product.costPrice)),
-      discount: item.discount ?? 0,
       total: new Prisma.Decimal(lineTotal),
     };
   });
@@ -319,8 +300,6 @@ export async function saveDraft(input: CreateReceiptInput, userId: string, sourc
     data: {
       number: draftCount + 1,
       subtotal: new Prisma.Decimal(subtotal),
-      discount: new Prisma.Decimal(0),
-      discountPercent: new Prisma.Decimal(0),
       total: new Prisma.Decimal(subtotal),
       paymentMethod: input.paymentMethod,
       customerId: input.customerId ?? null,
@@ -342,7 +321,7 @@ export async function listHelperCarts() {
     where: { isDraft: true, source: 'HELPER' },
     orderBy: { createdAt: 'desc' },
     include: {
-      items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, discount: true, total: true } },
+      items: { select: { id: true, productId: true, productName: true, quantity: true, unitPrice: true, costPrice: true, total: true } },
       customer: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
     },

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { CreateSupplierInput, SupplierImportInput, SupplierPaymentInput } from '@sardorbek/shared';
 import { isCostPriceAlertNeeded } from '@sardorbek/shared';
 import { prisma } from '../../config/database.js';
-import { notFound, badRequest } from '../../utils/errors.js';
+import { notFound } from '../../utils/errors.js';
 import { createAuditLog } from '../../utils/auditLog.js';
 import { emitToAdmins } from '../../websocket/index.js';
 
@@ -51,7 +51,6 @@ export async function getSupplier(id: string) {
           items: {
             include: { product: { select: { id: true, name: true } } },
           },
-          warehouse: { select: { id: true, name: true } },
         },
       },
     },
@@ -107,10 +106,6 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, isDeleted: false } });
   if (!supplier) throw notFound('SUPPLIER_NOT_FOUND');
 
-  // Ombor majburiy — tekshirish
-  const warehouse = await prisma.warehouse.findUnique({ where: { id: input.warehouseId } });
-  if (!warehouse) throw badRequest('WAREHOUSE_NOT_FOUND', 'Tanlangan ombor topilmadi');
-
   // Validate products exist
   const productIds = input.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
@@ -120,21 +115,20 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
   if (products.length !== productIds.length) throw notFound('PRODUCT_NOT_FOUND');
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  // Calculate total
-  const rate = input.currency === 'USD' ? input.rate : 1;
+  // Calculate total (faqat UZS — barcha qiymatlar so'mda keladi)
   let total = 0;
   const transactionItems = input.items.map((item) => {
-    const itemTotal = item.unitPrice * item.quantity * rate;
+    const itemTotal = item.unitPrice * item.quantity;
     total += itemTotal;
     return {
       productId: item.productId,
       quantity: item.quantity,
-      unitPrice: new Prisma.Decimal(item.unitPrice * rate),
+      unitPrice: new Prisma.Decimal(item.unitPrice),
       total: new Prisma.Decimal(itemTotal),
     };
   });
 
-  // Atomic transaction: create import + update WarehouseStock + costPrice + movements
+  // Atomic transaction: kirim mahsulotlar bo'limiga (Product.stock) to'g'ridan-to'g'ri
   const alerts: { productName: string; oldPrice: number; newPrice: number; changePercent: number }[] = [];
 
   const transaction = await prisma.$transaction(async (tx) => {
@@ -144,17 +138,13 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         supplierId,
         type: 'IMPORT',
         total: new Prisma.Decimal(total),
-        currency: input.currency,
-        rate: new Prisma.Decimal(rate),
+        currency: 'UZS',
+        rate: new Prisma.Decimal(1),
         note: input.note ?? null,
-        warehouseId: input.warehouseId,
         createdById: userId,
         items: { create: transactionItems },
       },
-      include: {
-        items: true,
-        warehouse: { select: { id: true, name: true } },
-      },
+      include: { items: true },
     });
 
     const priceHistoryData: {
@@ -167,25 +157,17 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       createdById: string;
     }[] = [];
 
-    const movementData: {
-      type: 'IMPORT';
-      productId: string;
-      quantity: number;
-      toWarehouseId: string;
-      note: string | null;
-      createdById: string;
-    }[] = [];
-
-    // 2. Har bir mahsulot uchun: WarehouseStock upsert + costPrice/sellingPrice yangilash
+    // 2. Har bir mahsulot uchun: Product.stock'ni oshirish + costPrice/sellingPrice yangilash
     await Promise.all(
       input.items.map(async (item) => {
         const product = productMap.get(item.productId)!;
-        const newCostPrice = item.unitPrice * rate;
+        const newCostPrice = item.unitPrice;
         const oldCostPrice = Number(product.costPrice);
-        const newSellingPrice = item.sellingPrice != null ? item.sellingPrice * rate : undefined;
+        const newSellingPrice = item.sellingPrice;
 
-        // 2a. Product: faqat narx ma'lumotlari yangilanadi (stock'ga TEGINMAYDI)
+        // Mahsulotlar bo'limiga to'g'ridan-to'g'ri kirim (avvalgi xulq)
         const updateData: Prisma.ProductUpdateInput = {
+          stock: { increment: item.quantity },
           costPrice: new Prisma.Decimal(newCostPrice),
         };
         if (newSellingPrice != null && newSellingPrice > 0) {
@@ -194,34 +176,6 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         await tx.product.update({
           where: { id: item.productId },
           data: updateData,
-        });
-
-        // 2b. WarehouseStock: ombor'dagi miqdorni oshirish (upsert)
-        await tx.warehouseStock.upsert({
-          where: {
-            productId_warehouseId: {
-              productId: item.productId,
-              warehouseId: input.warehouseId,
-            },
-          },
-          create: {
-            productId: item.productId,
-            warehouseId: input.warehouseId,
-            quantity: item.quantity,
-          },
-          update: {
-            quantity: { increment: item.quantity },
-          },
-        });
-
-        // 2c. Movement yozuvi
-        movementData.push({
-          type: 'IMPORT',
-          productId: item.productId,
-          quantity: item.quantity,
-          toWarehouseId: input.warehouseId,
-          note: `Supplier: ${supplier.name}`,
-          createdById: userId,
         });
 
         // Price history
@@ -248,12 +202,8 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       }),
     );
 
-    // Batch inserts
     if (priceHistoryData.length > 0) {
       await tx.priceHistory.createMany({ data: priceHistoryData });
-    }
-    if (movementData.length > 0) {
-      await tx.stockMovement.createMany({ data: movementData });
     }
 
     // 3. Supplier balansi (qarz)
@@ -270,7 +220,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
     entity: 'SupplierTransaction',
     entityId: transaction.id,
     userId,
-    newData: { total, itemCount: input.items.length, currency: input.currency },
+    newData: { total, itemCount: input.items.length },
   });
 
   // Send price alerts

@@ -22,7 +22,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const user = useAuthStore((s) => s.user);
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.getTotal());
-  const globalDiscount = useCartStore((s) => s.globalDiscount);
   const customerId = useCartStore((s) => s.customerId);
   const customerName = useCartStore((s) => s.customerName);
   const setCustomer = useCartStore((s) => s.setCustomer);
@@ -44,10 +43,8 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const createCustomer = useCreateCustomer();
 
   const subtotal = useCartStore((s) => s.getSubtotal());
-  const rawSubtotal = useCartStore((s) => s.getRawSubtotal());
 
-  // Qarzga sotganda auto-chegirma qo'llanilmaydi — to'liq narx ishlatiladi
-  const effectiveTotal = debtAmount > 0 ? rawSubtotal : total;
+  const effectiveTotal = total;
 
   const paidTotal = cashAmount + cardAmount + clickAmount + debtAmount;
   const remaining = effectiveTotal - paidTotal;
@@ -108,8 +105,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
     if (debtAmount > 0 && !customerId) return;
     if (!isFullyPaid) return;
 
-    const effectiveDiscount = globalDiscount;
-
     const filledMethods = [
       cashAmount > 0 && 'CASH',
       cardAmount > 0 && 'CARD',
@@ -136,17 +131,12 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       ];
     }
 
-    // Qarzga sotganda — hech qanday chegirma bo'lmaydi
-    const isDebtPayment = effectiveMethod === 'DEBT' || debtAmount > 0;
-
     const payload = {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
-        discount: isDebtPayment ? 0 : i.discount,
       })),
       paymentMethod: effectiveMethod as 'CASH' | 'CARD' | 'CLICK' | 'DEBT' | 'MIXED' | 'TRANSFER',
-      discountPercent: isDebtPayment ? 0 : effectiveDiscount,
       customerId: customerId ?? undefined,
       cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : effectiveTotal) : undefined,
       debtDueDate: (effectiveMethod === 'DEBT' || debtAmount > 0) ? debtDueDate : undefined,
@@ -161,7 +151,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       console.error('Payment error:', err);
       play('error');
     }
-  }, [items, isFullyPaid, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, effectiveTotal, createReceipt, play]);
+  }, [items, isFullyPaid, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, customerId, total, effectiveTotal, debtDueDate, createReceipt, play]);
 
   function handleClose() {
     if (success) clearCart();
@@ -183,23 +173,19 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   }
 
   function handleSetFullCash() {
-    const t = debtAmount > 0 ? rawSubtotal : total;
-    const rem = t - cardAmount - clickAmount - debtAmount;
+    const rem = total - cardAmount - clickAmount - debtAmount;
     setCashAmount(Math.max(0, rem));
   }
   function handleSetFullCard() {
-    const t = debtAmount > 0 ? rawSubtotal : total;
-    const rem = t - cashAmount - clickAmount - debtAmount;
+    const rem = total - cashAmount - clickAmount - debtAmount;
     setCardAmount(Math.max(0, rem));
   }
   function handleSetFullClick() {
-    const t = debtAmount > 0 ? rawSubtotal : total;
-    const rem = t - cashAmount - cardAmount - debtAmount;
+    const rem = total - cashAmount - cardAmount - debtAmount;
     setClickAmount(Math.max(0, rem));
   }
   function handleSetFullDebt() {
-    // Qarz uchun doim to'liq narx (chegirmasiz)
-    const rem = rawSubtotal - cashAmount - cardAmount - clickAmount;
+    const rem = total - cashAmount - cardAmount - clickAmount;
     setDebtAmount(Math.max(0, rem));
   }
 
@@ -249,11 +235,8 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
                   name: i.name,
                   quantity: i.quantity,
                   price: i.price,
-                  discount: i.discount,
                 })),
                 subtotal,
-                discountPercent: globalDiscount,
-                discountAmount: subtotal - total,
                 total,
                 paidCash: cashAmount,
                 paidCard: cardAmount,

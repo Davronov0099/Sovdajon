@@ -1,9 +1,7 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
-import { useUsdRateStore } from '@/stores/usdRate';
-import { useCurrencyRate } from '@/hooks/useSettings';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MobileTopNav } from '@/components/layout/MobileTopNav';
@@ -26,14 +24,6 @@ export const Route = createFileRoute('/_auth')({
 function AuthLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const { containerRef, swipeHandlers } = useSwipeNavigation();
-
-  // Sync currency rate from API to zustand store on app init
-  const { data: currencyData } = useCurrencyRate();
-  useEffect(() => {
-    if (currencyData?.data?.rate) {
-      useUsdRateStore.getState().setRate(currencyData.data.rate);
-    }
-  }, [currencyData]);
 
   return (
     <div className="min-h-screen bg-surface-secondary">

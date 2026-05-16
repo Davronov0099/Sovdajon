@@ -12,18 +12,14 @@ interface BulkEditModalProps {
 }
 
 type FieldKey =
-  | 'price'
-  | 'costPrice'
+  | 'price'              // Dona narxi
+  | 'costPrice'          // Tan narxi
+  | 'minSellingPrice'    // Min sotuv narxi
+  | 'wholesalePrice'     // Optom narxi
   | 'minStock'
   | 'unit'
   | 'categoryId'
-  | 'subCategoryId'
-  | 'discount1Qty'
-  | 'discount1Pct'
-  | 'discount2Qty'
-  | 'discount2Pct'
-  | 'discount3Qty'
-  | 'discount3Pct';
+  | 'subCategoryId';
 
 const UNITS = ['PIECE', 'KG', 'METER', 'SET', 'PACK', 'BOX'] as const;
 
@@ -33,18 +29,14 @@ export function BulkEditModal({ open, selectedIds, onClose, onApplied }: BulkEdi
   const categories = catData?.data ?? [];
 
   const [enabled, setEnabled] = useState<Record<FieldKey, boolean>>({
-    price: false, costPrice: false, minStock: false, unit: false,
+    price: false, costPrice: false, minSellingPrice: false, wholesalePrice: false,
+    minStock: false, unit: false,
     categoryId: false, subCategoryId: false,
-    discount1Qty: false, discount1Pct: false,
-    discount2Qty: false, discount2Pct: false,
-    discount3Qty: false, discount3Pct: false,
   });
   const [values, setValues] = useState<Record<FieldKey, string>>({
-    price: '', costPrice: '', minStock: '', unit: 'PIECE',
+    price: '', costPrice: '', minSellingPrice: '', wholesalePrice: '',
+    minStock: '', unit: 'PIECE',
     categoryId: '', subCategoryId: '',
-    discount1Qty: '', discount1Pct: '',
-    discount2Qty: '', discount2Pct: '',
-    discount3Qty: '', discount3Pct: '',
   });
 
   const subCategories = (() => {
@@ -58,11 +50,9 @@ export function BulkEditModal({ open, selectedIds, onClose, onApplied }: BulkEdi
 
   const reset = () => {
     setEnabled({
-      price: false, costPrice: false, minStock: false, unit: false,
+      price: false, costPrice: false, minSellingPrice: false, wholesalePrice: false,
+      minStock: false, unit: false,
       categoryId: false, subCategoryId: false,
-      discount1Qty: false, discount1Pct: false,
-      discount2Qty: false, discount2Pct: false,
-      discount3Qty: false, discount3Pct: false,
     });
   };
 
@@ -71,16 +61,18 @@ export function BulkEditModal({ open, selectedIds, onClose, onApplied }: BulkEdi
     const data: Record<string, unknown> = {};
     if (enabled.price) data.price = Number(values.price) || 0;
     if (enabled.costPrice) data.costPrice = Number(values.costPrice) || 0;
+    if (enabled.minSellingPrice) {
+      const v = Number(values.minSellingPrice) || 0;
+      data.minSellingPrice = v > 0 ? v : undefined;
+    }
+    if (enabled.wholesalePrice) {
+      const v = Number(values.wholesalePrice) || 0;
+      data.wholesalePrice = v > 0 ? v : undefined;
+    }
     if (enabled.minStock) data.minStock = parseInt(values.minStock, 10) || 0;
     if (enabled.unit) data.unit = values.unit;
     if (enabled.categoryId && values.categoryId) data.categoryId = values.categoryId;
     if (enabled.subCategoryId) data.subCategoryId = values.subCategoryId || undefined;
-    if (enabled.discount1Qty) data.discount1Qty = parseInt(values.discount1Qty, 10) || 0;
-    if (enabled.discount1Pct) data.discount1Pct = Number(values.discount1Pct) || 0;
-    if (enabled.discount2Qty) data.discount2Qty = parseInt(values.discount2Qty, 10) || 0;
-    if (enabled.discount2Pct) data.discount2Pct = Number(values.discount2Pct) || 0;
-    if (enabled.discount3Qty) data.discount3Qty = parseInt(values.discount3Qty, 10) || 0;
-    if (enabled.discount3Pct) data.discount3Pct = Number(values.discount3Pct) || 0;
 
     if (Object.keys(data).length === 0) {
       alert('Hech qaysi maydon belgilanmadi');
@@ -125,28 +117,52 @@ export function BulkEditModal({ open, selectedIds, onClose, onApplied }: BulkEdi
             Faqat belgilangan ("✓") maydonlar yangilanadi. Boshqalari o'zgartirilmaydi.
           </p>
 
-          {/* Price + Cost */}
+          {/* Tan narxi + Min sotuv narxi */}
           <div className="grid grid-cols-2 gap-3">
-            <BulkField label="Narx (so'm)" enabled={enabled.price} onToggle={() => toggleField('price')}>
+            <BulkField label="Tan narxi (so'm)" enabled={enabled.costPrice} onToggle={() => toggleField('costPrice')}>
               <input
                 type="number"
                 min={0}
-                step="0.01"
-                value={values.price}
-                onChange={(e) => setValue('price', e.target.value)}
-                disabled={!enabled.price}
+                value={values.costPrice}
+                onChange={(e) => setValue('costPrice', e.target.value)}
+                disabled={!enabled.costPrice}
                 className="input"
                 placeholder="0"
               />
             </BulkField>
-            <BulkField label="Tan narxi" enabled={enabled.costPrice} onToggle={() => toggleField('costPrice')}>
+            <BulkField label="Min sotuv narxi (so'm)" enabled={enabled.minSellingPrice} onToggle={() => toggleField('minSellingPrice')}>
               <input
                 type="number"
                 min={0}
-                step="0.01"
-                value={values.costPrice}
-                onChange={(e) => setValue('costPrice', e.target.value)}
-                disabled={!enabled.costPrice}
+                value={values.minSellingPrice}
+                onChange={(e) => setValue('minSellingPrice', e.target.value)}
+                disabled={!enabled.minSellingPrice}
+                className="input"
+                placeholder="0"
+              />
+            </BulkField>
+          </div>
+
+          {/* Optom narxi + Dona narxi */}
+          <div className="grid grid-cols-2 gap-3">
+            <BulkField label="Optom narxi (so'm)" enabled={enabled.wholesalePrice} onToggle={() => toggleField('wholesalePrice')}>
+              <input
+                type="number"
+                min={0}
+                value={values.wholesalePrice}
+                onChange={(e) => setValue('wholesalePrice', e.target.value)}
+                disabled={!enabled.wholesalePrice}
+                className="input"
+                placeholder="0"
+              />
+            </BulkField>
+            <BulkField label="Dona narxi (so'm)" enabled={enabled.price} onToggle={() => toggleField('price')}>
+              <input
+                type="number"
+                min={0}
+                value={values.price}
+                onChange={(e) => setValue('price', e.target.value)}
+                disabled={!enabled.price}
                 className="input"
                 placeholder="0"
               />
@@ -208,45 +224,6 @@ export function BulkEditModal({ open, selectedIds, onClose, onApplied }: BulkEdi
                 ))}
               </select>
             </BulkField>
-          </div>
-
-          {/* Discounts */}
-          <div>
-            <p className="text-xs font-semibold text-text-secondary mb-2">3 darajali chegirma</p>
-            <div className="space-y-2">
-              {[1, 2, 3].map((tier) => {
-                const qtyKey = `discount${tier}Qty` as FieldKey;
-                const pctKey = `discount${tier}Pct` as FieldKey;
-                return (
-                  <div key={tier} className="grid grid-cols-2 gap-3">
-                    <BulkField label={`Daraja ${tier}: dona dan`} enabled={enabled[qtyKey]} onToggle={() => toggleField(qtyKey)}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={values[qtyKey]}
-                        onChange={(e) => setValue(qtyKey, e.target.value)}
-                        disabled={!enabled[qtyKey]}
-                        className="input"
-                        placeholder="0"
-                      />
-                    </BulkField>
-                    <BulkField label={`Daraja ${tier}: foiz %`} enabled={enabled[pctKey]} onToggle={() => toggleField(pctKey)}>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
-                        value={values[pctKey]}
-                        onChange={(e) => setValue(pctKey, e.target.value)}
-                        disabled={!enabled[pctKey]}
-                        className="input"
-                        placeholder="0"
-                      />
-                    </BulkField>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </form>
 

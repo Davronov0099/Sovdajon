@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
 import { useNavSettingsStore } from '@/stores/navSettings';
-import { NAV_META } from './MobileTopNav';
+import { NAV_META, ARCHIVE_KEYS } from './MobileTopNav';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -20,7 +20,9 @@ export function Sidebar() {
     if (!user) return [];
     return navItems.filter((item) => {
       const meta = NAV_META[item.key];
-      return meta && item.visible && meta.roles.includes(user.role);
+      if (!meta || !item.visible || !meta.roles.includes(user.role)) return false;
+      // Arxiv ichidagi item'lar sidebar'da to'g'ridan-to'g'ri chiqmaydi
+      return !(ARCHIVE_KEYS as readonly string[]).includes(item.key);
     });
   }, [user, navItems]);
 
