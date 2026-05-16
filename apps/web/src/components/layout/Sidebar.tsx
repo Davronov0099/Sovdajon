@@ -41,7 +41,7 @@ export function Sidebar() {
             <img src="/logo.png" alt="SovdaJON" className="h-9 w-9 rounded-lg object-cover shadow-sm" />
             <div>
               <p className="text-sm font-bold text-white tracking-tight leading-none">SovdaJON</p>
-              <p className="text-[10px] text-sidebar-text mt-0.5">Online Marketplace</p>
+              <p className="text-[10px] text-sidebar-text mt-0.5">Boshqaruv tizimi</p>
             </div>
           </div>
         ) : (

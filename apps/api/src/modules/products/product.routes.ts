@@ -14,6 +14,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       search: q.search,
       categoryId: q.categoryId,
       subCategoryId: q.subCategoryId,
+      warehouseId: q.warehouseId,
       stockStatus: q.stockStatus as 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE',
       priceStatus: q.priceStatus as 'WITH_PRICE' | 'NO_PRICE',
       sortBy: q.sortBy,

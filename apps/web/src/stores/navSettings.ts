@@ -14,11 +14,14 @@ const DEFAULT_NAV: NavItem[] = [
   { key: 'categories', visible: true },
   { key: 'debts', visible: true },
   { key: 'customers', visible: true },
+  { key: 'prospecting', visible: true },
   { key: 'suppliers', visible: true },
   { key: 'expenses', visible: true },
   { key: 'hr', visible: true },
   { key: 'settings', visible: true },
   { key: 'helper', visible: true },
+  { key: 'marketplace-settings', visible: true },
+  { key: 'warehouses', visible: true },
 ];
 
 interface NavSettingsState {

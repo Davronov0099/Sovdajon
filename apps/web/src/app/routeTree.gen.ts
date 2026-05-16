@@ -9,27 +9,39 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
+import { Route as AuthWarehousesRouteImport } from './routes/_auth/warehouses'
 import { Route as AuthSuppliersRouteImport } from './routes/_auth/suppliers'
 import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
+import { Route as AuthProspectingRouteImport } from './routes/_auth/prospecting'
 import { Route as AuthProductsRouteImport } from './routes/_auth/products'
 import { Route as AuthPosRouteImport } from './routes/_auth/pos'
+import { Route as AuthMarketplaceSettingsRouteImport } from './routes/_auth/marketplace-settings'
 import { Route as AuthHrRouteImport } from './routes/_auth/hr'
 import { Route as AuthHelperRouteImport } from './routes/_auth/helper'
 import { Route as AuthExpensesRouteImport } from './routes/_auth/expenses'
 import { Route as AuthDebtsRouteImport } from './routes/_auth/debts'
 import { Route as AuthCustomersRouteImport } from './routes/_auth/customers'
 import { Route as AuthCategoriesRouteImport } from './routes/_auth/categories'
+import { Route as AuthWarehousesWarehouseIdRouteImport } from './routes/_auth/warehouses_.$warehouseId'
 import { Route as AuthSuppliersSupplierIdRouteImport } from './routes/_auth/suppliers_.$supplierId'
 import { Route as AuthReportsSalesRouteImport } from './routes/_auth/reports/sales'
 import { Route as AuthReportsProfitRouteImport } from './routes/_auth/reports/profit'
 import { Route as AuthProductsProductIdRouteImport } from './routes/_auth/products_.$productId'
 import { Route as AuthDebtsCustomerIdRouteImport } from './routes/_auth/debts_.$customerId'
+import { Route as AuthCustomersMapRouteImport } from './routes/_auth/customers_.map'
+import { Route as AuthCustomersAddRouteImport } from './routes/_auth/customers_.add'
 import { Route as AuthCustomersCustomerIdRouteImport } from './routes/_auth/customers_.$customerId'
 import { Route as AuthSuppliersSupplierIdImportRouteImport } from './routes/_auth/suppliers_.$supplierId_.import'
 
+const MarketplaceRoute = MarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -42,6 +54,11 @@ const AuthRoute = AuthRouteImport.update({
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthWarehousesRoute = AuthWarehousesRouteImport.update({
+  id: '/warehouses',
+  path: '/warehouses',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthSuppliersRoute = AuthSuppliersRouteImport.update({
@@ -58,6 +75,13 @@ const AuthSettingsRoute = AuthSettingsRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/settings.lazy').then((d) => d.Route),
 )
+const AuthProspectingRoute = AuthProspectingRouteImport.update({
+  id: '/prospecting',
+  path: '/prospecting',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/prospecting.lazy').then((d) => d.Route),
+)
 const AuthProductsRoute = AuthProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -70,6 +94,13 @@ const AuthPosRoute = AuthPosRouteImport.update({
   path: '/pos',
   getParentRoute: () => AuthRoute,
 } as any).lazy(() => import('./routes/_auth/pos.lazy').then((d) => d.Route))
+const AuthMarketplaceSettingsRoute = AuthMarketplaceSettingsRouteImport.update({
+  id: '/marketplace-settings',
+  path: '/marketplace-settings',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/marketplace-settings.lazy').then((d) => d.Route),
+)
 const AuthHrRoute = AuthHrRouteImport.update({
   id: '/hr',
   path: '/hr',
@@ -106,6 +137,12 @@ const AuthCategoriesRoute = AuthCategoriesRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/categories.lazy').then((d) => d.Route),
 )
+const AuthWarehousesWarehouseIdRoute =
+  AuthWarehousesWarehouseIdRouteImport.update({
+    id: '/warehouses_/$warehouseId',
+    path: '/warehouses/$warehouseId',
+    getParentRoute: () => AuthRoute,
+  } as any)
 const AuthSuppliersSupplierIdRoute = AuthSuppliersSupplierIdRouteImport.update({
   id: '/suppliers_/$supplierId',
   path: '/suppliers/$supplierId',
@@ -141,6 +178,20 @@ const AuthDebtsCustomerIdRoute = AuthDebtsCustomerIdRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/debts_.$customerId.lazy').then((d) => d.Route),
 )
+const AuthCustomersMapRoute = AuthCustomersMapRouteImport.update({
+  id: '/customers_/map',
+  path: '/customers/map',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/customers_.map.lazy').then((d) => d.Route),
+)
+const AuthCustomersAddRoute = AuthCustomersAddRouteImport.update({
+  id: '/customers_/add',
+  path: '/customers/add',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/customers_.add.lazy').then((d) => d.Route),
+)
 const AuthCustomersCustomerIdRoute = AuthCustomersCustomerIdRouteImport.update({
   id: '/customers_/$customerId',
   path: '/customers/$customerId',
@@ -162,66 +213,87 @@ const AuthSuppliersSupplierIdImportRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
   '/expenses': typeof AuthExpensesRoute
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
+  '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
+  '/prospecting': typeof AuthProspectingRoute
   '/settings': typeof AuthSettingsRoute
   '/suppliers': typeof AuthSuppliersRoute
+  '/warehouses': typeof AuthWarehousesRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/customers/add': typeof AuthCustomersAddRoute
+  '/customers/map': typeof AuthCustomersMapRoute
   '/debts/$customerId': typeof AuthDebtsCustomerIdRoute
   '/products/$productId': typeof AuthProductsProductIdRoute
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/warehouses/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
   '/expenses': typeof AuthExpensesRoute
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
+  '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
+  '/prospecting': typeof AuthProspectingRoute
   '/settings': typeof AuthSettingsRoute
   '/suppliers': typeof AuthSuppliersRoute
+  '/warehouses': typeof AuthWarehousesRoute
   '/': typeof AuthIndexRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/customers/add': typeof AuthCustomersAddRoute
+  '/customers/map': typeof AuthCustomersMapRoute
   '/debts/$customerId': typeof AuthDebtsCustomerIdRoute
   '/products/$productId': typeof AuthProductsProductIdRoute
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/warehouses/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
+  '/marketplace': typeof MarketplaceRoute
   '/_auth/categories': typeof AuthCategoriesRoute
   '/_auth/customers': typeof AuthCustomersRoute
   '/_auth/debts': typeof AuthDebtsRoute
   '/_auth/expenses': typeof AuthExpensesRoute
   '/_auth/helper': typeof AuthHelperRoute
   '/_auth/hr': typeof AuthHrRoute
+  '/_auth/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/_auth/pos': typeof AuthPosRoute
   '/_auth/products': typeof AuthProductsRoute
+  '/_auth/prospecting': typeof AuthProspectingRoute
   '/_auth/settings': typeof AuthSettingsRoute
   '/_auth/suppliers': typeof AuthSuppliersRoute
+  '/_auth/warehouses': typeof AuthWarehousesRoute
   '/_auth/': typeof AuthIndexRoute
   '/_auth/customers_/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/_auth/customers_/add': typeof AuthCustomersAddRoute
+  '/_auth/customers_/map': typeof AuthCustomersMapRoute
   '/_auth/debts_/$customerId': typeof AuthDebtsCustomerIdRoute
   '/_auth/products_/$productId': typeof AuthProductsProductIdRoute
   '/_auth/reports/profit': typeof AuthReportsProfitRoute
   '/_auth/reports/sales': typeof AuthReportsSalesRoute
   '/_auth/suppliers_/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/_auth/warehouses_/$warehouseId': typeof AuthWarehousesWarehouseIdRoute
   '/_auth/suppliers_/$supplierId_/import': typeof AuthSuppliersSupplierIdImportRoute
 }
 export interface FileRouteTypes {
@@ -229,75 +301,104 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/marketplace'
     | '/categories'
     | '/customers'
     | '/debts'
     | '/expenses'
     | '/helper'
     | '/hr'
+    | '/marketplace-settings'
     | '/pos'
     | '/products'
+    | '/prospecting'
     | '/settings'
     | '/suppliers'
+    | '/warehouses'
     | '/customers/$customerId'
+    | '/customers/add'
+    | '/customers/map'
     | '/debts/$customerId'
     | '/products/$productId'
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
+    | '/warehouses/$warehouseId'
     | '/suppliers/$supplierId/import'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/marketplace'
     | '/categories'
     | '/customers'
     | '/debts'
     | '/expenses'
     | '/helper'
     | '/hr'
+    | '/marketplace-settings'
     | '/pos'
     | '/products'
+    | '/prospecting'
     | '/settings'
     | '/suppliers'
+    | '/warehouses'
     | '/'
     | '/customers/$customerId'
+    | '/customers/add'
+    | '/customers/map'
     | '/debts/$customerId'
     | '/products/$productId'
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
+    | '/warehouses/$warehouseId'
     | '/suppliers/$supplierId/import'
   id:
     | '__root__'
     | '/_auth'
     | '/login'
+    | '/marketplace'
     | '/_auth/categories'
     | '/_auth/customers'
     | '/_auth/debts'
     | '/_auth/expenses'
     | '/_auth/helper'
     | '/_auth/hr'
+    | '/_auth/marketplace-settings'
     | '/_auth/pos'
     | '/_auth/products'
+    | '/_auth/prospecting'
     | '/_auth/settings'
     | '/_auth/suppliers'
+    | '/_auth/warehouses'
     | '/_auth/'
     | '/_auth/customers_/$customerId'
+    | '/_auth/customers_/add'
+    | '/_auth/customers_/map'
     | '/_auth/debts_/$customerId'
     | '/_auth/products_/$productId'
     | '/_auth/reports/profit'
     | '/_auth/reports/sales'
     | '/_auth/suppliers_/$supplierId'
+    | '/_auth/warehouses_/$warehouseId'
     | '/_auth/suppliers_/$supplierId_/import'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MarketplaceRoute: typeof MarketplaceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/marketplace': {
+      id: '/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -319,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/warehouses': {
+      id: '/_auth/warehouses'
+      path: '/warehouses'
+      fullPath: '/warehouses'
+      preLoaderRoute: typeof AuthWarehousesRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/suppliers': {
       id: '/_auth/suppliers'
       path: '/suppliers'
@@ -333,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSettingsRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/prospecting': {
+      id: '/_auth/prospecting'
+      path: '/prospecting'
+      fullPath: '/prospecting'
+      preLoaderRoute: typeof AuthProspectingRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/products': {
       id: '/_auth/products'
       path: '/products'
@@ -345,6 +460,13 @@ declare module '@tanstack/react-router' {
       path: '/pos'
       fullPath: '/pos'
       preLoaderRoute: typeof AuthPosRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/marketplace-settings': {
+      id: '/_auth/marketplace-settings'
+      path: '/marketplace-settings'
+      fullPath: '/marketplace-settings'
+      preLoaderRoute: typeof AuthMarketplaceSettingsRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/hr': {
@@ -389,6 +511,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCategoriesRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/warehouses_/$warehouseId': {
+      id: '/_auth/warehouses_/$warehouseId'
+      path: '/warehouses/$warehouseId'
+      fullPath: '/warehouses/$warehouseId'
+      preLoaderRoute: typeof AuthWarehousesWarehouseIdRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/suppliers_/$supplierId': {
       id: '/_auth/suppliers_/$supplierId'
       path: '/suppliers/$supplierId'
@@ -424,6 +553,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDebtsCustomerIdRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/customers_/map': {
+      id: '/_auth/customers_/map'
+      path: '/customers/map'
+      fullPath: '/customers/map'
+      preLoaderRoute: typeof AuthCustomersMapRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/customers_/add': {
+      id: '/_auth/customers_/add'
+      path: '/customers/add'
+      fullPath: '/customers/add'
+      preLoaderRoute: typeof AuthCustomersAddRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/customers_/$customerId': {
       id: '/_auth/customers_/$customerId'
       path: '/customers/$customerId'
@@ -448,17 +591,23 @@ interface AuthRouteChildren {
   AuthExpensesRoute: typeof AuthExpensesRoute
   AuthHelperRoute: typeof AuthHelperRoute
   AuthHrRoute: typeof AuthHrRoute
+  AuthMarketplaceSettingsRoute: typeof AuthMarketplaceSettingsRoute
   AuthPosRoute: typeof AuthPosRoute
   AuthProductsRoute: typeof AuthProductsRoute
+  AuthProspectingRoute: typeof AuthProspectingRoute
   AuthSettingsRoute: typeof AuthSettingsRoute
   AuthSuppliersRoute: typeof AuthSuppliersRoute
+  AuthWarehousesRoute: typeof AuthWarehousesRoute
   AuthIndexRoute: typeof AuthIndexRoute
   AuthCustomersCustomerIdRoute: typeof AuthCustomersCustomerIdRoute
+  AuthCustomersAddRoute: typeof AuthCustomersAddRoute
+  AuthCustomersMapRoute: typeof AuthCustomersMapRoute
   AuthDebtsCustomerIdRoute: typeof AuthDebtsCustomerIdRoute
   AuthProductsProductIdRoute: typeof AuthProductsProductIdRoute
   AuthReportsProfitRoute: typeof AuthReportsProfitRoute
   AuthReportsSalesRoute: typeof AuthReportsSalesRoute
   AuthSuppliersSupplierIdRoute: typeof AuthSuppliersSupplierIdRoute
+  AuthWarehousesWarehouseIdRoute: typeof AuthWarehousesWarehouseIdRoute
   AuthSuppliersSupplierIdImportRoute: typeof AuthSuppliersSupplierIdImportRoute
 }
 
@@ -469,17 +618,23 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthExpensesRoute: AuthExpensesRoute,
   AuthHelperRoute: AuthHelperRoute,
   AuthHrRoute: AuthHrRoute,
+  AuthMarketplaceSettingsRoute: AuthMarketplaceSettingsRoute,
   AuthPosRoute: AuthPosRoute,
   AuthProductsRoute: AuthProductsRoute,
+  AuthProspectingRoute: AuthProspectingRoute,
   AuthSettingsRoute: AuthSettingsRoute,
   AuthSuppliersRoute: AuthSuppliersRoute,
+  AuthWarehousesRoute: AuthWarehousesRoute,
   AuthIndexRoute: AuthIndexRoute,
   AuthCustomersCustomerIdRoute: AuthCustomersCustomerIdRoute,
+  AuthCustomersAddRoute: AuthCustomersAddRoute,
+  AuthCustomersMapRoute: AuthCustomersMapRoute,
   AuthDebtsCustomerIdRoute: AuthDebtsCustomerIdRoute,
   AuthProductsProductIdRoute: AuthProductsProductIdRoute,
   AuthReportsProfitRoute: AuthReportsProfitRoute,
   AuthReportsSalesRoute: AuthReportsSalesRoute,
   AuthSuppliersSupplierIdRoute: AuthSuppliersSupplierIdRoute,
+  AuthWarehousesWarehouseIdRoute: AuthWarehousesWarehouseIdRoute,
   AuthSuppliersSupplierIdImportRoute: AuthSuppliersSupplierIdImportRoute,
 }
 
@@ -488,6 +643,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   LoginRoute: LoginRoute,
+  MarketplaceRoute: MarketplaceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

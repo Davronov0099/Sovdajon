@@ -10,6 +10,7 @@ interface ListProductsQuery {
   search?: string;
   categoryId?: string;
   subCategoryId?: string;
+  warehouseId?: string;
   stockStatus?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE';
   priceStatus?: 'WITH_PRICE' | 'NO_PRICE';
   sortBy?: string;
@@ -17,13 +18,19 @@ interface ListProductsQuery {
 }
 
 export async function listProducts(query: ListProductsQuery) {
-  const { page, limit, search, categoryId, subCategoryId, stockStatus, priceStatus, sortBy, sortOrder } = query;
+  const { page, limit, search, categoryId, subCategoryId, warehouseId, stockStatus, priceStatus, sortBy, sortOrder } = query;
   const skip = (page - 1) * limit;
 
   const where: Prisma.ProductWhereInput = {
     isDeleted: false,
     ...(categoryId && { categoryId }),
     ...(subCategoryId && { subCategoryId }),
+    // warehouseId — WarehouseStock orqali: shu omborda quantity > 0 bo'lgan mahsulotlar
+    ...(warehouseId && {
+      warehouseStocks: {
+        some: { warehouseId, quantity: { gt: 0 } },
+      },
+    }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -160,6 +167,7 @@ export async function createProduct(input: CreateProductInput, userId: string) {
       categoryId: input.categoryId,
       subCategoryId: input.subCategoryId,
       description: input.description,
+      images: input.images ?? [],
       code,
     },
     include: {
@@ -210,8 +218,11 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
     if (input.minStock !== undefined) updateData.minStock = input.minStock;
     if (input.unit !== undefined) updateData.unit = input.unit;
     if (input.description !== undefined) updateData.description = input.description;
+    if (input.images !== undefined) updateData.images = input.images;
     if (input.categoryId !== undefined) updateData.category = { connect: { id: input.categoryId } };
     if (input.subCategoryId !== undefined) updateData.subCategory = { connect: { id: input.subCategoryId } };
+    if (input.isMarketplaceVisible !== undefined) updateData.isMarketplaceVisible = input.isMarketplaceVisible;
+    if (input.showPrice !== undefined) updateData.showPrice = input.showPrice;
 
     return tx.product.update({
       where: { id },

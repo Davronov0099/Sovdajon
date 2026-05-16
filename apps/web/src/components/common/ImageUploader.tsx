@@ -93,7 +93,7 @@ export function ImageUploader({ images, onChange, maxImages = 8 }: ImageUploader
           onDragLeave={() => setDragOver(false)}
           onClick={() => inputRef.current?.click()}
           className={cn(
-            'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
+            'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 transition-colors',
             dragOver ? 'border-primary-500 bg-primary-50' : 'border-border hover:border-primary-300 hover:bg-surface-secondary',
             uploading && 'pointer-events-none opacity-50',
           )}
@@ -112,11 +112,11 @@ export function ImageUploader({ images, onChange, maxImages = 8 }: ImageUploader
             </div>
           ) : (
             <>
-              <Upload className="mb-2 h-8 w-8 text-text-muted" />
-              <p className="text-sm text-text-secondary">
-                Rasmlarni bu yerga tashlang yoki <span className="text-primary-600">tanlang</span>
+              <Upload className="mb-1 h-5 w-5 text-text-muted" />
+              <p className="text-xs text-text-secondary">
+                Rasmlarni tashlang yoki <span className="text-primary-600">tanlang</span>
               </p>
-              <p className="mt-1 text-xs text-text-muted">JPG, PNG, WebP — max 5MB</p>
+              <p className="text-[10px] text-text-muted">JPG, PNG, WebP — max 5MB</p>
             </>
           )}
         </div>

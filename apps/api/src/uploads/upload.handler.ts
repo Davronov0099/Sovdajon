@@ -42,4 +42,38 @@ export async function uploadRoutes(app: FastifyInstance) {
 
     return { url: `/uploads/${filename}` };
   });
+
+  // Multiple images upload
+  app.post('/images', { preHandler: [requireAuth] }, async (request, reply) => {
+    const parts = request.files();
+    const urls: string[] = [];
+
+    const uploadDir = join(process.cwd(), env.UPLOAD_DIR);
+    if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+
+    for await (const file of parts) {
+      if (!ALLOWED_TYPES.includes(file.mimetype)) continue;
+
+      const ext = extname(file.filename) || '.jpg';
+      const filename = `${randomUUID()}${ext}`;
+      const filepath = join(uploadDir, filename);
+
+      await pipeline(file.file, createWriteStream(filepath));
+
+      if (file.file.truncated) {
+        const { unlinkSync } = await import('fs');
+        unlinkSync(filepath);
+        continue;
+      }
+
+      urls.push(`/uploads/${filename}`);
+      if (urls.length >= 8) break;
+    }
+
+    if (urls.length === 0) {
+      return reply.status(400).send({ success: false, error: 'No valid images uploaded' });
+    }
+
+    return { success: true, data: { urls } };
+  });
 }

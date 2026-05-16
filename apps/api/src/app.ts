@@ -31,6 +31,7 @@ import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { userRoutes } from './modules/users/user.routes.js';
 import { orderRoutes } from './modules/orders/order.routes.js';
 import { versionRoutes } from './modules/version/version.routes.js';
+import { marketplaceRoutes } from './modules/marketplace/marketplace.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -84,6 +85,9 @@ export async function buildApp() {
 
   // Version SSE (no auth — barcha foydalanuvchilar uchun)
   await app.register(versionRoutes, { prefix: '/api/v1/version' });
+
+  // Marketplace — public storefront + admin panel API
+  await app.register(marketplaceRoutes, { prefix: '/api/v1/marketplace' });
 
   // Health check (no auth)
   app.get('/api/v1/health/live', async () => ({ status: 'ok' }));

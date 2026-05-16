@@ -43,6 +43,7 @@ interface ProductFilters {
   search?: string;
   categoryId?: string;
   subCategoryId?: string;
+  warehouseId?: string;
   stockStatus?: string;
   priceStatus?: string;
 }
@@ -57,6 +58,7 @@ export function useProducts(filters: ProductFilters = {}) {
       if (filters.search) params.set('search', filters.search);
       if (filters.categoryId) params.set('categoryId', filters.categoryId);
       if (filters.subCategoryId) params.set('subCategoryId', filters.subCategoryId);
+      if (filters.warehouseId) params.set('warehouseId', filters.warehouseId);
       if (filters.stockStatus) params.set('stockStatus', filters.stockStatus);
       if (filters.priceStatus) params.set('priceStatus', filters.priceStatus);
 

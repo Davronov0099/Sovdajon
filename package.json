@@ -6,10 +6,11 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @sardorbek/api --filter @sardorbek/web dev",
+    "dev": "pnpm --parallel --filter @sardorbek/api --filter @sardorbek/web --filter @sardorbek/store dev",
     "dev:api": "pnpm --filter @sardorbek/api dev",
     "dev:web": "pnpm --filter @sardorbek/web dev",
-    "build": "pnpm --filter @sardorbek/shared build && pnpm --parallel --filter @sardorbek/api --filter @sardorbek/web build",
+    "dev:store": "pnpm --filter @sardorbek/store dev",
+    "build": "pnpm --filter @sardorbek/shared build && pnpm --parallel --filter @sardorbek/api --filter @sardorbek/web --filter @sardorbek/store build",
     "build:shared": "pnpm --filter @sardorbek/shared build",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",

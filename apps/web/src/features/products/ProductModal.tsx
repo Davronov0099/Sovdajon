@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useCreateProduct, useUpdateProduct } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useUsdRateStore } from '@/stores/usdRate';
+import { ImageUploader } from '@/components/common/ImageUploader';
 
 // Ro'yxatdan kelgan mahsulot ma'lumoti
 export interface ProductData {
@@ -22,6 +23,7 @@ export interface ProductData {
   categoryId: string;
   subCategoryId: string | null;
   description: string | null;
+  images?: string[];
   [key: string]: unknown; // discount1Qty, dollarRate, etc.
 }
 
@@ -42,6 +44,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
 
   const [costUsd, setCostUsd] = useState(0);
   const [markupPct, setMarkupPct] = useState(0);
+  const [images, setImages] = useState<string[]>([]);
 
   const {
     register,
@@ -97,6 +100,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
       });
       setCostUsd(cost > 0 && rate > 0 ? Math.round((cost / rate) * 100) / 100 : 0);
       setMarkupPct(cost > 0 ? Math.round(((cp - cost) / cost) * 100 * 10) / 10 : 0);
+      setImages(product.images ?? []);
     } else {
       reset({
         name: '', price: 0, costPrice: 0, dollarRate: usdRate,
@@ -108,6 +112,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
       });
       setCostUsd(0);
       setMarkupPct(0);
+      setImages([]);
     }
   }, [open, product, reset, categories, usdRate]);
 
@@ -138,6 +143,7 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
 
   async function onSubmit(data: CreateProductInput) {
     if (!data.description) data.description = undefined;
+    data.images = images;
     if (isEdit && product) {
       await updateMut.mutateAsync({ id: product.id, data });
     } else {
@@ -159,20 +165,23 @@ export function ProductModal({ open, onClose, product }: ProductModalProps) {
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'} size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Birlik + Nomi */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* Rasm + Birlik/Nomi */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="unit" className="mb-1 block text-[12px] font-medium text-text-secondary">Birlik</label>
-            <select id="unit" className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm" {...register('unit')}>
-              <option value="PIECE">Dona</option>
-              <option value="KG">Kilogram</option>
-              <option value="METER">Metr</option>
-              <option value="SET">Komplekt</option>
-              <option value="PACK">Pachka</option>
-              <option value="BOX">Quti</option>
-            </select>
+            <ImageUploader images={images} onChange={setImages} maxImages={8} />
           </div>
-          <div className="sm:col-span-2">
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="unit" className="mb-1 block text-[12px] font-medium text-text-secondary">Birlik</label>
+              <select id="unit" className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm" {...register('unit')}>
+                <option value="PIECE">Dona</option>
+                <option value="KG">Kilogram</option>
+                <option value="METER">Metr</option>
+                <option value="SET">Komplekt</option>
+                <option value="PACK">Pachka</option>
+                <option value="BOX">Quti</option>
+              </select>
+            </div>
             <Input id="name" label="Nomi" error={errors.name?.message} {...register('name')} />
           </div>
         </div>

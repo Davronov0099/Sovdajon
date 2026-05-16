@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck } from 'lucide-react';
+import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck, Warehouse } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -231,6 +231,12 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
               {formatDateTime(txn.createdAt)}
               {isImport && isUSD && <span className="ml-1.5 text-info-600">USD (kurs: {formatCurrency(Number(txn.rate), '')})</span>}
             </p>
+            {isImport && txn.warehouse && (
+              <p className="flex items-center gap-1 text-[10px] text-primary-600 mt-0.5">
+                <Warehouse className="h-2.5 w-2.5" />
+                {txn.warehouse.name}
+              </p>
+            )}
           </div>
         </div>
         <p className={cn(

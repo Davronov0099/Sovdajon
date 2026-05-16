@@ -18,9 +18,13 @@ export const createProductSchema = z.object({
   discount2Pct: z.number().min(0).max(100).default(0),
   discount3Qty: z.number().int().min(0).default(0),
   discount3Pct: z.number().min(0).max(100).default(0),
+  images: z.array(z.string()).max(8).optional(),
 });
 
-export const updateProductSchema = createProductSchema.partial();
+export const updateProductSchema = createProductSchema.partial().extend({
+  isMarketplaceVisible: z.boolean().optional(),
+  showPrice: z.boolean().optional(),
+});
 
 export const bulkUpdateProductsSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(500),
