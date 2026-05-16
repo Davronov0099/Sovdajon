@@ -21,7 +21,7 @@ const updateCustomerSchema = createCustomerSchema.partial();
 
 const searchQuery = z.object({
   q: z.string().min(1),
-  limit: z.coerce.number().int().min(1).max(20).default(10),
+  limit: z.coerce.number().int().min(1).default(10),
 });
 
 const customerListQuery = paginationSchema.extend({
