@@ -110,6 +110,35 @@ export async function getProductStats() {
   return { total, lowStock, outOfStock, noPrice, totalValue };
 }
 
+/** Kam qolgan + tugagan mahsulotlar ro'yxati (do'kon stock bo'yicha) */
+export async function getLowStockProducts(limit = 100) {
+  // stock <= minStock AND isDeleted=false — column comparison kerak, raw SQL
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Product"
+    WHERE "isDeleted" = false AND stock <= "minStock"
+    ORDER BY stock ASC, name ASC
+    LIMIT ${limit}
+  `;
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  return prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      stock: true,
+      minStock: true,
+      unit: true,
+      price: true,
+      images: true,
+      category: { select: { id: true, name: true } },
+    },
+    orderBy: [{ stock: 'asc' }, { name: 'asc' }],
+  });
+}
+
 export async function getProductByCode(code: number) {
   const product = await prisma.product.findFirst({
     where: { code, isDeleted: false },

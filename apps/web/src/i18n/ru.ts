@@ -46,6 +46,9 @@ export const ru = {
     helper: 'Сканер',
     'marketplace-settings': 'Маркетплейс',
     warehouses: 'Склады',
+    orders: 'Заказы',
+    receipts: 'Чеки',
+    'stock-alerts': 'Уведомления',
   },
   pos: {
     cart: 'Корзина',

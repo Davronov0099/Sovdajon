@@ -46,6 +46,9 @@ export const en = {
     helper: 'Scanner',
     'marketplace-settings': 'Marketplace',
     warehouses: 'Warehouses',
+    orders: 'Orders',
+    receipts: 'Receipts',
+    'stock-alerts': 'Alerts',
   },
   pos: {
     cart: 'Cart',

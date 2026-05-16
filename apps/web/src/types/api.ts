@@ -437,6 +437,31 @@ export interface WarehouseStockItem {
   };
 }
 
+export type OrderStatusType = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+
+export interface OrderItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitPrice: string;
+  total: string;
+  product: { id: string; name: string; images: string[]; unit: string };
+}
+
+export interface OrderEntity {
+  id: string;
+  number: number;
+  status: OrderStatusType;
+  total: string;
+  note: string | null;
+  customerId: string | null;
+  customer: { id: string; name: string; phone: string } | null;
+  createdBy: { id: string; name: string } | null;
+  items: OrderItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type StockMovementType = 'IMPORT' | 'ISSUE_TO_SHOP' | 'TRANSFER' | 'SHOP_RETURN' | 'ADJUSTMENT';
 
 export interface StockMovementItem {

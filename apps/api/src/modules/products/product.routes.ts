@@ -29,6 +29,13 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     reply.send({ success: true, data: stats });
   });
 
+  // GET /api/v1/products/low-stock — kam qolgan va tugagan mahsulotlar
+  app.get('/low-stock', { preHandler: [requireAuth] }, async (req, reply) => {
+    const q = req.query as { limit?: string };
+    const products = await service.getLowStockProducts(Math.min(Number(q.limit) || 100, 500));
+    reply.send({ success: true, data: products });
+  });
+
   // Code lookup — yordamchilar uchun
   app.get('/code/:code', { preHandler: [requireAuth] }, async (req, reply) => {
     const { code } = req.params as { code: string };

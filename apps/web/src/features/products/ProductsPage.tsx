@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Package, Archive, AlertTriangle, TrendingDown, Tag, ChevronLeft, ChevronRight, Loader2, QrCode, Pencil, Trash2, CheckSquare, Square, X, Pencil as PencilIcon } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { SearchInput } from '@/components/common/SearchInput';
+import { StockAlertBanner } from '@/components/common/StockAlertBanner';
 import { useInfiniteProducts, useProductStats, useDeleteProduct } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { ProductModal } from './ProductModal';
@@ -231,6 +232,9 @@ export function ProductsPage() {
 
   return (
     <div className="p-4 sm:p-6 animate-fade-in">
+      {/* Stock alerts banner */}
+      <StockAlertBanner />
+
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div>

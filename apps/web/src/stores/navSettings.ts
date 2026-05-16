@@ -22,6 +22,9 @@ const DEFAULT_NAV: NavItem[] = [
   { key: 'helper', visible: true },
   { key: 'marketplace-settings', visible: true },
   { key: 'warehouses', visible: true },
+  { key: 'orders', visible: true },
+  { key: 'receipts', visible: true },
+  { key: 'stock-alerts', visible: true },
 ];
 
 interface NavSettingsState {

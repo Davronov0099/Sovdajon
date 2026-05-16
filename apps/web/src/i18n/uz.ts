@@ -46,6 +46,9 @@ export const uz = {
     helper: 'Skaner',
     'marketplace-settings': 'Marketplace',
     warehouses: 'Omborlar',
+    orders: 'Buyurtmalar',
+    receipts: 'Cheklar',
+    'stock-alerts': 'Ogohlantirishlar',
   },
   pos: {
     cart: 'Savat',

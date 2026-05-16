@@ -116,6 +116,28 @@ export function useProductStats() {
   });
 }
 
+export interface LowStockProduct {
+  id: string;
+  code: number | null;
+  name: string;
+  stock: number;
+  minStock: number;
+  unit: string;
+  price: string;
+  images: string[];
+  category: { id: string; name: string };
+}
+
+export function useLowStockProducts(limit = 100) {
+  return useQuery({
+    queryKey: ['products', 'low-stock', limit],
+    queryFn: () =>
+      api.get(`products/low-stock?limit=${limit}`).json<{ success: boolean; data: LowStockProduct[] }>(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useProduct(id: string) {
   return useQuery({
     queryKey: ['product', id],

@@ -15,10 +15,13 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
 import { Route as AuthWarehousesRouteImport } from './routes/_auth/warehouses'
 import { Route as AuthSuppliersRouteImport } from './routes/_auth/suppliers'
+import { Route as AuthStockAlertsRouteImport } from './routes/_auth/stock-alerts'
 import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
+import { Route as AuthReceiptsRouteImport } from './routes/_auth/receipts'
 import { Route as AuthProspectingRouteImport } from './routes/_auth/prospecting'
 import { Route as AuthProductsRouteImport } from './routes/_auth/products'
 import { Route as AuthPosRouteImport } from './routes/_auth/pos'
+import { Route as AuthOrdersRouteImport } from './routes/_auth/orders'
 import { Route as AuthMarketplaceSettingsRouteImport } from './routes/_auth/marketplace-settings'
 import { Route as AuthHrRouteImport } from './routes/_auth/hr'
 import { Route as AuthHelperRouteImport } from './routes/_auth/helper'
@@ -68,6 +71,11 @@ const AuthSuppliersRoute = AuthSuppliersRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/suppliers.lazy').then((d) => d.Route),
 )
+const AuthStockAlertsRoute = AuthStockAlertsRouteImport.update({
+  id: '/stock-alerts',
+  path: '/stock-alerts',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSettingsRoute = AuthSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -75,6 +83,11 @@ const AuthSettingsRoute = AuthSettingsRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/settings.lazy').then((d) => d.Route),
 )
+const AuthReceiptsRoute = AuthReceiptsRouteImport.update({
+  id: '/receipts',
+  path: '/receipts',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthProspectingRoute = AuthProspectingRouteImport.update({
   id: '/prospecting',
   path: '/prospecting',
@@ -94,6 +107,11 @@ const AuthPosRoute = AuthPosRouteImport.update({
   path: '/pos',
   getParentRoute: () => AuthRoute,
 } as any).lazy(() => import('./routes/_auth/pos.lazy').then((d) => d.Route))
+const AuthOrdersRoute = AuthOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthMarketplaceSettingsRoute = AuthMarketplaceSettingsRouteImport.update({
   id: '/marketplace-settings',
   path: '/marketplace-settings',
@@ -221,10 +239,13 @@ export interface FileRoutesByFullPath {
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
   '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
+  '/orders': typeof AuthOrdersRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
   '/prospecting': typeof AuthProspectingRoute
+  '/receipts': typeof AuthReceiptsRoute
   '/settings': typeof AuthSettingsRoute
+  '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
   '/warehouses': typeof AuthWarehousesRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
@@ -248,10 +269,13 @@ export interface FileRoutesByTo {
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
   '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
+  '/orders': typeof AuthOrdersRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
   '/prospecting': typeof AuthProspectingRoute
+  '/receipts': typeof AuthReceiptsRoute
   '/settings': typeof AuthSettingsRoute
+  '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
   '/warehouses': typeof AuthWarehousesRoute
   '/': typeof AuthIndexRoute
@@ -278,10 +302,13 @@ export interface FileRoutesById {
   '/_auth/helper': typeof AuthHelperRoute
   '/_auth/hr': typeof AuthHrRoute
   '/_auth/marketplace-settings': typeof AuthMarketplaceSettingsRoute
+  '/_auth/orders': typeof AuthOrdersRoute
   '/_auth/pos': typeof AuthPosRoute
   '/_auth/products': typeof AuthProductsRoute
   '/_auth/prospecting': typeof AuthProspectingRoute
+  '/_auth/receipts': typeof AuthReceiptsRoute
   '/_auth/settings': typeof AuthSettingsRoute
+  '/_auth/stock-alerts': typeof AuthStockAlertsRoute
   '/_auth/suppliers': typeof AuthSuppliersRoute
   '/_auth/warehouses': typeof AuthWarehousesRoute
   '/_auth/': typeof AuthIndexRoute
@@ -309,10 +336,13 @@ export interface FileRouteTypes {
     | '/helper'
     | '/hr'
     | '/marketplace-settings'
+    | '/orders'
     | '/pos'
     | '/products'
     | '/prospecting'
+    | '/receipts'
     | '/settings'
+    | '/stock-alerts'
     | '/suppliers'
     | '/warehouses'
     | '/customers/$customerId'
@@ -336,10 +366,13 @@ export interface FileRouteTypes {
     | '/helper'
     | '/hr'
     | '/marketplace-settings'
+    | '/orders'
     | '/pos'
     | '/products'
     | '/prospecting'
+    | '/receipts'
     | '/settings'
+    | '/stock-alerts'
     | '/suppliers'
     | '/warehouses'
     | '/'
@@ -365,10 +398,13 @@ export interface FileRouteTypes {
     | '/_auth/helper'
     | '/_auth/hr'
     | '/_auth/marketplace-settings'
+    | '/_auth/orders'
     | '/_auth/pos'
     | '/_auth/products'
     | '/_auth/prospecting'
+    | '/_auth/receipts'
     | '/_auth/settings'
+    | '/_auth/stock-alerts'
     | '/_auth/suppliers'
     | '/_auth/warehouses'
     | '/_auth/'
@@ -434,11 +470,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSuppliersRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/stock-alerts': {
+      id: '/_auth/stock-alerts'
+      path: '/stock-alerts'
+      fullPath: '/stock-alerts'
+      preLoaderRoute: typeof AuthStockAlertsRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/settings': {
       id: '/_auth/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthSettingsRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/receipts': {
+      id: '/_auth/receipts'
+      path: '/receipts'
+      fullPath: '/receipts'
+      preLoaderRoute: typeof AuthReceiptsRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/prospecting': {
@@ -460,6 +510,13 @@ declare module '@tanstack/react-router' {
       path: '/pos'
       fullPath: '/pos'
       preLoaderRoute: typeof AuthPosRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/orders': {
+      id: '/_auth/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof AuthOrdersRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/marketplace-settings': {
@@ -592,10 +649,13 @@ interface AuthRouteChildren {
   AuthHelperRoute: typeof AuthHelperRoute
   AuthHrRoute: typeof AuthHrRoute
   AuthMarketplaceSettingsRoute: typeof AuthMarketplaceSettingsRoute
+  AuthOrdersRoute: typeof AuthOrdersRoute
   AuthPosRoute: typeof AuthPosRoute
   AuthProductsRoute: typeof AuthProductsRoute
   AuthProspectingRoute: typeof AuthProspectingRoute
+  AuthReceiptsRoute: typeof AuthReceiptsRoute
   AuthSettingsRoute: typeof AuthSettingsRoute
+  AuthStockAlertsRoute: typeof AuthStockAlertsRoute
   AuthSuppliersRoute: typeof AuthSuppliersRoute
   AuthWarehousesRoute: typeof AuthWarehousesRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -619,10 +679,13 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthHelperRoute: AuthHelperRoute,
   AuthHrRoute: AuthHrRoute,
   AuthMarketplaceSettingsRoute: AuthMarketplaceSettingsRoute,
+  AuthOrdersRoute: AuthOrdersRoute,
   AuthPosRoute: AuthPosRoute,
   AuthProductsRoute: AuthProductsRoute,
   AuthProspectingRoute: AuthProspectingRoute,
+  AuthReceiptsRoute: AuthReceiptsRoute,
   AuthSettingsRoute: AuthSettingsRoute,
+  AuthStockAlertsRoute: AuthStockAlertsRoute,
   AuthSuppliersRoute: AuthSuppliersRoute,
   AuthWarehousesRoute: AuthWarehousesRoute,
   AuthIndexRoute: AuthIndexRoute,
