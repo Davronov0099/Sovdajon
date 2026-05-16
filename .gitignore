@@ -101,3 +101,7 @@ start-web.sh
 mongo_image_mapping.json
 compare_prices.cjs
 *.dat
+
+# Imported source code (not part of repo)
+/marketplace/
+SovdaJON.TZ.md

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+import { Users, Plus, Phone, MapPin, Loader2, AlertCircle, DollarSign, ShoppingBag, Pencil, Trash2, ChevronRight, ChevronLeft, Clock, UserPlus, LayoutGrid, LayoutList, Eye } from 'lucide-react';
 import { formatCurrency, formatPhone, UZ_VILOYATLAR, getTumanlar } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { ContactsPanel } from '@/components/common/ContactsPanel';
 import { cn } from '@/lib/cn';
 
 type SortMode = 'newest' | 'name' | 'name-desc';
+type ViewMode = 'card' | 'table';
 
 export function CustomersPage() {
   const { t } = useTranslation();
@@ -28,6 +29,7 @@ export function CustomersPage() {
   const [viloyat, setViloyat] = useState('');
   const [tuman, setTuman] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const catScrollRef = useRef<HTMLDivElement>(null);
 
@@ -182,10 +184,32 @@ export function CustomersPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ContactsPanel mode="customer" onAccept={async (c) => { await createMut.mutateAsync({ name: c.name, phone: c.phone }); }} />
-          <button onClick={() => { resetForm(); setModalOpen(true); }} className="btn btn-primary btn-sm sm:btn-md">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Yangi mijoz</span>
-            <span className="sm:hidden">Qo'shish</span>
+          {/* View toggle */}
+          <div className="hidden sm:flex items-center gap-1 rounded-lg border border-border p-0.5">
+            <button
+              onClick={() => setViewMode('card')}
+              className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors', viewMode === 'card' ? 'bg-primary-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+              title="Kartochka ko'rinishi"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors', viewMode === 'table' ? 'bg-primary-600 text-white' : 'text-text-muted hover:bg-surface-secondary')}
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+              title="Jadval ko'rinishi"
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => navigate({ to: '/customers/add' })}
+            className="btn btn-secondary btn-sm sm:btn-md"
+            title="Xaritadan mijoz qo'shish"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Mijoz kiritish</span>
           </button>
         </div>
       </div>
@@ -302,7 +326,17 @@ export function CustomersPage() {
         </select>
       </div>
 
-      {/* Grid */}
+      {/* View toggle (mobile) */}
+      <div className="mb-3 flex items-center gap-2 sm:hidden">
+        <button onClick={() => setViewMode('card')} className={cn('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', viewMode === 'card' ? 'bg-primary-600 text-white' : 'bg-surface-secondary text-text-muted')} style={{ minHeight: 'auto' }}>
+          <LayoutGrid className="h-3.5 w-3.5" /> Kartochka
+        </button>
+        <button onClick={() => setViewMode('table')} className={cn('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', viewMode === 'table' ? 'bg-primary-600 text-white' : 'bg-surface-secondary text-text-muted')} style={{ minHeight: 'auto' }}>
+          <LayoutList className="h-3.5 w-3.5" /> Jadval
+        </button>
+      </div>
+
+      {/* Content */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-[180px] rounded-xl" />)}
@@ -312,7 +346,89 @@ export function CustomersPage() {
           <Users className="mb-4 h-14 w-14 opacity-20" />
           <p className="text-sm font-medium">Mijoz topilmadi</p>
         </div>
+      ) : viewMode === 'table' ? (
+        /* TABLE VIEW */
+        <>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr style={{ background: 'var(--color-surface-secondary)', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Ism</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Telefon</th>
+                  <th className="hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted sm:table-cell">Kategoriya</th>
+                  <th className="hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted md:table-cell">Manzil</th>
+                  <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">Qarz</th>
+                  <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">Amallar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((c, i) => {
+                  const debt = debtMap.get(c.id) || 0;
+                  return (
+                    <tr
+                      key={c.id}
+                      className="cursor-pointer transition-colors hover:bg-surface-secondary"
+                      style={{ borderBottom: '1px solid var(--color-border-subtle)', background: i % 2 === 0 ? 'var(--color-surface)' : 'transparent' }}
+                      onClick={() => navigate({ to: '/customers/$customerId', params: { customerId: c.id } })}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-[11px] font-bold text-primary-700">
+                            {c.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-[13px] font-semibold text-text-primary">{c.name}</p>
+                            {getWorkDuration(c.startDate) && (
+                              <p className="flex items-center gap-0.5 text-[10px] text-info-600">
+                                <Clock className="h-2.5 w-2.5" />{getWorkDuration(c.startDate)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-[13px] text-text-secondary tabular-nums whitespace-nowrap">{formatPhone(c.phone)}</td>
+                      <td className="hidden px-3 py-3 sm:table-cell">
+                        {c.category ? (
+                          <span className="rounded bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-600">{c.category.name}</span>
+                        ) : <span className="text-[12px] text-text-muted">—</span>}
+                      </td>
+                      <td className="hidden px-3 py-3 md:table-cell">
+                        <span className="line-clamp-1 max-w-[160px] text-[12px] text-text-muted">{c.address ?? '—'}</span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {debt > 0 ? (
+                          <span className="rounded bg-danger-50 px-1.5 py-0.5 text-[11px] font-bold text-danger-600 tabular-nums">{formatCurrency(debt)}</span>
+                        ) : (
+                          <span className="rounded bg-success-50 px-1.5 py-0.5 text-[11px] font-medium text-success-600">Qarzsiz</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => navigate({ to: '/customers/$customerId', params: { customerId: c.id } })} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-tertiary hover:text-primary-600 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Ko'rish">
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => openEdit(c)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-tertiary transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="Tahrirlash">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteConfirm({ id: c.id, name: c.name })} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-colors" style={{ minHeight: 'auto', minWidth: 'auto' }} title="O'chirish">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div ref={loadMoreRef} className="flex items-center justify-center py-4">
+            {isFetchingNextPage ? (
+              <div className="flex items-center gap-2 text-sm text-text-muted"><Loader2 className="h-4 w-4 animate-spin" />Yuklanmoqda...</div>
+            ) : hasNextPage ? <div className="h-4" /> : <p className="text-xs text-text-muted">Barcha {customers.length} ta mijoz</p>}
+          </div>
+        </>
       ) : (
+        /* CARD VIEW */
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {customers.map((c) => {

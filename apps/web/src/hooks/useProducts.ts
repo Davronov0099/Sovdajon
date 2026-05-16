@@ -17,6 +17,12 @@ interface Product {
   description: string | null;
   category: { id: string; name: string };
   subCategory: { id: string; name: string } | null;
+  discount1Qty: number;
+  discount1Pct: number;
+  discount2Qty: number;
+  discount2Pct: number;
+  discount3Qty: number;
+  discount3Pct: number;
   createdAt: string;
 }
 
@@ -37,6 +43,7 @@ interface ProductFilters {
   search?: string;
   categoryId?: string;
   subCategoryId?: string;
+  warehouseId?: string;
   stockStatus?: string;
   priceStatus?: string;
 }
@@ -51,6 +58,7 @@ export function useProducts(filters: ProductFilters = {}) {
       if (filters.search) params.set('search', filters.search);
       if (filters.categoryId) params.set('categoryId', filters.categoryId);
       if (filters.subCategoryId) params.set('subCategoryId', filters.subCategoryId);
+      if (filters.warehouseId) params.set('warehouseId', filters.warehouseId);
       if (filters.stockStatus) params.set('stockStatus', filters.stockStatus);
       if (filters.priceStatus) params.set('priceStatus', filters.priceStatus);
 
@@ -105,6 +113,28 @@ export function useProductStats() {
     queryKey: ['products', 'stats'],
     queryFn: () => api.get('products/stats').json<{ success: boolean; data: ProductStats }>(),
     staleTime: 30_000,
+  });
+}
+
+export interface LowStockProduct {
+  id: string;
+  code: number | null;
+  name: string;
+  stock: number;
+  minStock: number;
+  unit: string;
+  price: string;
+  images: string[];
+  category: { id: string; name: string };
+}
+
+export function useLowStockProducts(limit = 100) {
+  return useQuery({
+    queryKey: ['products', 'low-stock', limit],
+    queryFn: () =>
+      api.get(`products/low-stock?limit=${limit}`).json<{ success: boolean; data: LowStockProduct[] }>(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }
 

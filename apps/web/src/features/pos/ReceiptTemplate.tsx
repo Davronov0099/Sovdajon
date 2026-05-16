@@ -38,8 +38,8 @@ export function ReceiptTemplate({ receipt }: { receipt: ReceiptData }) {
     <div className="receipt-print mx-auto w-[80mm] bg-white p-2 font-mono text-xs text-black print:block hidden">
       {/* Header */}
       <div className="mb-2 text-center">
-        <p className="text-sm font-bold">{receipt.storeName ?? 'Sardorbek Furnitura'}</p>
-        <p className="text-[10px]">Mebel furnitura do'koni</p>
+        <p className="text-base font-black tracking-wider">{receipt.storeName ?? 'SovdaJON'}</p>
+        <p className="text-[11px] font-bold">ONLINE MARKETPLACE</p>
         <p className="text-[10px]">{"="}</p>
       </div>
 

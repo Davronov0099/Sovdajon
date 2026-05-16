@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { CreateSupplierInput, SupplierImportInput, SupplierPaymentInput } from '@sardorbek/shared';
 import { isCostPriceAlertNeeded } from '@sardorbek/shared';
 import { prisma } from '../../config/database.js';
-import { notFound } from '../../utils/errors.js';
+import { notFound, badRequest } from '../../utils/errors.js';
 import { createAuditLog } from '../../utils/auditLog.js';
 import { emitToAdmins } from '../../websocket/index.js';
 
@@ -51,6 +51,7 @@ export async function getSupplier(id: string) {
           items: {
             include: { product: { select: { id: true, name: true } } },
           },
+          warehouse: { select: { id: true, name: true } },
         },
       },
     },
@@ -106,6 +107,10 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, isDeleted: false } });
   if (!supplier) throw notFound('SUPPLIER_NOT_FOUND');
 
+  // Ombor majburiy — tekshirish
+  const warehouse = await prisma.warehouse.findUnique({ where: { id: input.warehouseId } });
+  if (!warehouse) throw badRequest('WAREHOUSE_NOT_FOUND', 'Tanlangan ombor topilmadi');
+
   // Validate products exist
   const productIds = input.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
@@ -129,7 +134,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
     };
   });
 
-  // Atomic transaction: create import + update stock + update costPrice
+  // Atomic transaction: create import + update WarehouseStock + costPrice + movements
   const alerts: { productName: string; oldPrice: number; newPrice: number; changePercent: number }[] = [];
 
   const transaction = await prisma.$transaction(async (tx) => {
@@ -142,13 +147,16 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         currency: input.currency,
         rate: new Prisma.Decimal(rate),
         note: input.note ?? null,
+        warehouseId: input.warehouseId,
         createdById: userId,
         items: { create: transactionItems },
       },
-      include: { items: true },
+      include: {
+        items: true,
+        warehouse: { select: { id: true, name: true } },
+      },
     });
 
-    // 2. Batch update stock + costPrice (parallel updates instead of sequential)
     const priceHistoryData: {
       productId: string;
       oldPrice: Prisma.Decimal;
@@ -159,6 +167,16 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       createdById: string;
     }[] = [];
 
+    const movementData: {
+      type: 'IMPORT';
+      productId: string;
+      quantity: number;
+      toWarehouseId: string;
+      note: string | null;
+      createdById: string;
+    }[] = [];
+
+    // 2. Har bir mahsulot uchun: WarehouseStock upsert + costPrice/sellingPrice yangilash
     await Promise.all(
       input.items.map(async (item) => {
         const product = productMap.get(item.productId)!;
@@ -166,21 +184,47 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         const oldCostPrice = Number(product.costPrice);
         const newSellingPrice = item.sellingPrice != null ? item.sellingPrice * rate : undefined;
 
-        // Stock increment + costPrice + sellingPrice update (atomic per product)
+        // 2a. Product: faqat narx ma'lumotlari yangilanadi (stock'ga TEGINMAYDI)
         const updateData: Prisma.ProductUpdateInput = {
-          stock: { increment: item.quantity },
           costPrice: new Prisma.Decimal(newCostPrice),
         };
         if (newSellingPrice != null && newSellingPrice > 0) {
           updateData.price = new Prisma.Decimal(newSellingPrice);
         }
-
         await tx.product.update({
           where: { id: item.productId },
           data: updateData,
         });
 
-        // Collect price history for batch insert
+        // 2b. WarehouseStock: ombor'dagi miqdorni oshirish (upsert)
+        await tx.warehouseStock.upsert({
+          where: {
+            productId_warehouseId: {
+              productId: item.productId,
+              warehouseId: input.warehouseId,
+            },
+          },
+          create: {
+            productId: item.productId,
+            warehouseId: input.warehouseId,
+            quantity: item.quantity,
+          },
+          update: {
+            quantity: { increment: item.quantity },
+          },
+        });
+
+        // 2c. Movement yozuvi
+        movementData.push({
+          type: 'IMPORT',
+          productId: item.productId,
+          quantity: item.quantity,
+          toWarehouseId: input.warehouseId,
+          note: `Supplier: ${supplier.name}`,
+          createdById: userId,
+        });
+
+        // Price history
         priceHistoryData.push({
           productId: item.productId,
           oldPrice: product.price,
@@ -191,7 +235,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
           createdById: userId,
         });
 
-        // Check 20% alert
+        // 20% alert
         if (isCostPriceAlertNeeded(oldCostPrice, newCostPrice)) {
           const changePercent = Math.round(((newCostPrice - oldCostPrice) / oldCostPrice) * 100);
           alerts.push({
@@ -204,12 +248,15 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       }),
     );
 
-    // Batch insert price history (1 query instead of N)
+    // Batch inserts
     if (priceHistoryData.length > 0) {
       await tx.priceHistory.createMany({ data: priceHistoryData });
     }
+    if (movementData.length > 0) {
+      await tx.stockMovement.createMany({ data: movementData });
+    }
 
-    // 3. Update supplier balance (debt)
+    // 3. Supplier balansi (qarz)
     await tx.supplier.update({
       where: { id: supplierId },
       data: { balance: { increment: new Prisma.Decimal(total) } },

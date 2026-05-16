@@ -475,20 +475,23 @@ input, select, textarea {
 /* Receipt base styles (used in both screen preview and print) */
 .receipt-print {
   font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
   color: #000;
   background: #fff;
   width: 72mm;
   padding: 3mm;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
 }
 .receipt-print .r-center { text-align: center; }
-.receipt-print .r-bold { font-weight: 700; }
-.receipt-print .r-light { opacity: 0.7; }
-.receipt-print .r-lg { font-size: 16px; }
-.receipt-print .r-sm { font-size: 11px; }
-.receipt-print .r-xs { font-size: 9px; }
+.receipt-print .r-bold { font-weight: 900; }
+.receipt-print .r-light { opacity: 0.8; }
+.receipt-print .r-xl { font-size: 22px; letter-spacing: 2px; }
+.receipt-print .r-lg { font-size: 17px; }
+.receipt-print .r-sm { font-size: 12px; }
+.receipt-print .r-xs { font-size: 10px; }
 .receipt-print .r-line {
   text-align: center;
   font-size: 10px;
@@ -510,8 +513,8 @@ input, select, textarea {
   margin: 1.5mm 0;
 }
 .receipt-print .r-item-name {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   word-break: break-word;
 }
 

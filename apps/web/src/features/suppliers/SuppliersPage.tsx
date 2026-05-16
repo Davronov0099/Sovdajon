@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Truck, Plus, Phone, Building2, Loader2, ArrowDownToLine, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { Truck, Plus, Phone, Building2, Loader2, ArrowDownToLine, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/common/SearchInput';

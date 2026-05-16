@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Search, LayoutDashboard, ShoppingCart, Package, CreditCard, Users, Truck, DollarSign, UserCog, Settings } from 'lucide-react';
+import { Search, LayoutDashboard, ShoppingCart, Package, CreditCard, Users, Truck, DollarSign, UserCog, Settings, Map, Store } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import { hasPermission } from '@sardorbek/shared';
@@ -23,10 +23,12 @@ const COMMANDS: CommandItem[] = [
   { id: 'products', label: 'Mahsulotlar', icon: Package, to: '/products', permission: 'product:read', keywords: ['tovar', 'mahsulot', 'stok'] },
   { id: 'debts', label: 'Qarzlar', icon: CreditCard, to: '/debts', permission: 'debt:read', keywords: ['qarz', 'nasiya', 'qarzdor'] },
   { id: 'customers', label: 'Mijozlar', icon: Users, to: '/customers', permission: 'customer:read', keywords: ['mijoz', 'client', 'xaridor'] },
+  { id: 'prospecting', label: 'Mijoz qidirish xaritasi', icon: Map, to: '/prospecting', keywords: ['xarita', 'google', 'kafe', 'restoran', 'radius', 'lokatsiya'] },
   { id: 'suppliers', label: "Ta'minotchilar", icon: Truck, to: '/suppliers', permission: 'supplier:read', keywords: ['taminotchi', 'yetkazib'] },
   { id: 'expenses', label: 'Xarajatlar', icon: DollarSign, to: '/expenses', permission: 'expense:read', keywords: ['xarajat', 'chiqim'] },
   { id: 'hr', label: 'Xodimlar', icon: UserCog, to: '/hr', permission: 'user:read', keywords: ['xodim', 'oylik', 'davomat', 'ishchi'] },
   { id: 'settings', label: 'Sozlamalar', icon: Settings, to: '/settings', permission: 'settings:read', keywords: ['sozlama', 'settings', 'config'] },
+  { id: 'marketplace-settings', label: 'Marketplace', icon: Store, to: '/marketplace-settings', permission: 'settings:read', keywords: ['marketplace', 'onlayn', 'do\'kon', 'buyurtma'] },
 ];
 
 export function CommandPalette() {

@@ -76,13 +76,26 @@ export async function createPartialReturn(input: CreateReturnInput, userId: stri
 
   // Create return receipt + restore stock in transaction
   const returnReceipt = await prisma.$transaction(async (tx) => {
-    // 1. Restore stock
+    // 1. Restore stock (do'kon stock)
     for (const inc of stockIncrements) {
       await tx.product.update({
         where: { id: inc.productId },
         data: { stock: { increment: inc.quantity } },
       });
     }
+
+    // 1b. Stock movement audit — SHOP_RETURN
+    await tx.stockMovement.createMany({
+      data: stockIncrements.map((inc) => ({
+        type: 'SHOP_RETURN' as const,
+        productId: inc.productId,
+        quantity: inc.quantity,
+        fromWarehouseId: null,
+        toWarehouseId: null,
+        note: `Receipt qaytarish: ${reason}`,
+        createdById: userId,
+      })),
+    });
 
     // 2. Create return receipt
     const created = await tx.returnReceipt.create({

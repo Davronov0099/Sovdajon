@@ -69,10 +69,8 @@ export function LoginPage() {
         {/* Logo area */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500 text-white font-bold text-lg shadow-lg">
-              SF
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">Sardorbek Furnitura</span>
+            <img src="/logo.png" alt="SovdaJON" className="h-11 w-11 rounded-xl object-cover shadow-lg" />
+            <span className="text-xl font-bold text-white tracking-tight">SovdaJON</span>
           </div>
         </div>
 
@@ -108,10 +106,8 @@ export function LoginPage() {
       <div className="flex flex-1 flex-col items-center justify-center bg-surface-secondary px-6 py-12">
         {/* Mobile logo */}
         <div className="mb-10 flex items-center gap-3 lg:hidden">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500 text-white font-bold text-lg">
-            SF
-          </div>
-          <span className="text-xl font-bold text-text-primary tracking-tight">Sardorbek Furnitura</span>
+          <img src="/logo.png" alt="SovdaJON" className="h-11 w-11 rounded-xl object-cover" />
+          <span className="text-xl font-bold text-text-primary tracking-tight">SovdaJON</span>
         </div>
 
         <div className="w-full max-w-[400px]">

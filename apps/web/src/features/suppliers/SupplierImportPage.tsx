@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Plus, Trash2, Package, DollarSign, ArrowDownToLine, Search, X, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, DollarSign, ArrowDownToLine, Search, X, TrendingUp, Warehouse, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSupplier, useSupplierImport } from '@/hooks/useSuppliers';
 import { useProducts } from '@/hooks/useProducts';
+import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsdRateStore } from '@/stores/usdRate';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
@@ -38,8 +39,18 @@ export function SupplierImportPage() {
   const [note, setNote] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
+  const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
 
-  const { data: productsData } = useProducts({ search: productSearch, limit: 20 });
+  const { data: warehousesData } = useWarehouses();
+  const warehouses = warehousesData?.data ?? [];
+  const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) ?? null;
+
+  const { data: productsData } = useProducts({
+    search: productSearch,
+    limit: 20,
+    ...(selectedWarehouseId && { warehouseId: selectedWarehouseId }),
+  });
   const importMut = useSupplierImport();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,6 +115,10 @@ export function SupplierImportPage() {
   }, [items, rate]);
 
   async function handleSubmit() {
+    if (!selectedWarehouseId) {
+      toast("Avval omborni tanlang (majburiy)", 'error');
+      return;
+    }
     if (items.length === 0) { toast("Kamida 1 ta mahsulot qo'shing", 'error'); return; }
     for (const item of items) {
       if (item.costPrice <= 0) { toast(`${item.productName}: Tan narxi 0 dan katta bo'lishi kerak`, 'error'); return; }
@@ -118,11 +133,17 @@ export function SupplierImportPage() {
           unitPrice: toUzs(i.costPrice, i.costCurrency),
           sellingPrice: i.sellingPrice > 0 ? toUzs(i.sellingPrice, i.sellCurrency) : undefined,
         })),
-        currency: 'UZS', rate: 1, note: note || undefined,
+        currency: 'UZS',
+        rate: 1,
+        note: note || undefined,
+        warehouseId: selectedWarehouseId,
       });
-      toast('Kirim muvaffaqiyatli saqlandi', 'success');
+      toast(`Kirim "${selectedWarehouse?.name}" omborga muvaffaqiyatli saqlandi`, 'success');
       navigate({ to: '/suppliers/$supplierId', params: { supplierId } });
-    } catch { toast('Kirim saqlashda xatolik', 'error'); }
+    } catch (err) {
+      const msg = (err as { message?: string }).message ?? 'Kirim saqlashda xatolik';
+      toast(msg, 'error');
+    }
   }
 
   const showDropdown = searchFocused && productSearch.length >= 1 && products.length > 0;
@@ -176,6 +197,61 @@ export function SupplierImportPage() {
       </div>
 
       <div className="px-4 sm:px-6 pt-3">
+        {/* ── Ombor tanlash (MAJBURIY) ── */}
+        <div className="relative mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              Ombor <span className="text-danger-600">*</span>
+            </p>
+            {!selectedWarehouseId && (
+              <span className="text-[10px] text-danger-600 font-medium">Majburiy</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setWarehouseDropdownOpen((v) => !v)}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+              selectedWarehouse
+                ? 'border-primary-400 bg-primary-50/50 text-primary-700'
+                : 'border-danger-300 bg-danger-50/30 text-danger-700 hover:bg-danger-50/50',
+            )}
+          >
+            <Warehouse className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left text-[13px] font-medium truncate">
+              {selectedWarehouse ? selectedWarehouse.name : "Avval ombor tanlang"}
+            </span>
+            <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', warehouseDropdownOpen && 'rotate-180')} />
+          </button>
+          {warehouseDropdownOpen && (
+            <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-dropdown overflow-hidden">
+              {warehouses.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => { setSelectedWarehouseId(w.id); setWarehouseDropdownOpen(false); }}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-primary-50/50 border-b border-border/10 last:border-0',
+                    selectedWarehouseId === w.id ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-text-primary',
+                  )}
+                >
+                  <Warehouse className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                  <span className="flex-1 truncate">{w.name}</span>
+                  {w._count && (
+                    <span className="text-[10px] text-text-muted shrink-0">{w._count.products} ta</span>
+                  )}
+                </button>
+              ))}
+              {warehouses.length === 0 && (
+                <div className="px-3 py-4 text-center">
+                  <p className="text-[12px] text-text-muted mb-1">Hali ombor yo'q</p>
+                  <p className="text-[10px] text-danger-600">Avval ombor yarating</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* ── Search ── */}
         <div className="relative mb-3">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
@@ -415,7 +491,12 @@ export function SupplierImportPage() {
             {/* ── Desktop Actions ── */}
             <div className="hidden sm:flex items-center justify-between gap-3 pb-2">
               <Link to="/suppliers/$supplierId" params={{ supplierId }} className="btn btn-secondary btn-sm">Bekor qilish</Link>
-              <Button onClick={handleSubmit} loading={importMut.isPending} disabled={items.length === 0}>
+              <Button
+                onClick={handleSubmit}
+                loading={importMut.isPending}
+                disabled={items.length === 0 || !selectedWarehouseId}
+                title={!selectedWarehouseId ? 'Avval omborni tanlang' : undefined}
+              >
                 <ArrowDownToLine className="h-4 w-4" />Kirimni saqlash
               </Button>
             </div>
@@ -431,9 +512,13 @@ export function SupplierImportPage() {
               <p className="text-[8px] text-text-muted uppercase">Jami</p>
               <p className="text-[13px] font-bold text-text-primary tabular-nums truncate">{formatCurrency(totalCost)}</p>
             </div>
-            <button onClick={handleSubmit} disabled={importMut.isPending} className="btn btn-primary px-4 py-1.5 text-[11px] shrink-0">
+            <button
+              onClick={handleSubmit}
+              disabled={importMut.isPending || !selectedWarehouseId}
+              className="btn btn-primary px-4 py-1.5 text-[11px] shrink-0 disabled:opacity-50"
+            >
               {importMut.isPending ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
-              Saqlash
+              {!selectedWarehouseId ? 'Ombor tanlang' : 'Saqlash'}
             </button>
           </div>
         </div>

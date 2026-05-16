@@ -42,7 +42,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
   const storeForm = useForm<z.infer<typeof storeSchema>>({
     resolver: zodResolver(storeSchema),
-    defaultValues: { storeName: 'Sardorbek Furnitura' },
+    defaultValues: { storeName: 'SovdaJON' },
   });
 
   const passForm = useForm<z.infer<typeof passwordSchema>>({

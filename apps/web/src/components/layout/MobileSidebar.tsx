@@ -106,12 +106,10 @@ export function MobileSidebar() {
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-5 shrink-0">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500 text-white text-sm font-bold shadow-sm">
-            SF
-          </div>
+          <img src="/logo.png" alt="SovdaJON" className="h-10 w-10 rounded-xl object-cover shadow-sm" />
           <div>
-            <p className="text-[15px] font-bold text-white tracking-tight leading-none">Sardorbek</p>
-            <p className="text-[11px] text-sidebar-text mt-1">Furnitura</p>
+            <p className="text-[15px] font-bold text-white tracking-tight leading-none">SovdaJON</p>
+            <p className="text-[11px] text-sidebar-text mt-1">Online Marketplace</p>
           </div>
         </div>
 

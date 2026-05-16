@@ -14,6 +14,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       search: q.search,
       categoryId: q.categoryId,
       subCategoryId: q.subCategoryId,
+      warehouseId: q.warehouseId,
       stockStatus: q.stockStatus as 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE',
       priceStatus: q.priceStatus as 'WITH_PRICE' | 'NO_PRICE',
       sortBy: q.sortBy,
@@ -26,6 +27,13 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
   app.get('/stats', { preHandler: [requireAuth] }, async (_req, reply) => {
     const stats = await service.getProductStats();
     reply.send({ success: true, data: stats });
+  });
+
+  // GET /api/v1/products/low-stock — kam qolgan va tugagan mahsulotlar
+  app.get('/low-stock', { preHandler: [requireAuth] }, async (req, reply) => {
+    const q = req.query as { limit?: string };
+    const products = await service.getLowStockProducts(Math.min(Number(q.limit) || 100, 500));
+    reply.send({ success: true, data: products });
   });
 
   // Code lookup — yordamchilar uchun

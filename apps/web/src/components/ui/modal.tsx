@@ -90,7 +90,7 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[5vh] sm:pt-[8vh]" onClick={onClose} data-no-swipe>
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[5vh] sm:pt-[8vh]" onClick={onClose} data-no-swipe>
       <div className="absolute inset-0 bg-black/40 animate-fade-in" />
       <div
         ref={panelRef}

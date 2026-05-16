@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { CreditCard, Plus, Clock, AlertTriangle, CheckCircle, DollarSign, ChevronRight, Users, Phone } from 'lucide-react';
+import { CreditCard, Plus, Clock, AlertTriangle, CheckCircle, DollarSign, ChevronRight, Phone } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/common/SearchInput';

@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, ChevronsRight, User, LogOut, Maximize, Minimize, DollarSign, Search, AlertTriangle, Package, TrendingDown, HandCoins } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronsRight, User, LogOut, Maximize, Minimize, DollarSign, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import { useUsdRateStore } from '@/stores/usdRate';
-import { useProductStats } from '@/hooks/useProducts';
 import { useUpdateCurrencyRate } from '@/hooks/useSettings';
 import { useLocation } from '@tanstack/react-router';
 import { cn } from '@/lib/cn';
@@ -29,109 +28,6 @@ function BurgerIcon({ open }: { open: boolean }) {
   );
 }
 
-/* ─── Bildirishnomalar paneli ─── */
-function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const { data: statsData } = useProductStats();
-  const stats = statsData?.data;
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Muddati o'tgan qarzlarni olish
-  const [overdueCount, setOverdueCount] = useState(0);
-  useEffect(() => {
-    import('@/services/api').then(({ api }) => {
-      api.get('debts?limit=100').json<{ data: { status: string }[] }>().then((res) => {
-        const overdue = res.data.filter((d) => d.status === 'OVERDUE').length;
-        setOverdueCount(overdue);
-      }).catch(() => {});
-    });
-  }, []);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [onClose]);
-
-  const notifications: { icon: typeof AlertTriangle; color: string; bg: string; title: string; desc: string }[] = [];
-
-  // Muddati o'tgan qarzlar
-  if (overdueCount > 0) {
-    notifications.push({
-      icon: HandCoins,
-      color: 'text-danger-600',
-      bg: 'bg-danger-50',
-      title: `${overdueCount} ta qarz muddati o'tgan`,
-      desc: "Mijozlar bilan bog'laning!",
-    });
-  }
-
-  if (stats) {
-    if (stats.outOfStock > 0) {
-      notifications.push({
-        icon: Package,
-        color: 'text-danger-600',
-        bg: 'bg-danger-50',
-        title: `${stats.outOfStock} ta mahsulot tugagan`,
-        desc: 'Omborda qolmagan mahsulotlar bor',
-      });
-    }
-    if (stats.lowStock > 0) {
-      notifications.push({
-        icon: TrendingDown,
-        color: 'text-warning-600',
-        bg: 'bg-warning-50',
-        title: `${stats.lowStock} ta mahsulot kam qolgan`,
-        desc: 'Minimum miqdordan past',
-      });
-    }
-  }
-
-  if (notifications.length === 0) {
-    notifications.push({
-      icon: Bell,
-      color: 'text-success-600',
-      bg: 'bg-success-50',
-      title: 'Hammasi joyida',
-      desc: 'Hozircha yangi bildirishnoma yo\'q',
-    });
-  }
-
-  return (
-    <div
-      ref={panelRef}
-      className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-surface shadow-dropdown animate-scale-in overflow-hidden"
-      style={{ border: '1px solid var(--color-border)' }}
-    >
-      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <h3 className="text-sm font-bold text-text-primary">Bildirishnomalar</h3>
-        <span className="text-[11px] text-text-muted">{notifications.length} ta</span>
-      </div>
-      <div className="max-h-72 overflow-y-auto">
-        {notifications.map((n, i) => {
-          const Icon = n.icon;
-          return (
-            <div
-              key={i}
-              className="flex items-start gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors"
-              style={i < notifications.length - 1 ? { borderBottom: '1px solid var(--color-border-subtle)' } : undefined}
-            >
-              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', n.bg)}>
-                <Icon className={cn('h-4 w-4', n.color)} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-text-primary">{n.title}</p>
-                <p className="text-xs text-text-muted mt-0.5">{n.desc}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Header ─── */
 export function Header() {
   const { t } = useTranslation();
@@ -144,24 +40,19 @@ export function Header() {
   const setUsdRate = useUsdRateStore((s) => s.setRate);
   const currencyMut = useUpdateCurrencyRate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rateEdit, setRateEdit] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = user?.role === 'ADMIN';
-  const { data: statsData } = useProductStats();
-  const stats = statsData?.data;
-  const notifCount = isAdmin ? (stats?.outOfStock ?? 0) + (stats?.lowStock ?? 0) : 0;
 
-  const toggleFullscreen = useCallback(() => {
+  function toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
-  }, []);
+  }
 
   useEffect(() => {
     function onFsChange() { setIsFullscreen(!!document.fullscreenElement); }
@@ -179,8 +70,6 @@ export function Header() {
       return () => document.removeEventListener('mousedown', handleClick);
     }
   }, [dropdownOpen]);
-
-  const handleCloseNotif = useCallback(() => setNotifOpen(false), []);
 
   return (
     <header
@@ -269,31 +158,11 @@ export function Header() {
           <span className="text-[10px] text-text-muted hidden sm:inline">so'm</span>
         </div>
 
-        {/* Notifications — faqat admin */}
-        {isAdmin && (
-          <div className="relative" ref={notifRef}>
-            <button
-              onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
-              className="relative inline-flex items-center justify-center rounded-lg p-2 sm:p-2.5 text-text-muted hover:bg-surface-tertiary hover:text-text-primary transition-colors"
-              aria-label="Bildirishnomalar"
-              style={{ minHeight: 'auto', minWidth: 'auto' }}
-            >
-              <Bell className="h-4 w-4" />
-              {notifCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[9px] font-bold text-white ring-2 ring-surface">
-                  {notifCount}
-                </span>
-              )}
-            </button>
-            {notifOpen && <NotificationsPanel onClose={handleCloseNotif} />}
-          </div>
-        )}
-
         {/* User avatar */}
         {user && (
           <div className="relative" ref={dropdownRef}>
             <button
-              onClick={() => { setDropdownOpen(!dropdownOpen); setNotifOpen(false); }}
+              onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center gap-2 rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 hover:bg-surface-tertiary transition-colors"
               aria-expanded={dropdownOpen}
               aria-haspopup="true"

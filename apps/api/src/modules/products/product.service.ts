@@ -10,6 +10,7 @@ interface ListProductsQuery {
   search?: string;
   categoryId?: string;
   subCategoryId?: string;
+  warehouseId?: string;
   stockStatus?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEGATIVE';
   priceStatus?: 'WITH_PRICE' | 'NO_PRICE';
   sortBy?: string;
@@ -17,13 +18,19 @@ interface ListProductsQuery {
 }
 
 export async function listProducts(query: ListProductsQuery) {
-  const { page, limit, search, categoryId, subCategoryId, stockStatus, priceStatus, sortBy, sortOrder } = query;
+  const { page, limit, search, categoryId, subCategoryId, warehouseId, stockStatus, priceStatus, sortBy, sortOrder } = query;
   const skip = (page - 1) * limit;
 
   const where: Prisma.ProductWhereInput = {
     isDeleted: false,
     ...(categoryId && { categoryId }),
     ...(subCategoryId && { subCategoryId }),
+    // warehouseId — WarehouseStock orqali: shu omborda quantity > 0 bo'lgan mahsulotlar
+    ...(warehouseId && {
+      warehouseStocks: {
+        some: { warehouseId, quantity: { gt: 0 } },
+      },
+    }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -103,6 +110,35 @@ export async function getProductStats() {
   return { total, lowStock, outOfStock, noPrice, totalValue };
 }
 
+/** Kam qolgan + tugagan mahsulotlar ro'yxati (do'kon stock bo'yicha) */
+export async function getLowStockProducts(limit = 100) {
+  // stock <= minStock AND isDeleted=false — column comparison kerak, raw SQL
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Product"
+    WHERE "isDeleted" = false AND stock <= "minStock"
+    ORDER BY stock ASC, name ASC
+    LIMIT ${limit}
+  `;
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  return prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      stock: true,
+      minStock: true,
+      unit: true,
+      price: true,
+      images: true,
+      category: { select: { id: true, name: true } },
+    },
+    orderBy: [{ stock: 'asc' }, { name: 'asc' }],
+  });
+}
+
 export async function getProductByCode(code: number) {
   const product = await prisma.product.findFirst({
     where: { code, isDeleted: false },
@@ -160,6 +196,7 @@ export async function createProduct(input: CreateProductInput, userId: string) {
       categoryId: input.categoryId,
       subCategoryId: input.subCategoryId,
       description: input.description,
+      images: input.images ?? [],
       code,
     },
     include: {
@@ -210,8 +247,11 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
     if (input.minStock !== undefined) updateData.minStock = input.minStock;
     if (input.unit !== undefined) updateData.unit = input.unit;
     if (input.description !== undefined) updateData.description = input.description;
+    if (input.images !== undefined) updateData.images = input.images;
     if (input.categoryId !== undefined) updateData.category = { connect: { id: input.categoryId } };
     if (input.subCategoryId !== undefined) updateData.subCategory = { connect: { id: input.subCategoryId } };
+    if (input.isMarketplaceVisible !== undefined) updateData.isMarketplaceVisible = input.isMarketplaceVisible;
+    if (input.showPrice !== undefined) updateData.showPrice = input.showPrice;
 
     return tx.product.update({
       where: { id },

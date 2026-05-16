@@ -51,23 +51,9 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
 
   const paidTotal = cashAmount + cardAmount + clickAmount + debtAmount;
   const remaining = effectiveTotal - paidTotal;
-  const bonus = remaining > 0.5 ? remaining : 0;
   const change = remaining < -0.5 ? Math.abs(remaining) : 0;
-  const canConfirm = paidTotal > 0 || items.length > 0;
-
-  // Determine payment method from filled amounts
-  function getPaymentMethod() {
-    const filled = [
-      cashAmount > 0 && 'CASH',
-      cardAmount > 0 && 'CARD',
-      clickAmount > 0 && 'CLICK',
-      debtAmount > 0 && 'DEBT',
-    ].filter(Boolean) as string[];
-
-    if (filled.length === 0) return 'CASH';
-    if (filled.length === 1) return filled[0]!;
-    return 'MIXED';
-  }
+  const isFullyPaid = remaining <= 0.5;
+  const canConfirm = items.length > 0 && isFullyPaid;
 
   // Reset on open
   useEffect(() => {
@@ -120,53 +106,27 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
   const handleConfirm = useCallback(async () => {
     if (items.length === 0) return;
     if (debtAmount > 0 && !customerId) return;
+    if (!isFullyPaid) return;
 
-    // Bonus: qolgan summa chegirma sifatida qo'shiladi
-    // API: server_total = server_subtotal * (1 - discountPercent/100)
-    // server_subtotal = sum of (price * qty * (1 - itemDiscount/100))
-    // Biz xohlagan narsa: server_total ≈ paidTotal (bonus = total - paidTotal)
-    let effectiveDiscount = globalDiscount;
-    const actualPaid = Math.min(paidTotal, effectiveTotal); // Ortiqcha to'langan bo'lsa, total'dan oshmasin
-    if (bonus > 0 && subtotal > 0) {
-      effectiveDiscount = Math.round((1 - actualPaid / subtotal) * 10000) / 100;
-      effectiveDiscount = Math.min(99, Math.max(0, effectiveDiscount));
-    }
+    const effectiveDiscount = globalDiscount;
 
-    // Qarz alohida — API'da DEBT mixed payment'ga qo'shilmaydi
-    // Shuning uchun bonus hisobida faqat naqd usullarni hisoblaymiz
-    // Agar qarz bo'lsa, qarz alohida DEBT receipt sifatida yoziladi
-    // Hozircha: qarzni bonus sifatida chegirmaga qo'shamiz
-    const nonDebtPaid = cashAmount + cardAmount + clickAmount;
     const filledMethods = [
       cashAmount > 0 && 'CASH',
       cardAmount > 0 && 'CARD',
       clickAmount > 0 && 'CLICK',
+      debtAmount > 0 && 'DEBT',
     ].filter(Boolean) as string[];
 
-    // Debt summasini ham bonus (chegirma) sifatida hisoblaymiz
-    // Faqat naqd usullar orqali to'lov qilinadi
-    const effectivePaid = nonDebtPaid; // API ga yuboriladigan haqiqiy to'lov
-    if (debtAmount > 0 && subtotal > 0) {
-      // Qarz summasi ham bonus ga qo'shiladi
-      effectiveDiscount = Math.round((1 - effectivePaid / subtotal) * 10000) / 100;
-      effectiveDiscount = Math.min(99, Math.max(0, effectiveDiscount));
-    }
-    const newTotal = bonus > 0 || debtAmount > 0 ? effectivePaid : total;
-
     let effectiveMethod: string;
-    if (effectivePaid === 0 && paidTotal === 0) {
+    if (filledMethods.length === 0) {
       effectiveMethod = 'CASH';
-    } else if (effectivePaid === 0 && debtAmount > 0) {
-      effectiveMethod = 'DEBT';
     } else if (filledMethods.length === 1) {
       effectiveMethod = filledMethods[0]!;
-    } else if (filledMethods.length >= 2) {
-      effectiveMethod = 'MIXED';
     } else {
-      effectiveMethod = 'CASH';
+      effectiveMethod = 'MIXED';
     }
 
-    // Mixed payments — faqat CASH, CARD, CLICK
+    // Mixed payments
     let mixedPayments: { method: 'CASH' | 'CARD' | 'CLICK' | 'TRANSFER'; amount: number }[] | undefined;
     if (effectiveMethod === 'MIXED') {
       mixedPayments = [
@@ -187,14 +147,13 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       })),
       paymentMethod: effectiveMethod as 'CASH' | 'CARD' | 'CLICK' | 'DEBT' | 'MIXED' | 'TRANSFER',
       discountPercent: isDebtPayment ? 0 : effectiveDiscount,
-      customerId: (effectiveMethod === 'DEBT' || debtAmount > 0) ? (customerId ?? undefined) : (customerId ?? undefined),
-      cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : newTotal) : undefined,
+      customerId: customerId ?? undefined,
+      cashReceived: effectiveMethod === 'CASH' ? (cashAmount > 0 ? cashAmount : effectiveTotal) : undefined,
       debtDueDate: (effectiveMethod === 'DEBT' || debtAmount > 0) ? debtDueDate : undefined,
       mixedPayments,
     };
 
     try {
-      console.log('Payment payload:', JSON.stringify(payload, null, 2));
       await createReceipt.mutateAsync(payload);
       play('success');
       setSuccess(true);
@@ -202,7 +161,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       console.error('Payment error:', err);
       play('error');
     }
-  }, [items, bonus, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, effectiveTotal, createReceipt, play]);
+  }, [items, isFullyPaid, paidTotal, subtotal, cashAmount, cardAmount, clickAmount, debtAmount, globalDiscount, customerId, total, effectiveTotal, createReceipt, play]);
 
   function handleClose() {
     if (success) clearCart();
@@ -221,22 +180,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       setNewCustomerPhone('');
       setShowNewCustomer(false);
     } catch { /* ignore */ }
-  }
-
-  function setFull(setter: (v: number) => void) {
-    const others = [cashAmount, cardAmount, clickAmount, debtAmount];
-    // reset the current one and calculate remaining
-    setter(0);
-    const otherTotal = others.reduce((a, b) => a + b, 0);
-    // Recalculate: we need to subtract out the old value of this field
-    // Since we just set it to 0, let's compute from scratch
-    setTimeout(() => {
-      const currentOthers = cashAmount + cardAmount + clickAmount + debtAmount;
-      const t = debtAmount > 0 ? rawSubtotal : total;
-      const rem = t - currentOthers;
-      if (rem > 0) setter(rem);
-      else setter(t);
-    }, 0);
   }
 
   function handleSetFullCash() {
@@ -290,9 +233,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
             {change > 0 && (
               <p className="mt-2 text-base font-bold text-emerald-600 tabular-nums">Qaytim: {formatCurrency(change)}</p>
             )}
-            {bonus > 0 && (
-              <p className="mt-2 text-base font-bold text-amber-600 tabular-nums">Bonus: {formatCurrency(bonus)}</p>
-            )}
             <div className="flex gap-2 mt-5">
               <Button variant="outline" onClick={handleClose} className="flex-1">Yopish</Button>
               <Button onClick={() => window.print()} className="flex-1 gap-1.5">
@@ -314,7 +254,6 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
                 subtotal,
                 discountPercent: globalDiscount,
                 discountAmount: subtotal - total,
-                bonus,
                 total,
                 paidCash: cashAmount,
                 paidCard: cardAmount,
@@ -483,9 +422,9 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
             {paidTotal > 0 && (
               <div className="px-5 pb-3">
                 {remaining > 0.5 ? (
-                  <div className="rounded-xl bg-amber-50 px-4 py-2.5 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-amber-700">Bonus</span>
-                    <span className="text-base font-extrabold text-amber-700 tabular-nums">{formatCurrency(remaining)}</span>
+                  <div className="rounded-xl bg-danger-50 px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-[12px] font-medium text-danger-700">Qoldiq to'lanmagan</span>
+                    <span className="text-base font-extrabold text-danger-700 tabular-nums">{formatCurrency(remaining)}</span>
                   </div>
                 ) : change > 0 ? (
                   <div className="rounded-xl bg-emerald-50 px-4 py-2.5 flex items-center justify-between">
@@ -507,12 +446,12 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
                 onClick={handleConfirm}
                 disabled={
                   createReceipt.isPending ||
-                  items.length === 0 ||
+                  !canConfirm ||
                   (debtAmount > 0 && !customerId)
                 }
                 className={cn(
                   'flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-all',
-                  !createReceipt.isPending && items.length > 0
+                  !createReceipt.isPending && canConfirm
                     ? 'bg-primary-600 hover:bg-primary-700 active:scale-[0.98]'
                     : 'bg-gray-300 cursor-not-allowed',
                 )}

@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useSearch } from '@tanstack/react-router';
-import {
-  ArrowLeft, ShoppingCart, Banknote, CreditCard as CardIcon,
-  Smartphone, ArrowRightLeft, Receipt,
-} from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Receipt } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@sardorbek/shared';
 import { useReceipts } from '@/hooks/useReceipts';
 
@@ -12,14 +9,6 @@ const PERIOD_LABELS: Record<string, string> = {
   week: 'Hafta',
   month: 'Oy',
   year: 'Yil',
-};
-
-const METHOD_ICONS: Record<string, typeof Banknote> = {
-  CASH: Banknote,
-  CARD: CardIcon,
-  CLICK: Smartphone,
-  TRANSFER: ArrowRightLeft,
-  DEBT: Receipt,
 };
 
 const METHOD_LABELS: Record<string, string> = {

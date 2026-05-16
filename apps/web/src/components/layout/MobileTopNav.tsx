@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, FolderTree,
   CreditCard, Users, Truck, Receipt, UserCog, Settings,
   SlidersHorizontal, GripVertical, Eye, EyeOff, RotateCcw, X,
-  ScanBarcode,
+  ScanBarcode, Map, Store, Warehouse, ShoppingBag, AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useNavSettingsStore } from '@/stores/navSettings';
@@ -19,11 +19,17 @@ const NAV_META: Record<string, { to: string; icon: typeof LayoutDashboard; roles
   categories: { to: '/categories', icon: FolderTree, roles: ['ADMIN'] },
   debts: { to: '/debts', icon: CreditCard, roles: ['ADMIN', 'CASHIER'] },
   customers: { to: '/customers', icon: Users, roles: ['ADMIN', 'CASHIER'] },
+  prospecting: { to: '/prospecting', icon: Map, roles: ['ADMIN', 'CASHIER'] },
   suppliers: { to: '/suppliers', icon: Truck, roles: ['ADMIN'] },
   expenses: { to: '/expenses', icon: Receipt, roles: ['ADMIN'] },
   hr: { to: '/hr', icon: UserCog, roles: ['ADMIN'] },
   settings: { to: '/settings', icon: Settings, roles: ['ADMIN'] },
   helper: { to: '/helper', icon: ScanBarcode, roles: ['ADMIN', 'HELPER'] },
+  'marketplace-settings': { to: '/marketplace-settings', icon: Store, roles: ['ADMIN'] },
+  warehouses: { to: '/warehouses', icon: Warehouse, roles: ['ADMIN'] },
+  orders: { to: '/orders', icon: ShoppingBag, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
+  receipts: { to: '/receipts', icon: Receipt, roles: ['ADMIN', 'CASHIER'] },
+  'stock-alerts': { to: '/stock-alerts', icon: AlertTriangle, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
 };
 
 export { NAV_META };

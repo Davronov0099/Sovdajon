@@ -1,5 +1,4 @@
 import { forwardRef } from 'react';
-import { formatCurrency } from '@sardorbek/shared';
 
 interface ReceiptItem {
   name: string;
@@ -13,7 +12,6 @@ interface ReceiptData {
   subtotal: number;
   discountPercent: number;
   discountAmount: number;
-  bonus: number;
   total: number;
   paidCash: number;
   paidCard: number;
@@ -29,12 +27,6 @@ function formatNum(n: number): string {
   return n.toLocaleString('uz-UZ');
 }
 
-function pad(str: string, len: number, align: 'left' | 'right' = 'left'): string {
-  if (str.length >= len) return str.slice(0, len);
-  const spaces = ' '.repeat(len - str.length);
-  return align === 'right' ? spaces + str : str + spaces;
-}
-
 function now(): string {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, '0');
@@ -47,22 +39,20 @@ function now(): string {
 
 export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data }, ref) => {
   const {
-    items, subtotal, discountPercent, discountAmount, bonus, total,
+    items, subtotal, discountPercent, discountAmount, total,
     paidCash, paidCard, paidClick, paidDebt, change,
     customerName, cashierName,
   } = data;
 
-  const actualPaid = paidCash + paidCard + paidClick + paidDebt;
-  const finalTotal = bonus > 0 ? actualPaid : total;
+  const finalTotal = total;
   const LINE = '─'.repeat(40);
   const DLINE = '═'.repeat(40);
 
   return (
     <div ref={ref} className="receipt-print">
       {/* ─── Header ─── */}
-      <div className="r-center r-bold r-lg">SARDORBEK</div>
-      <div className="r-center r-sm">FURNITURA</div>
-      <div className="r-center r-sm r-light">Mebel furnitura do'koni</div>
+      <div className="r-center r-bold r-xl">SovdaJON</div>
+      <div className="r-center r-sm r-bold">ONLINE MARKETPLACE</div>
       <div className="r-line">{LINE}</div>
 
       {/* ─── Info ─── */}
@@ -109,12 +99,6 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
         <div className="r-row">
           <span>Chegirma ({discountPercent}%):</span>
           <span>-{formatNum(Math.round(discountAmount))}</span>
-        </div>
-      )}
-      {bonus > 0 && (
-        <div className="r-row">
-          <span>Bonus:</span>
-          <span>-{formatNum(Math.round(bonus))}</span>
         </div>
       )}
       <div className="r-line">{DLINE}</div>
@@ -164,7 +148,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(({ data
         Xaridingiz uchun rahmat!
       </div>
       <div className="r-center r-xs r-light">
-        Sardorbek Furnitura
+        SovdaJON
       </div>
       <div className="r-center r-xs r-light" style={{ marginTop: '1mm' }}>
         {now()}
