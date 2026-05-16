@@ -10,7 +10,8 @@ export type AuditAction =
   | 'DEBT_CREATE' | 'DEBT_PAY' | 'DEBT_EXTEND'
   | 'SALARY_CALCULATE' | 'SALARY_PAY' | 'SALARY_RECALCULATE'
   | 'PRICE_CHANGE' | 'STOCK_CHANGE' | 'SETTINGS_UPDATE'
-  | 'USER_ACTIVATE' | 'USER_DEACTIVATE' | 'BACKUP';
+  | 'USER_ACTIVATE' | 'USER_DEACTIVATE' | 'BACKUP'
+  | 'ISSUE_TO_SHOP' | 'TRANSFER';
 
 interface AuditLogParams {
   action: AuditAction;

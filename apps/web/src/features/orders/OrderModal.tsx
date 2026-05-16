@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Search, X, Plus, Trash2, Package, User, ShoppingBag, Phone } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';

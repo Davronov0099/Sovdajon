@@ -123,7 +123,7 @@ export function useTransferWarehouseStock() {
   return useMutation({
     mutationFn: ({ warehouseId, ...data }: WarehouseTransferInput & { warehouseId: string }) =>
       api.post(`warehouses/${warehouseId}/transfer`, { json: data }).json(),
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse'] });
       qc.invalidateQueries({ queryKey: ['warehouse-products'] });
       qc.invalidateQueries({ queryKey: ['warehouse-movements'] });

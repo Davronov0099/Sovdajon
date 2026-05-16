@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
-  Receipt as ReceiptIcon, Search, User, Calendar, Package, ChevronDown,
+  Receipt as ReceiptIcon, User, Calendar, Package, ChevronDown,
   Undo2, Banknote, CreditCard, Wallet, ArrowLeftRight, Coins, Layers,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@sardorbek/shared';
@@ -122,7 +122,7 @@ function ReceiptRow({
   onToggle: () => void;
   onReturn: () => void;
 }) {
-  const cfg = PAYMENT_CONFIG[r.paymentMethod] ?? PAYMENT_CONFIG.CASH;
+  const cfg = (PAYMENT_CONFIG[r.paymentMethod] ?? PAYMENT_CONFIG.CASH)!;
   const totalQty = r.items.reduce((s, i) => s + i.quantity, 0);
   const daysSince = Math.floor((Date.now() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60 * 24));
   const canReturn = daysSince <= 14;

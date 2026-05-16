@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
@@ -22,7 +21,6 @@ import { Route as AuthProspectingRouteImport } from './routes/_auth/prospecting'
 import { Route as AuthProductsRouteImport } from './routes/_auth/products'
 import { Route as AuthPosRouteImport } from './routes/_auth/pos'
 import { Route as AuthOrdersRouteImport } from './routes/_auth/orders'
-import { Route as AuthMarketplaceSettingsRouteImport } from './routes/_auth/marketplace-settings'
 import { Route as AuthHrRouteImport } from './routes/_auth/hr'
 import { Route as AuthHelperRouteImport } from './routes/_auth/helper'
 import { Route as AuthExpensesRouteImport } from './routes/_auth/expenses'
@@ -40,11 +38,6 @@ import { Route as AuthCustomersAddRouteImport } from './routes/_auth/customers_.
 import { Route as AuthCustomersCustomerIdRouteImport } from './routes/_auth/customers_.$customerId'
 import { Route as AuthSuppliersSupplierIdImportRouteImport } from './routes/_auth/suppliers_.$supplierId_.import'
 
-const MarketplaceRoute = MarketplaceRouteImport.update({
-  id: '/marketplace',
-  path: '/marketplace',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -112,13 +105,6 @@ const AuthOrdersRoute = AuthOrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthMarketplaceSettingsRoute = AuthMarketplaceSettingsRouteImport.update({
-  id: '/marketplace-settings',
-  path: '/marketplace-settings',
-  getParentRoute: () => AuthRoute,
-} as any).lazy(() =>
-  import('./routes/_auth/marketplace-settings.lazy').then((d) => d.Route),
-)
 const AuthHrRoute = AuthHrRouteImport.update({
   id: '/hr',
   path: '/hr',
@@ -231,14 +217,12 @@ const AuthSuppliersSupplierIdImportRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
-  '/marketplace': typeof MarketplaceRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
   '/expenses': typeof AuthExpensesRoute
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
-  '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/orders': typeof AuthOrdersRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
@@ -261,14 +245,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
-  '/marketplace': typeof MarketplaceRoute
   '/categories': typeof AuthCategoriesRoute
   '/customers': typeof AuthCustomersRoute
   '/debts': typeof AuthDebtsRoute
   '/expenses': typeof AuthExpensesRoute
   '/helper': typeof AuthHelperRoute
   '/hr': typeof AuthHrRoute
-  '/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/orders': typeof AuthOrdersRoute
   '/pos': typeof AuthPosRoute
   '/products': typeof AuthProductsRoute
@@ -294,14 +276,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
-  '/marketplace': typeof MarketplaceRoute
   '/_auth/categories': typeof AuthCategoriesRoute
   '/_auth/customers': typeof AuthCustomersRoute
   '/_auth/debts': typeof AuthDebtsRoute
   '/_auth/expenses': typeof AuthExpensesRoute
   '/_auth/helper': typeof AuthHelperRoute
   '/_auth/hr': typeof AuthHrRoute
-  '/_auth/marketplace-settings': typeof AuthMarketplaceSettingsRoute
   '/_auth/orders': typeof AuthOrdersRoute
   '/_auth/pos': typeof AuthPosRoute
   '/_auth/products': typeof AuthProductsRoute
@@ -328,14 +308,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/marketplace'
     | '/categories'
     | '/customers'
     | '/debts'
     | '/expenses'
     | '/helper'
     | '/hr'
-    | '/marketplace-settings'
     | '/orders'
     | '/pos'
     | '/products'
@@ -358,14 +336,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
-    | '/marketplace'
     | '/categories'
     | '/customers'
     | '/debts'
     | '/expenses'
     | '/helper'
     | '/hr'
-    | '/marketplace-settings'
     | '/orders'
     | '/pos'
     | '/products'
@@ -390,14 +366,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_auth'
     | '/login'
-    | '/marketplace'
     | '/_auth/categories'
     | '/_auth/customers'
     | '/_auth/debts'
     | '/_auth/expenses'
     | '/_auth/helper'
     | '/_auth/hr'
-    | '/_auth/marketplace-settings'
     | '/_auth/orders'
     | '/_auth/pos'
     | '/_auth/products'
@@ -423,18 +397,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   LoginRoute: typeof LoginRoute
-  MarketplaceRoute: typeof MarketplaceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/marketplace': {
-      id: '/marketplace'
-      path: '/marketplace'
-      fullPath: '/marketplace'
-      preLoaderRoute: typeof MarketplaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -517,13 +483,6 @@ declare module '@tanstack/react-router' {
       path: '/orders'
       fullPath: '/orders'
       preLoaderRoute: typeof AuthOrdersRouteImport
-      parentRoute: typeof AuthRoute
-    }
-    '/_auth/marketplace-settings': {
-      id: '/_auth/marketplace-settings'
-      path: '/marketplace-settings'
-      fullPath: '/marketplace-settings'
-      preLoaderRoute: typeof AuthMarketplaceSettingsRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/hr': {
@@ -648,7 +607,6 @@ interface AuthRouteChildren {
   AuthExpensesRoute: typeof AuthExpensesRoute
   AuthHelperRoute: typeof AuthHelperRoute
   AuthHrRoute: typeof AuthHrRoute
-  AuthMarketplaceSettingsRoute: typeof AuthMarketplaceSettingsRoute
   AuthOrdersRoute: typeof AuthOrdersRoute
   AuthPosRoute: typeof AuthPosRoute
   AuthProductsRoute: typeof AuthProductsRoute
@@ -678,7 +636,6 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthExpensesRoute: AuthExpensesRoute,
   AuthHelperRoute: AuthHelperRoute,
   AuthHrRoute: AuthHrRoute,
-  AuthMarketplaceSettingsRoute: AuthMarketplaceSettingsRoute,
   AuthOrdersRoute: AuthOrdersRoute,
   AuthPosRoute: AuthPosRoute,
   AuthProductsRoute: AuthProductsRoute,
@@ -706,7 +663,6 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   LoginRoute: LoginRoute,
-  MarketplaceRoute: MarketplaceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

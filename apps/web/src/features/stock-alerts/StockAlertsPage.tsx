@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
 import { AlertTriangle, Package, ChevronRight, TrendingDown, CheckCircle2 } from 'lucide-react';
-import { formatCurrency } from '@sardorbek/shared';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLowStockProducts, type LowStockProduct } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
@@ -103,7 +102,7 @@ function Section({
   );
 }
 
-function ProductRow({ product: p, tone }: { product: LowStockProduct; tone: 'danger' | 'warning' }) {
+function ProductRow({ product: p }: { product: LowStockProduct; tone: 'danger' | 'warning' }) {
   const hasImage = p.images && p.images.length > 0 && p.images[0];
   const stockColor = p.stock === 0 ? 'text-danger-600' : 'text-warning-600';
   const ratio = p.minStock > 0 ? Math.min(100, (p.stock / p.minStock) * 100) : 0;

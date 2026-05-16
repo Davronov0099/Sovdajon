@@ -554,7 +554,7 @@ function BannerCarousel({ onProductClick }: { onProductClick: (id: string) => vo
 
 // ===================== PRODUCT DETAIL =====================
 function ProductDetailPage({
-  productId, onBack, companyName, companyPhone, onGoToCart,
+  productId, onBack, companyName: _companyName, companyPhone, onGoToCart,
 }: {
   productId: string; onBack: () => void;
   companyName: string; companyPhone?: string;
@@ -821,7 +821,7 @@ function ProductDetailPage({
 
 // ===================== CART PAGE =====================
 function CartPage({
-  companyName, companyPhone, onGoHome, onOrderSuccess,
+  companyName: _companyName, companyPhone, onGoHome, onOrderSuccess,
 }: {
   companyName: string; companyPhone?: string;
   onGoHome: () => void; onOrderSuccess: () => void;

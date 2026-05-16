@@ -20,7 +20,6 @@ const DEFAULT_NAV: NavItem[] = [
   { key: 'hr', visible: true },
   { key: 'settings', visible: true },
   { key: 'helper', visible: true },
-  { key: 'marketplace-settings', visible: true },
   { key: 'warehouses', visible: true },
   { key: 'orders', visible: true },
   { key: 'receipts', visible: true },

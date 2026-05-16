@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Search, X, Plus, Trash2, Package, ArrowLeftRight, Warehouse, ChevronDown } from 'lucide-react';
-import { formatCurrency } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { useWarehouses, useWarehouseProducts, useTransferWarehouseStock } from '@/hooks/useWarehouses';

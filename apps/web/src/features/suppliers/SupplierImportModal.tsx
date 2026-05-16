@@ -9,6 +9,7 @@ import { SearchInput } from '@/components/common/SearchInput';
 import { useProducts } from '@/hooks/useProducts';
 import { useSupplierImport } from '@/hooks/useSuppliers';
 import { useCurrencyRate } from '@/hooks/useSettings';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface ImportItem {
   productId: string;
@@ -32,7 +33,9 @@ export function SupplierImportModal({ supplierId, supplierName, onClose }: Suppl
 
   const { data: productsData } = useProducts({ search: productSearch, limit: 10 });
   const { data: currencyData } = useCurrencyRate();
+  const { data: warehousesData } = useWarehouses();
   const importMut = useSupplierImport();
+  const warehouses = warehousesData?.data ?? [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = ((productsData as any)?.data as Array<Record<string, unknown>>) ?? [];
@@ -63,8 +66,11 @@ export function SupplierImportModal({ supplierId, supplierName, onClose }: Suppl
 
   async function handleSubmit() {
     if (items.length === 0) return;
+    const wId = warehouses[0]?.id;
+    if (!wId) return;
     await importMut.mutateAsync({
       supplierId,
+      warehouseId: wId,
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
       currency,
       rate: effectiveRate,

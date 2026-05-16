@@ -74,8 +74,13 @@ export const ERROR_CODES = {
   USER_LOGIN_EXISTS: 'USER_LOGIN_EXISTS',
   CANNOT_DELETE_SELF: 'CANNOT_DELETE_SELF',
 
+  // Warehouse
+  WAREHOUSE_NOT_FOUND: 'WAREHOUSE_NOT_FOUND',
+  INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
+
   // General
   NOT_FOUND: 'NOT_FOUND',
+  VALIDATION: 'VALIDATION',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 } as const;
@@ -294,7 +299,14 @@ export const ERROR_MESSAGES: Record<ErrorCode, { uz: string; en: string; ru: str
     en: 'Cannot delete yourself',
     ru: 'Нельзя удалить себя',
   },
+  WAREHOUSE_NOT_FOUND: { uz: 'Ombor topilmadi', en: 'Warehouse not found', ru: 'Склад не найден' },
+  INSUFFICIENT_STOCK: {
+    uz: 'Omborlarda yetarli mahsulot yo\'q',
+    en: 'Insufficient stock in warehouse',
+    ru: 'Недостаточно товара на складе',
+  },
   NOT_FOUND: { uz: 'Topilmadi', en: 'Not found', ru: 'Не найдено' },
+  VALIDATION: { uz: 'Validatsiya xatosi', en: 'Validation error', ru: 'Ошибка валидации' },
   INTERNAL_ERROR: { uz: 'Server xatosi', en: 'Internal server error', ru: 'Ошибка сервера' },
   RATE_LIMIT_EXCEEDED: {
     uz: 'Juda ko\'p so\'rov — biroz kuting',

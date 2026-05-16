@@ -40,7 +40,7 @@ export function OrdersPage() {
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: 0, PENDING: 0, CONFIRMED: 0, SHIPPED: 0, DELIVERED: 0, CANCELLED: 0 };
     for (const o of orders) {
-      c.all++;
+      c.all = (c.all ?? 0) + 1;
       c[o.status] = (c[o.status] ?? 0) + 1;
     }
     return c;

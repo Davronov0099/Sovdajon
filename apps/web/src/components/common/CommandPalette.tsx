@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Search, LayoutDashboard, ShoppingCart, Package, CreditCard, Users, Truck, DollarSign, UserCog, Settings, Map, Store } from 'lucide-react';
+import { Search, LayoutDashboard, ShoppingCart, Package, CreditCard, Users, Truck, DollarSign, UserCog, Settings, Map } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import { hasPermission } from '@sardorbek/shared';
@@ -28,7 +28,6 @@ const COMMANDS: CommandItem[] = [
   { id: 'expenses', label: 'Xarajatlar', icon: DollarSign, to: '/expenses', permission: 'expense:read', keywords: ['xarajat', 'chiqim'] },
   { id: 'hr', label: 'Xodimlar', icon: UserCog, to: '/hr', permission: 'user:read', keywords: ['xodim', 'oylik', 'davomat', 'ishchi'] },
   { id: 'settings', label: 'Sozlamalar', icon: Settings, to: '/settings', permission: 'settings:read', keywords: ['sozlama', 'settings', 'config'] },
-  { id: 'marketplace-settings', label: 'Marketplace', icon: Store, to: '/marketplace-settings', permission: 'settings:read', keywords: ['marketplace', 'onlayn', 'do\'kon', 'buyurtma'] },
 ];
 
 export function CommandPalette() {

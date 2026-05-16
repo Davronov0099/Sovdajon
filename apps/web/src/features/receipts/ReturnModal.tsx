@@ -65,6 +65,7 @@ export function ReturnModal({ open, onClose, receipt, alreadyReturned = {} }: Pr
   }
 
   async function handleSubmit() {
+    if (!receipt) return;
     const items = lines.filter((l) => l.qty > 0);
     if (items.length === 0) { toast("Hech bo'lmasa bitta mahsulot tanlang", 'error'); return; }
     if (!reason.trim()) { toast("Qaytarish sababini yozing", 'error'); return; }

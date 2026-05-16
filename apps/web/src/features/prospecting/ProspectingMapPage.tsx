@@ -11,7 +11,6 @@ import {
   Map,
   MapPin,
   Navigation,
-  Plus,
   RefreshCw,
   Route,
   Save,
@@ -190,7 +189,6 @@ export function ProspectingMapPage() {
   const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const placeType = PLACE_TYPES.find((t) => t.key === placeTypeKey) ?? PLACE_TYPES[0];
-  const selectedLead = useMemo(() => leads.find((l) => l.id === selectedLeadId) ?? null, [leads, selectedLeadId]);
 
   const filteredLeads = useMemo(() => {
     if (!tableFilter.trim()) return leads;

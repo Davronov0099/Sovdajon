@@ -6,7 +6,10 @@ import {
 } from 'lucide-react';
 import { api } from '@/services/api';
 import { formatCurrency } from '@sardorbek/shared';
-import toast from 'react-hot-toast';
+const toast = {
+  success: (msg: string) => console.log('[ok]', msg),
+  error: (msg: string) => console.error('[err]', msg),
+};
 
 type TabId = 'products' | 'banners' | 'orders';
 

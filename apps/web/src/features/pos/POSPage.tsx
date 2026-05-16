@@ -101,7 +101,7 @@ export function POSPage() {
   const { toast } = useToast();
 
   // Buyurtmalar
-  const { data: ordersData } = useOrders('PENDING');
+  const { data: ordersData } = useOrders({ status: 'PENDING' });
   const pendingOrders = ordersData?.data ?? [];
   const updateStatus = useUpdateOrderStatus();
   const addItem = useCartStore((s) => s.addItem);
@@ -115,9 +115,9 @@ export function POSPage() {
         productId: item.productId,
         name: item.product.name,
         price: Number(item.unitPrice),
-        costPrice: Number(item.product.costPrice),
+        costPrice: 0,
         unit: 'PIECE',
-        stock: item.product.stock,
+        stock: 9999,
       });
       // Miqdorni to'g'rilash (addItem 1 qo'shadi, biz quantity-1 marta qo'shimcha)
       for (let i = 1; i < item.quantity; i++) {
@@ -125,9 +125,9 @@ export function POSPage() {
           productId: item.productId,
           name: item.product.name,
           price: Number(item.unitPrice),
-          costPrice: Number(item.product.costPrice),
+          costPrice: 0,
           unit: 'PIECE',
-          stock: item.product.stock,
+          stock: 9999,
         });
       }
     }

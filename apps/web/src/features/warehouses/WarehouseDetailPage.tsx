@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
 import {
   ArrowLeft, Warehouse, MapPin, Package, ArrowUpFromLine, ArrowLeftRight,
-  Search, History, Archive, ArrowDownToLine, Store, ArrowRight,
+  History, Archive, ArrowDownToLine, Store, ArrowRight,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@sardorbek/shared';
 import { Skeleton } from '@/components/ui/skeleton';

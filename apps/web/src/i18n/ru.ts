@@ -44,7 +44,6 @@ export const ru = {
     hr: 'Сотрудники',
     settings: 'Настройки',
     helper: 'Сканер',
-    'marketplace-settings': 'Маркетплейс',
     warehouses: 'Склады',
     orders: 'Заказы',
     receipts: 'Чеки',

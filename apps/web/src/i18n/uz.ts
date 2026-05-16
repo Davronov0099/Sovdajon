@@ -44,7 +44,6 @@ export const uz = {
     hr: 'Xodimlar',
     settings: 'Sozlamalar',
     helper: 'Skaner',
-    'marketplace-settings': 'Marketplace',
     warehouses: 'Omborlar',
     orders: 'Buyurtmalar',
     receipts: 'Cheklar',

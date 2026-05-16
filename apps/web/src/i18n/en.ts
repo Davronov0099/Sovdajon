@@ -44,7 +44,6 @@ export const en = {
     hr: 'HR',
     settings: 'Settings',
     helper: 'Scanner',
-    'marketplace-settings': 'Marketplace',
     warehouses: 'Warehouses',
     orders: 'Orders',
     receipts: 'Receipts',
