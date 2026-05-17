@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { Map as LeafletMap, Circle as LeafletCircle, CircleMarker as LeafletCircleMarker, Marker as LeafletMarker } from 'leaflet';
 import { cn } from '@/lib/cn';
+import { safeUUID } from '@/lib/uuid';
 import { useInfiniteCustomers } from '@/hooks/useCustomers';
 
 type LatLng = { lat: number; lng: number };
@@ -39,7 +40,7 @@ interface SavedPin {
   savedAt: string;
 }
 
-const DEFAULT_CENTER: LatLng = { lat: 40.0302, lng: 64.8517 };
+const DEFAULT_CENTER: LatLng = { lat: 41.2995, lng: 69.2401 };
 const SAVED_PINS_KEY = 'map_saved_pins';
 
 const TILE_LAYERS = [
@@ -139,7 +140,7 @@ export function CustomerMapPage() {
 
   const savePin = useCallback((pin: { lat: number; lng: number; address: string }) => {
     const newPin: SavedPin = {
-      id: crypto.randomUUID(),
+      id: safeUUID(),
       lat: pin.lat,
       lng: pin.lng,
       address: pin.address,

@@ -12,8 +12,10 @@ export const updateSupplierSchema = createSupplierSchema.partial();
 export const supplierImportItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().min(1),
-  unitPrice: z.number().min(0),
-  sellingPrice: z.number().min(0).optional(),
+  unitPrice: z.number().min(0),              // Tan narxi (kirim narxi)
+  sellingPrice: z.number().min(0).optional(),     // Dona narxi (asosiy sotuv)
+  minSellingPrice: z.number().min(0).optional(),  // Min sotuv narxi
+  wholesalePrice: z.number().min(0).optional(),   // Optom sotuv narxi
 });
 
 export const supplierImportSchema = z.object({

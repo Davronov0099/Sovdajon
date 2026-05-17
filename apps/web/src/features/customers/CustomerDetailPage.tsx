@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from '@tanstack/react-router';
+import { useParams, Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Phone, MapPin, Pencil, ShoppingBag, DollarSign, Clock, AlertTriangle, CheckCircle, X, Calendar, Tag } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomer, useUpdateCustomer } from '@/hooks/useCustomers';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
+import { extractApiError } from '@/lib/apiError';
 
 const PM_LABELS: Record<string, string> = { CASH: 'Naqd', CARD: 'Karta', CLICK: 'Click', TRANSFER: "O'tkazma", DEBT: 'Qarzga', MIXED: 'Aralash', SPLIT: 'Aralash' };
 function pmLabel(m: string) { return PM_LABELS[m] || m; }
@@ -20,8 +21,19 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: typeof Cl
   OVERDUE: { label: "Muddati o'tgan", color: 'bg-danger-50 text-danger-700', icon: AlertTriangle },
 };
 
+function hasSavedCoords(note: string | null | undefined): boolean {
+  if (!note) return false;
+  return /__coords:[\d.]+,[\d.]+/.test(note);
+}
+
+function stripCoords(note: string | null | undefined): string {
+  if (!note) return '';
+  return note.replace(/\n?__coords:[\d.,]+/g, '').trim();
+}
+
 export function CustomerDetailPage() {
   const { customerId } = useParams({ from: '/_auth/customers_/$customerId' });
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const { data, isLoading } = useCustomer(customerId);
@@ -50,7 +62,7 @@ export function CustomerDetailPage() {
     if (!customer) return;
     setEditName(customer.name); setEditPhone(customer.phone);
     setEditAddress(customer.address || '');
-    setEditNote(customer.note || '');
+    setEditNote(stripCoords(customer.note));
     setEditStartDate(customer.startDate ? customer.startDate.slice(0, 10) : '');
     setEditOpen(true);
   }
@@ -58,10 +70,18 @@ export function CustomerDetailPage() {
   async function handleUpdate() {
     if (!editName.trim()) return;
     try {
-      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, note: editNote || undefined, startDate: editStartDate || undefined });
+      const coordsMatch = customer?.note?.match(/__coords:[\d.,]+/);
+      const cleanNote = editNote.trim();
+      const noteToSave = coordsMatch
+        ? (cleanNote ? `${cleanNote}\n${coordsMatch[0]}` : coordsMatch[0])
+        : (cleanNote || undefined);
+      await updateMut.mutateAsync({ id: customerId, name: editName.trim(), phone: editPhone, address: editAddress || undefined, note: noteToSave, startDate: editStartDate || undefined });
       toast('Yangilandi', 'success');
       setEditOpen(false);
-    } catch { toast('Xatolik', 'error'); }
+    } catch (err) {
+      const msg = await extractApiError(err, 'Yangilashda xatolik');
+      toast(msg, 'error', { duration: 6000 });
+    }
   }
 
   const totalDebt = debts.filter((d: any) => d.status !== 'PAID').reduce((s: number, d: any) => s + (Number(d.remainingAmount) || 0), 0);
@@ -118,11 +138,30 @@ export function CustomerDetailPage() {
                 </span>
               )}
             </div>
-            {customer.note && <p className="text-[11px] text-text-muted mt-1.5 italic">"{customer.note}"</p>}
+            {stripCoords(customer.note) && <p className="text-[11px] text-text-muted mt-1.5 italic">"{stripCoords(customer.note)}"</p>}
           </div>
-          <button onClick={openEdit} className="btn btn-secondary btn-sm shrink-0">
-            <Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tahrirlash</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button onClick={openEdit} className="btn btn-secondary btn-sm">
+              <Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tahrirlash</span>
+            </button>
+            <button
+              onClick={() => navigate({ to: '/customers/$customerId/location', params: { customerId } })}
+              className={cn(
+                'btn btn-sm relative',
+                hasSavedCoords(customer.note) ? 'btn-secondary' : 'btn-primary',
+              )}
+              title={hasSavedCoords(customer.note) ? "Joylashuvni xaritada ko'rish" : "Joylashuv tanlash"}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Joylashuv</span>
+              {hasSavedCoords(customer.note) && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success-500 border-2 border-white" />
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       ) : <h1 className="text-xl font-bold text-text-primary mb-5">Mijoz topilmadi</h1>}
 

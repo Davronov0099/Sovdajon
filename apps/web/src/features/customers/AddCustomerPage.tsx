@@ -18,6 +18,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import {
+  extractUzDigits,
+  formatUzPhoneDisplay,
+  isValidUzPhone,
+  toRawUzPhone,
+} from '@/lib/phone';
+import { extractApiError } from '@/lib/apiError';
+import {
   useInfiniteCustomers,
   useCreateCustomer,
 } from '@/hooks/useCustomers';
@@ -32,9 +39,22 @@ interface PickedLocation {
 
 interface CustomerFormData {
   name: string;
-  phone: string;
+  /** 9 digits without country prefix (UZ local number). */
+  phoneDigits: string;
   note: string;
   returnDate: string;
+}
+
+const MAX_DATE = '2099-12-31';
+const MIN_DATE = '1900-01-01';
+
+function clampDateInput(s: string): string {
+  if (!s) return '';
+  const match = s.match(/^(\d{1,4})-(\d{2})-(\d{2})$/);
+  if (!match) return s;
+  let year = match[1]!.slice(0, 4);
+  if (year.length < 4) year = year.padStart(4, '0');
+  return `${year}-${match[2]}-${match[3]}`;
 }
 
 interface NominatimResult {
@@ -44,8 +64,8 @@ interface NominatimResult {
   lon: string;
 }
 
-const EMPTY_FORM: CustomerFormData = { name: '', phone: '+998', note: '', returnDate: '' };
-const DEFAULT_CENTER: LatLng = { lat: 40.0302, lng: 64.8517 };
+const EMPTY_FORM: CustomerFormData = { name: '', phoneDigits: '', note: '', returnDate: '' };
+const DEFAULT_CENTER: LatLng = { lat: 41.2995, lng: 69.2401 };
 
 const STREET_TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const STREET_ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
@@ -339,19 +359,19 @@ export function AddCustomerPage() {
 
   const handleCreate = useCallback(async () => {
     if (!form.name.trim()) { toast('Ism familiya kiriting', 'error'); return; }
-    if (!form.phone || form.phone.length < 13) { toast('Telefon raqam kiriting', 'error'); return; }
-    if (!form.note.trim()) { toast('Izoh kiriting', 'error'); return; }
-    if (!form.returnDate.trim()) { toast('Qaytib kelish vaqtini kiriting', 'error'); return; }
+    if (!isValidUzPhone(form.phoneDigits)) { toast("Telefon raqam to'liq emas (+998 va 9 ta raqam)", 'error'); return; }
     if (!pickedLocation) { toast('Xaritadan manzil tanlang', 'error'); return; }
 
     setSaving(true);
     try {
-      const coordsNote = `${form.note.trim()}\n__coords:${pickedLocation.latlng.lat.toFixed(6)},${pickedLocation.latlng.lng.toFixed(6)}`;
+      const noteText = form.note.trim();
+      const coordsLine = `__coords:${pickedLocation.latlng.lat.toFixed(6)},${pickedLocation.latlng.lng.toFixed(6)}`;
+      const finalNote = noteText ? `${noteText}\n${coordsLine}` : coordsLine;
       await createMut.mutateAsync({
         name: form.name.trim(),
-        phone: form.phone,
+        phone: toRawUzPhone(form.phoneDigits),
         address: pickedLocation.address,
-        note: coordsNote,
+        note: finalNote,
         startDate: form.returnDate || undefined,
       });
       toast('Mijoz saqlandi', 'success');
@@ -360,8 +380,9 @@ export function AddCustomerPage() {
       setForm(EMPTY_FORM);
       if (pinMarkerRef.current) { pinMarkerRef.current.remove(); pinMarkerRef.current = null; }
       await refetch();
-    } catch {
-      toast('Saqlash xatosi', 'error');
+    } catch (err) {
+      const msg = await extractApiError(err, 'Saqlashda xatolik');
+      toast(msg, 'error', { duration: 6000 });
     } finally {
       setSaving(false);
     }
@@ -369,9 +390,7 @@ export function AddCustomerPage() {
 
   const isFormValid =
     form.name.trim().length > 0 &&
-    form.phone.length >= 13 &&
-    form.note.trim().length > 0 &&
-    form.returnDate.trim().length > 0;
+    isValidUzPhone(form.phoneDigits);
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height,56px))] flex-col overflow-hidden">
@@ -551,10 +570,38 @@ export function AddCustomerPage() {
             </div>
           )}
           <Input id="add-name" label="Ism Familiya *" value={form.name} onChange={(e) => setField('name', e.target.value)} placeholder="Masalan: Aliyev Jasur" autoFocus />
-          <Input id="add-phone" label="Telefon raqam *" value={form.phone} onChange={(e) => setField('phone', e.target.value)} placeholder="+998901234567" />
+          <div>
+            <label htmlFor="add-phone" className="mb-1.5 block text-sm font-medium text-text-primary">
+              Telefon raqam * <span className="text-[11px] font-normal text-text-muted">(+998 va 9 ta raqam)</span>
+            </label>
+            <input
+              id="add-phone"
+              type="tel"
+              inputMode="numeric"
+              value={formatUzPhoneDisplay(form.phoneDigits)}
+              onChange={(e) => setField('phoneDigits', extractUzDigits(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Backspace' && form.phoneDigits.length === 0) e.preventDefault();
+              }}
+              onFocus={(e) => {
+                const v = e.target.value;
+                if (e.target.selectionStart !== null && e.target.selectionStart < 5) {
+                  requestAnimationFrame(() => e.target.setSelectionRange(v.length, v.length));
+                }
+              }}
+              onClick={(e) => {
+                const t = e.currentTarget;
+                if (t.selectionStart !== null && t.selectionStart < 5) {
+                  t.setSelectionRange(t.value.length, t.value.length);
+                }
+              }}
+              placeholder="+998 __ ___ __ __"
+              className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm tabular-nums focus:outline-2 focus:outline-primary-500"
+            />
+          </div>
           <div>
             <label htmlFor="add-note" className="mb-1.5 block text-sm font-medium text-text-primary">
-              Izoh * <span className="text-[11px] font-normal text-text-muted">(majburiy)</span>
+              Izoh <span className="text-[11px] font-normal text-text-muted">(ixtiyoriy)</span>
             </label>
             <textarea
               id="add-note"
@@ -567,20 +614,22 @@ export function AddCustomerPage() {
           </div>
           <div>
             <label htmlFor="add-return" className="mb-1.5 block text-sm font-medium text-text-primary">
-              Qaytib kelish sanasi * <span className="text-[11px] font-normal text-text-muted">(majburiy)</span>
+              Qaytib kelish sanasi <span className="text-[11px] font-normal text-text-muted">(ixtiyoriy)</span>
             </label>
             <input
               id="add-return"
               type="date"
+              min={MIN_DATE}
+              max={MAX_DATE}
               value={form.returnDate}
-              onChange={(e) => setField('returnDate', e.target.value)}
+              onChange={(e) => setField('returnDate', clampDateInput(e.target.value))}
               className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500"
             />
           </div>
           {!isFormValid && (
             <div className="flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2">
               <AlertCircle className="h-4 w-4 shrink-0 text-warning-600" />
-              <p className="text-[11px] text-warning-700">Barcha maydonlarni to'ldiring</p>
+              <p className="text-[11px] text-warning-700">Ism va telefon raqam majburiy</p>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-1">

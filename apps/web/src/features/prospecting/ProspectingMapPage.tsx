@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Building2,
   Check,
-  CircleDot,
   ExternalLink,
   Loader2,
   LocateFixed,
@@ -29,6 +28,8 @@ import { cn } from '@/lib/cn';
 type LatLng = { lat: number; lng: number };
 type MapMode = 'street' | 'satellite';
 
+type LeadCategory = 'restaurant' | 'cafe' | 'fast_food' | 'shop' | 'other';
+
 interface PlaceLead {
   id: string;
   name: string;
@@ -38,6 +39,7 @@ interface PlaceLead {
   location: LatLng;
   distance: number;
   osmType: string;
+  category: LeadCategory;
 }
 
 type ZoneStatus = 'planned' | 'scouted';
@@ -52,7 +54,7 @@ interface SavedZone {
 }
 
 const STORAGE_KEY = 'sardorbek-prospecting-zones';
-const DEFAULT_CENTER: LatLng = { lat: 40.0302, lng: 64.8517 };
+const DEFAULT_CENTER: LatLng = { lat: 41.2995, lng: 69.2401 };
 const DEFAULT_RADIUS = 1000;
 
 const STREET_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -60,18 +62,26 @@ const STREET_ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenSt
 const SAT_URL = 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
 const SAT_ATTR = '© Google Maps';
 
-const PLACE_TYPES = [
-  { key: 'restaurant', label: 'Restoran', tags: [{ k: 'amenity', v: 'restaurant' }] },
-  { key: 'cafe', label: 'Kafe', tags: [{ k: 'amenity', v: 'cafe' }] },
-  { key: 'bakery', label: 'Nonvoyxona', tags: [{ k: 'shop', v: 'bakery' }, { k: 'amenity', v: 'bakery' }] },
-  { key: 'fast_food', label: 'Fast food', tags: [{ k: 'amenity', v: 'fast_food' }] },
-  { key: 'shop', label: "Do'kon", tags: [{ k: 'shop', v: 'convenience' }, { k: 'shop', v: 'supermarket' }, { k: 'shop', v: 'grocery' }] },
-  { key: 'pharmacy', label: 'Dorixona', tags: [{ k: 'amenity', v: 'pharmacy' }] },
-  { key: 'school', label: "O'quv", tags: [{ k: 'amenity', v: 'school' }, { k: 'amenity', v: 'university' }, { k: 'amenity', v: 'college' }] },
-  { key: 'hospital', label: 'Shifoxona', tags: [{ k: 'amenity', v: 'hospital' }, { k: 'amenity', v: 'clinic' }] },
-] as const;
+type FilterKey = 'all' | LeadCategory;
+
+const PLACE_FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'Hammasi' },
+  { key: 'restaurant', label: 'Restoran' },
+  { key: 'cafe', label: 'Kafe' },
+  { key: 'fast_food', label: 'Fast food' },
+  { key: 'shop', label: "Do'kon" },
+];
 
 const RADIUS_OPTIONS = [500, 1000, 2000, 5000] as const;
+
+function categorize(t: Record<string, string>): LeadCategory {
+  const amenity = t.amenity;
+  if (amenity === 'restaurant') return 'restaurant';
+  if (amenity === 'cafe' || amenity === 'bar' || amenity === 'pub' || amenity === 'biergarten') return 'cafe';
+  if (amenity === 'fast_food' || amenity === 'food_court') return 'fast_food';
+  if (t.shop) return 'shop';
+  return 'other';
+}
 
 function formatDistance(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
@@ -113,48 +123,117 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+] as const;
+
+const OVERPASS_TIMEOUT_MS = 25000;
+
+function osmTypeLabel(t: Record<string, string>): string {
+  return t.amenity ?? t.shop ?? t.tourism ?? t.craft ?? t.office ?? '';
+}
+
+function fallbackName(t: Record<string, string>): string {
+  const label = osmTypeLabel(t);
+  const street = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
+  if (label && street) return `${label} · ${street}`;
+  if (label) return label.replace(/_/g, ' ');
+  if (street) return street;
+  return 'Nomsiz joy';
+}
+
+async function fetchWithTimeout(url: string, body: string, signal: AbortSignal): Promise<Response> {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(body)}`,
+    signal,
+  });
+}
+
+async function callOverpass(query: string, externalSignal?: AbortSignal): Promise<{ elements: OverpassElement[] }> {
+  let lastErr: unknown = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    if (externalSignal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const ctrl = new AbortController();
+    const onAbort = () => ctrl.abort();
+    externalSignal?.addEventListener('abort', onAbort, { once: true });
+    const timer = setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS);
+    try {
+      const res = await fetchWithTimeout(endpoint, query, ctrl.signal);
+      clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onAbort);
+      if (res.status === 429 || res.status === 504 || res.status === 502 || res.status === 503) {
+        lastErr = new Error(`${endpoint.replace(/^https?:\/\//, '').split('/')[0]} band (${res.status})`);
+        continue;
+      }
+      if (!res.ok) {
+        lastErr = new Error(`Server javobi: ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as { elements?: OverpassElement[] };
+      return { elements: Array.isArray(data.elements) ? data.elements : [] };
+    } catch (err) {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onAbort);
+      if (externalSignal?.aborted) throw err;
+      lastErr = err;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        lastErr = new Error("Server javob bermayapdi (timeout). Boshqa server sinab ko'rilmoqda...");
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('Barcha Overpass serverlari ishlamayapti');
+}
+
+const POI_ROOT_TAGS = ['amenity', 'shop', 'tourism', 'office', 'craft', 'leisure', 'healthcare'] as const;
+
 async function searchOverpass(
   center: LatLng,
   radiusM: number,
-  tags: readonly { k: string; v: string }[],
   keyword: string,
+  signal?: AbortSignal,
 ): Promise<PlaceLead[]> {
   const nameFilter = keyword.trim()
-    ? `["name"~"${keyword.trim().replace(/"/g, '')}",i]`
+    ? `["name"~"${keyword.trim().replace(/"/g, '').replace(/\\/g, '')}",i]`
     : '';
-  const tagLines = tags
-    .map((t) => {
-      const f = `["${t.k}"="${t.v}"]${nameFilter}`;
+  const lines = POI_ROOT_TAGS
+    .map((tag) => {
+      const f = `["${tag}"]${nameFilter}`;
       return `  node${f}(around:${radiusM},${center.lat},${center.lng});\n  way${f}(around:${radiusM},${center.lat},${center.lng});`;
     })
     .join('\n');
-  const query = `[out:json][timeout:30];\n(\n${tagLines}\n);\nout center 100;`;
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-  if (!res.ok) throw new Error(`Overpass xatosi: ${res.status}`);
-  const data = await res.json() as { elements: OverpassElement[] };
+  const query = `[out:json][timeout:25];\n(\n${lines}\n);\nout center 400;`;
+  const data = await callOverpass(query, signal);
+
+  const seen = new Set<string>();
   return data.elements
-    .filter((el) => el.tags?.name)
-    .map((el) => {
-      const lat = el.lat ?? el.center?.lat ?? 0;
-      const lon = el.lon ?? el.center?.lon ?? 0;
+    .map((el): PlaceLead | null => {
+      const lat = el.lat ?? el.center?.lat;
+      const lon = el.lon ?? el.center?.lon;
+      if (typeof lat !== 'number' || typeof lon !== 'number') return null;
       const loc: LatLng = { lat, lng: lon };
       const t = el.tags ?? {};
+      const name = (t.name ?? t['name:uz'] ?? t['name:ru'] ?? t['name:en'] ?? '').trim() || fallbackName(t);
+      const id = `${el.type}-${el.id}`;
+      if (seen.has(id)) return null;
+      seen.add(id);
       return {
-        id: `${el.type}-${el.id}`,
-        name: t.name ?? '',
+        id,
+        name,
         address: [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(', ') || t.description || '',
-        phone: t.phone ?? t['contact:phone'] ?? null,
+        phone: t.phone ?? t['contact:phone'] ?? t['contact:mobile'] ?? null,
         website: t.website ?? t['contact:website'] ?? null,
         location: loc,
         distance: distanceBetween(center, loc),
-        osmType: t.amenity ?? t.shop ?? t.tourism ?? '',
+        osmType: osmTypeLabel(t),
+        category: categorize(t),
       };
     })
-    .filter((l) => l.location.lat !== 0 && l.name)
+    .filter((l): l is PlaceLead => l !== null && l.distance <= radiusM * 1.05)
     .sort((a, b) => a.distance - b.distance);
 }
 
@@ -168,10 +247,10 @@ export function ProspectingMapPage() {
 
   const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
-  const [placeTypeKey, setPlaceTypeKey] = useState<string>('restaurant');
+  const [filterKey, setFilterKey] = useState<FilterKey>('all');
   const [keyword, setKeyword] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
-  const [zoneName, setZoneName] = useState('Qiziltepa markazi');
+  const [zoneName, setZoneName] = useState('Toshkent markazi');
   const [mapError, setMapError] = useState('');
   const [searching, setSearching] = useState(false);
   const [leads, setLeads] = useState<PlaceLead[]>([]);
@@ -182,23 +261,33 @@ export function ProspectingMapPage() {
   const [mapMode, setMapMode] = useState<MapMode>('street');
   const [tableFilter, setTableFilter] = useState('');
 
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Autocomplete
   const [suggestions, setSuggestions] = useState<{ display_name: string; lat: string; lon: string; place_id: number }[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const placeType = PLACE_TYPES.find((t) => t.key === placeTypeKey) ?? PLACE_TYPES[0];
+  const categoryCounts = useMemo(() => {
+    const counts: Record<FilterKey, number> = { all: leads.length, restaurant: 0, cafe: 0, fast_food: 0, shop: 0, other: 0 };
+    for (const l of leads) counts[l.category] += 1;
+    return counts;
+  }, [leads]);
 
   const filteredLeads = useMemo(() => {
-    if (!tableFilter.trim()) return leads;
-    const q = tableFilter.toLowerCase();
-    return leads.filter((l) =>
-      l.name.toLowerCase().includes(q) ||
-      l.address.toLowerCase().includes(q) ||
-      l.osmType.toLowerCase().includes(q),
-    );
-  }, [leads, tableFilter]);
+    let list = filterKey === 'all' ? leads : leads.filter((l) => l.category === filterKey);
+    const q = tableFilter.trim().toLowerCase();
+    if (q) {
+      list = list.filter((l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.address.toLowerCase().includes(q) ||
+        l.osmType.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [leads, filterKey, tableFilter]);
 
   const saveZones = useCallback((next: SavedZone[]) => {
     setZones(next);
@@ -309,7 +398,7 @@ export function ProspectingMapPage() {
   }, [center, radius, mapReady]);
 
   // ── Render lead markers ──
-  const renderLeadMarkers = useCallback(async (nextLeads: PlaceLead[]) => {
+  const renderLeadMarkers = useCallback(async (nextLeads: PlaceLead[], fitBounds = true) => {
     const L = await import('leaflet');
     leadMarkersRef.current.forEach((m) => m.remove());
     leadMarkersRef.current = [];
@@ -322,11 +411,13 @@ export function ProspectingMapPage() {
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
+      const safeName = lead.name.replace(/</g, '&lt;');
+      const safeAddr = lead.address.replace(/</g, '&lt;');
       const marker = L.marker([lead.location.lat, lead.location.lng], { icon })
         .bindPopup(
           `<div style="min-width:160px;padding:2px 0">
-            <strong style="font-size:13px;color:#111">${lead.name}</strong>
-            ${lead.address ? `<br/><span style="font-size:11px;color:#6b7280">${lead.address}</span>` : ''}
+            <strong style="font-size:13px;color:#111">${safeName}</strong>
+            ${safeAddr ? `<br/><span style="font-size:11px;color:#6b7280">${safeAddr}</span>` : ''}
             <br/><span style="font-size:11px;color:#4f46e5;font-weight:600">${formatDistance(lead.distance)}</span>
           </div>`,
         )
@@ -334,26 +425,65 @@ export function ProspectingMapPage() {
       marker.on('click', () => setSelectedLeadId(lead.id));
       leadMarkersRef.current.push(marker);
     });
+
+    if (fitBounds && nextLeads.length > 0 && circleRef.current) {
+      const circleBounds = circleRef.current.getBounds();
+      map.fitBounds(circleBounds, { padding: [40, 40], maxZoom: 17, animate: true });
+    }
   }, []);
 
   // ── Search ──
-  const searchNearby = useCallback(async () => {
+  const runSearch = useCallback(async (opts?: { silent?: boolean; fitBounds?: boolean }) => {
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
+
     setSearching(true);
     setMapError('');
-    setSelectedLeadId(null);
-    setTableFilter('');
-    try {
-      const results = await searchOverpass(center, radius, placeType.tags, keyword);
-      setLeads(results);
-      await renderLeadMarkers(results);
-      if (results.length === 0) setMapError("Bu hududda hech narsa topilmadi. Radius yoki joy turini o'zgartiring.");
-    } catch (err) {
-      setMapError(err instanceof Error ? err.message : 'Qidiruv xatosi');
-      setLeads([]);
-    } finally {
-      setSearching(false);
+    if (!opts?.silent) {
+      setSelectedLeadId(null);
+      setTableFilter('');
     }
-  }, [center, radius, placeType, keyword, renderLeadMarkers]);
+    try {
+      const results = await searchOverpass(center, radius, keyword, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      setLeads(results);
+      await renderLeadMarkers(results, opts?.fitBounds ?? true);
+      if (results.length === 0) {
+        setMapError(
+          keyword.trim()
+            ? `"${keyword.trim()}" bo'yicha ${formatDistance(radius)} radiusda joy topilmadi.`
+            : `${formatDistance(radius)} radiusda OSM ma'lumotlari yo'q. Radiusni kattalashtiring yoki boshqa hududni tanlang.`,
+        );
+      }
+    } catch (err) {
+      if (ctrl.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;
+      const msg = err instanceof Error ? err.message : 'Qidiruv xatosi';
+      setMapError(`Xatolik: ${msg}. Qaytadan urinib ko'ring.`);
+      setLeads([]);
+      leadMarkersRef.current.forEach((m) => m.remove());
+      leadMarkersRef.current = [];
+    } finally {
+      if (searchAbortRef.current === ctrl) {
+        searchAbortRef.current = null;
+        setSearching(false);
+      }
+    }
+  }, [center, radius, keyword, renderLeadMarkers]);
+
+  // ── Auto-search (debounced) on center / radius / keyword ──
+  useEffect(() => {
+    if (!mapReady) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => { void runSearch({ silent: true, fitBounds: false }); }, 600);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [mapReady, center, radius, keyword, runSearch]);
+
+  useEffect(() => () => {
+    searchAbortRef.current?.abort();
+  }, []);
 
   // ── Nominatim autocomplete ──
   const fetchSuggestions = useCallback(async (query: string) => {
@@ -406,12 +536,6 @@ export function ProspectingMapPage() {
     const name = zoneName.trim() || `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
     saveZones([{ id: `${Date.now()}`, name, center, radius, status: 'planned', createdAt: new Date().toISOString() }, ...zones]);
   }, [center, radius, zoneName, zones, saveZones]);
-
-  const clearResults = useCallback(() => {
-    setLeads([]); setSelectedLeadId(null); setMapError(''); setTableFilter('');
-    leadMarkersRef.current.forEach((m) => m.remove());
-    leadMarkersRef.current = [];
-  }, []);
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))] flex-col overflow-hidden lg:flex-row">
@@ -489,35 +613,36 @@ export function ProspectingMapPage() {
             </div>
           </div>
 
-          {/* Place types */}
+          {/* Filter by category */}
           <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Nima qidiriladi</p>
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Tur bo'yicha filter</p>
+              {searching && <Loader2 className="h-3 w-3 animate-spin text-primary-500" />}
+            </div>
             <div className="grid grid-cols-2 gap-1">
-              {PLACE_TYPES.map((t) => (
-                <button key={t.key} onClick={() => setPlaceTypeKey(t.key)}
-                  className={cn('rounded-lg px-2 py-2 text-[12px] font-semibold transition-colors', placeTypeKey === t.key ? 'bg-primary-600 text-white' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary')}
-                  style={{ minHeight: 'auto' }}>
-                  {t.label}
-                </button>
-              ))}
+              {PLACE_FILTERS.map((t) => {
+                const count = categoryCounts[t.key];
+                const active = filterKey === t.key;
+                return (
+                  <button key={t.key} onClick={() => setFilterKey(t.key)}
+                    className={cn('flex items-center justify-between rounded-lg px-2 py-2 text-[12px] font-semibold transition-colors', active ? 'bg-primary-600 text-white' : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary')}
+                    style={{ minHeight: 'auto' }}>
+                    <span>{t.label}</span>
+                    <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums', active ? 'bg-white/25 text-white' : 'bg-surface text-text-muted')}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <input value={keyword} onChange={(e) => setKeyword(e.target.value)}
               className="input mt-2 !py-2 text-sm" placeholder="Nom bo'yicha filter (ixtiyoriy)" />
           </div>
 
           {/* Actions */}
-          <button onClick={searchNearby} disabled={searching} className="btn btn-primary btn-md w-full">
-            {searching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CircleDot className="h-4 w-4" />}
-            {searching ? 'Qidirilmoqda...' : 'Radius ichida izlash'}
+          <button onClick={saveCurrentZone} className="btn btn-secondary btn-md w-full">
+            <Save className="h-3.5 w-3.5" /> Hududni saqlash
           </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={saveCurrentZone} className="btn btn-secondary btn-sm">
-              <Save className="h-3.5 w-3.5" /> Saqlash
-            </button>
-            <button onClick={clearResults} className="btn btn-secondary btn-sm">
-              <Trash2 className="h-3.5 w-3.5" /> Tozalash
-            </button>
-          </div>
 
           {/* Saved zones */}
           <div>
@@ -636,6 +761,16 @@ export function ProspectingMapPage() {
           <div className="mx-3 mt-2 flex items-center gap-2 rounded-xl bg-warning-50 px-3 py-2" style={{ border: '1px solid #fde68a' }}>
             <AlertTriangle className="h-4 w-4 shrink-0 text-warning-600" />
             <p className="flex-1 text-[12px] text-warning-700">{mapError}</p>
+            <button
+              onClick={() => { void runSearch({ fitBounds: true }); }}
+              disabled={searching}
+              className="flex items-center gap-1 rounded-md bg-warning-100 px-2 py-1 text-[11px] font-semibold text-warning-700 hover:bg-warning-200 disabled:opacity-50"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+              title="Qaytadan urinish"
+            >
+              {searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              Qayta
+            </button>
             <button onClick={() => setMapError('')} className="text-warning-400 hover:text-warning-600" style={{ minHeight: 'auto', minWidth: 'auto' }}>
               <X className="h-3.5 w-3.5" />
             </button>

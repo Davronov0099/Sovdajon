@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { safeUUID } from '@/lib/uuid';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -44,7 +45,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback(
     (message: string, variant: ToastVariant = 'info', options?: { duration?: number; action?: Toast['action'] }) => {
-      const id = crypto.randomUUID();
+      const id = safeUUID();
       const duration = options?.duration ?? (variant === 'error' ? 5000 : 3000);
       setToasts((prev) => [...prev, { id, message, variant, duration, action: options?.action }]);
     },

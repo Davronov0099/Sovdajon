@@ -164,6 +164,8 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         const newCostPrice = item.unitPrice;
         const oldCostPrice = Number(product.costPrice);
         const newSellingPrice = item.sellingPrice;
+        const newMinSellingPrice = item.minSellingPrice;
+        const newWholesalePrice = item.wholesalePrice;
 
         // Mahsulotlar bo'limiga to'g'ridan-to'g'ri kirim (avvalgi xulq)
         const updateData: Prisma.ProductUpdateInput = {
@@ -172,6 +174,12 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         };
         if (newSellingPrice != null && newSellingPrice > 0) {
           updateData.price = new Prisma.Decimal(newSellingPrice);
+        }
+        if (newMinSellingPrice != null && newMinSellingPrice > 0) {
+          updateData.minSellingPrice = new Prisma.Decimal(newMinSellingPrice);
+        }
+        if (newWholesalePrice != null && newWholesalePrice > 0) {
+          updateData.wholesalePrice = new Prisma.Decimal(newWholesalePrice);
         }
         await tx.product.update({
           where: { id: item.productId },
