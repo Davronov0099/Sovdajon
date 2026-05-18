@@ -204,9 +204,9 @@ export function CustomersPage() {
             </button>
           </div>
           <button
-            onClick={() => navigate({ to: '/customers/add' })}
+            onClick={() => setModalOpen(true)}
             className="btn btn-secondary btn-sm sm:btn-md"
-            title="Xaritadan mijoz qo'shish"
+            title="Yangi mijoz qo'shish"
           >
             <UserPlus className="h-4 w-4" />
             <span className="hidden sm:inline">Mijoz kiritish</span>
