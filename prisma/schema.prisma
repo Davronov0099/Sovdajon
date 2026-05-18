@@ -153,6 +153,10 @@ model Product {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  // Marketplace (SovdaJON storefront)
+  isMarketplaceVisible Boolean @default(false) // Marketplace'da ko'rinadimi
+  showPrice            Boolean @default(true)  // Marketplace'da narxni ko'rsatish
+
   // Relations
   category     Category      @relation(fields: [categoryId], references: [id])
   subCategory  SubCategory?  @relation(fields: [subCategoryId], references: [id])
@@ -162,6 +166,7 @@ model Product {
   returnItems  ReturnReceiptItem[]
   supplierTransactionItems SupplierTransactionItem[]
   orderItems   OrderItem[]
+  marketplaceOrderItems MarketplaceOrderItem[]
 
   @@index([code])
   @@index([categoryId])
@@ -716,4 +721,45 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   // Production: partitioning by month recommended
+}
+
+// ==================== MARKETPLACE (SovdaJON storefront) ====================
+// Bu jadvallar 20260516020000_add_marketplace migration orqali yaratilgan.
+
+enum MarketplaceOrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model MarketplaceOrder {
+  id            Int                    @id @default(autoincrement())
+  customerName  String
+  customerPhone String
+  address       String?
+  notes         String?
+  status        MarketplaceOrderStatus @default(PENDING)
+  totalUzs      Decimal                @db.Decimal(18, 2) @default(0)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  items MarketplaceOrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MarketplaceOrderItem {
+  id          Int              @id @default(autoincrement())
+  orderId     Int
+  order       MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product          @relation(fields: [productId], references: [id])
+  productName String
+  quantity    Int              @default(1)
+  priceUzs    Decimal          @db.Decimal(18, 2)
+  totalUzs    Decimal          @db.Decimal(18, 2)
+
+  @@index([orderId])
+  @@index([productId])
 }

@@ -124,6 +124,8 @@ export function CustomerMapPage() {
   const [showCustomers, setShowCustomers] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const [savedPins, setSavedPins] = useState<SavedPin[]>(loadSavedPins);
   const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
@@ -347,32 +349,60 @@ export function CustomerMapPage() {
     void update();
   }, [center, mapReady]);
 
-  const searchLocation = useCallback(async () => {
-    if (!searchQuery.trim()) return;
+  const fetchSuggestions = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
     setSearching(true);
-    setSearchResults([]);
     try {
       const params = new URLSearchParams({
         format: 'json',
-        q: `${searchQuery.trim()}, O'zbekiston`,
+        q: `${q}, O'zbekiston`,
         countrycodes: 'uz',
         limit: '6',
         addressdetails: '0',
       });
       const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
         headers: { 'Accept-Language': 'uz,ru,en' },
+        signal: ctrl.signal,
       });
       const data: NominatimResult[] = await res.json();
+      if (ctrl.signal.aborted) return;
       setSearchResults(data);
-      setSearchOpen(true);
+      setSearchOpen(data.length > 0);
     } catch { /* ignore */ } finally {
+      if (searchAbortRef.current === ctrl) searchAbortRef.current = null;
       setSearching(false);
     }
-  }, [searchQuery]);
+  }, []);
+
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchQuery(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!val.trim()) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => { void fetchSuggestions(val); }, 350);
+  }, [fetchSuggestions]);
+
+  useEffect(() => () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchAbortRef.current?.abort();
+  }, []);
 
   const selectSearchResult = useCallback((result: NominatimResult) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchAbortRef.current?.abort();
     setCenter({ lat, lng });
     mapRef.current?.setView([lat, lng], 14);
     setSearchResults([]);
@@ -503,54 +533,6 @@ export function CustomerMapPage() {
           <div className="flex-1 overflow-y-auto">
             {activePanel === 'settings' ? (
               <div className="space-y-4 p-4">
-                {/* Search */}
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Manzil qidirish</p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-                      <input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && searchLocation()}
-                        placeholder="Qishloq, tuman, shahar..."
-                        className="input w-full !py-2 !pl-9 text-sm"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => { setSearchQuery(''); setSearchResults([]); setSearchOpen(false); }}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted"
-                          style={{ minHeight: 'auto', minWidth: 'auto' }}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <button
-                      onClick={searchLocation}
-                      disabled={searching || !searchQuery.trim()}
-                      className="btn btn-primary btn-sm shrink-0"
-                    >
-                      {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {searchOpen && searchResults.length > 0 && (
-                    <div className="rounded-xl border border-border bg-surface shadow-dropdown">
-                      {searchResults.map((r) => (
-                        <button
-                          key={r.place_id}
-                          onClick={() => selectSearchResult(r)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-secondary first:rounded-t-xl last:rounded-b-xl"
-                          style={{ minHeight: 'auto' }}
-                        >
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary-600" />
-                          <span className="truncate text-[12px] text-text-secondary">{r.display_name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Radius */}
                 <div className="rounded-xl bg-surface-secondary p-3">
                   <div className="mb-2 flex items-center justify-between">
@@ -706,6 +688,67 @@ export function CustomerMapPage() {
           </div>
         </div>
       )}
+
+      {/* ── TOP-CENTER FLOATING SEARCH ── */}
+      <div
+        className="absolute left-1/2 top-3 z-[500] -translate-x-1/2"
+        style={{ width: 'min(380px, calc(100vw - 220px))' }}
+      >
+        <div className="relative">
+          <div
+            className="flex items-center gap-1 rounded-xl bg-white/95 shadow-md backdrop-blur"
+            style={{ border: '1.5px solid rgba(0,0,0,0.10)' }}
+          >
+            <Search className="ml-3 h-3.5 w-3.5 shrink-0 text-text-muted" />
+            <input
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && searchResults[0]) selectSearchResult(searchResults[0]); }}
+              placeholder="Qishloq, tuman, shahar qidirish..."
+              autoComplete="off"
+              className="w-full bg-transparent py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+              style={{ border: 'none', minHeight: 'auto' }}
+            />
+            {searching && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-text-muted" />}
+            {searchQuery && !searching && (
+              <button
+                onClick={() => { setSearchQuery(''); setSearchResults([]); setSearchOpen(false); }}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary"
+                style={{ minHeight: 'auto', minWidth: 'auto' }}
+                title="Tozalash"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <div className="mr-1 h-7 w-px shrink-0 bg-border" />
+            <div
+              className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white"
+              title="Avtomatik qidiruv"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+            >
+              <Search className="h-3.5 w-3.5" />
+            </div>
+          </div>
+
+          {searchOpen && searchResults.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-[510] mt-1.5 overflow-hidden rounded-xl border border-border bg-surface shadow-dropdown">
+              {searchResults.map((r) => (
+                <button
+                  key={r.place_id}
+                  onMouseDown={() => selectSearchResult(r)}
+                  className="flex w-full items-center gap-2 border-b border-border/40 px-3 py-2.5 text-left last:border-0 hover:bg-surface-secondary"
+                  style={{ minHeight: 'auto' }}
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary-600" />
+                  <span className="line-clamp-1 text-[12px] text-text-secondary">{r.display_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── RIGHT CONTROLS ── */}
       <div className="absolute right-3 top-3 z-[500] flex flex-col gap-2">

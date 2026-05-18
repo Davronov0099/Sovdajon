@@ -21,6 +21,8 @@ export const supplierImportItemSchema = z.object({
 export const supplierImportSchema = z.object({
   items: z.array(supplierImportItemSchema).min(1, 'Kamida 1 ta mahsulot kerak'),
   note: z.string().max(500).optional(),
+  /** Naqd to'lov miqdori (so'm). 0 = to'liq qarz, total = to'liq naqd. */
+  paidAmount: z.number().min(0).optional().default(0),
 });
 
 export const supplierPaymentSchema = z.object({

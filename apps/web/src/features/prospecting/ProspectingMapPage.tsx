@@ -22,6 +22,7 @@ import type {
   Circle as LeafletCircle,
   Marker as LeafletMarker,
   TileLayer as LeafletTileLayer,
+  Control as LeafletControl,
 } from 'leaflet';
 import { cn } from '@/lib/cn';
 
@@ -194,15 +195,11 @@ const POI_ROOT_TAGS = ['amenity', 'shop', 'tourism', 'office', 'craft', 'leisure
 async function searchOverpass(
   center: LatLng,
   radiusM: number,
-  keyword: string,
   signal?: AbortSignal,
 ): Promise<PlaceLead[]> {
-  const nameFilter = keyword.trim()
-    ? `["name"~"${keyword.trim().replace(/"/g, '').replace(/\\/g, '')}",i]`
-    : '';
   const lines = POI_ROOT_TAGS
     .map((tag) => {
-      const f = `["${tag}"]${nameFilter}`;
+      const f = `["${tag}"]`;
       return `  node${f}(around:${radiusM},${center.lat},${center.lng});\n  way${f}(around:${radiusM},${center.lat},${center.lng});`;
     })
     .join('\n');
@@ -244,11 +241,11 @@ export function ProspectingMapPage() {
   const centerMarkerRef = useRef<LeafletMarker | null>(null);
   const leadMarkersRef = useRef<LeafletMarker[]>([]);
   const tileLayerRef = useRef<LeafletTileLayer | null>(null);
+  const zoomCtlRef = useRef<LeafletControl.Zoom | null>(null);
 
   const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [filterKey, setFilterKey] = useState<FilterKey>('all');
-  const [keyword, setKeyword] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [zoneName, setZoneName] = useState('Toshkent markazi');
   const [mapError, setMapError] = useState('');
@@ -306,9 +303,15 @@ export function ProspectingMapPage() {
       const map = L.map(mapElRef.current, {
         center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
         zoom: 14,
-        zoomControl: true,
+        zoomControl: false,
         doubleClickZoom: false,
       });
+
+      const zoomCtl = L.control.zoom({
+        position: window.innerWidth < 640 ? 'bottomright' : 'topright',
+      });
+      zoomCtl.addTo(map);
+      zoomCtlRef.current = zoomCtl;
 
       tileLayerRef.current = L.tileLayer(STREET_URL, {
         attribution: STREET_ATTR,
@@ -397,6 +400,19 @@ export function ProspectingMapPage() {
     centerMarkerRef.current?.setLatLng([center.lat, center.lng]);
   }, [center, radius, mapReady]);
 
+  // ── Reposition zoom control on resize (desktop=topright, mobile=bottomright) ──
+  useEffect(() => {
+    if (!mapReady) return;
+    const handleResize = () => {
+      const ctl = zoomCtlRef.current;
+      if (!ctl) return;
+      const desired = window.innerWidth < 640 ? 'bottomright' : 'topright';
+      if (ctl.getPosition() !== desired) ctl.setPosition(desired);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [mapReady]);
+
   // ── Render lead markers ──
   const renderLeadMarkers = useCallback(async (nextLeads: PlaceLead[], fitBounds = true) => {
     const L = await import('leaflet');
@@ -445,15 +461,13 @@ export function ProspectingMapPage() {
       setTableFilter('');
     }
     try {
-      const results = await searchOverpass(center, radius, keyword, ctrl.signal);
+      const results = await searchOverpass(center, radius, ctrl.signal);
       if (ctrl.signal.aborted) return;
       setLeads(results);
       await renderLeadMarkers(results, opts?.fitBounds ?? true);
       if (results.length === 0) {
         setMapError(
-          keyword.trim()
-            ? `"${keyword.trim()}" bo'yicha ${formatDistance(radius)} radiusda joy topilmadi.`
-            : `${formatDistance(radius)} radiusda OSM ma'lumotlari yo'q. Radiusni kattalashtiring yoki boshqa hududni tanlang.`,
+          `${formatDistance(radius)} radiusda OSM ma'lumotlari yo'q. Radiusni kattalashtiring yoki boshqa hududni tanlang.`,
         );
       }
     } catch (err) {
@@ -469,9 +483,9 @@ export function ProspectingMapPage() {
         setSearching(false);
       }
     }
-  }, [center, radius, keyword, renderLeadMarkers]);
+  }, [center, radius, renderLeadMarkers]);
 
-  // ── Auto-search (debounced) on center / radius / keyword ──
+  // ── Auto-search (debounced) on center / radius ──
   useEffect(() => {
     if (!mapReady) return;
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -479,7 +493,7 @@ export function ProspectingMapPage() {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [mapReady, center, radius, keyword, runSearch]);
+  }, [mapReady, center, radius, runSearch]);
 
   useEffect(() => () => {
     searchAbortRef.current?.abort();
@@ -635,8 +649,6 @@ export function ProspectingMapPage() {
                 );
               })}
             </div>
-            <input value={keyword} onChange={(e) => setKeyword(e.target.value)}
-              className="input mt-2 !py-2 text-sm" placeholder="Nom bo'yicha filter (ixtiyoriy)" />
           </div>
 
           {/* Actions */}
@@ -711,8 +723,8 @@ export function ProspectingMapPage() {
             </p>
           </div>
 
-          {/* Top-right: stats + satellite toggle */}
-          <div className="absolute right-3 top-3 z-[500] flex flex-col gap-2">
+          {/* Top-right: stats + satellite toggle. On desktop, pushed down to clear Leaflet zoom controls above. */}
+          <div className="absolute right-3 top-3 sm:top-20 z-[500] flex flex-col gap-2">
             {/* Stats */}
             <div className="flex gap-1.5">
               <div className="rounded-xl bg-white/95 px-2.5 py-1.5 text-center shadow-md backdrop-blur" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>

@@ -11,7 +11,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import type { Map as LeafletMap, Marker as LeafletMarker, CircleMarker as LeafletCircleMarker, TileLayer as LeafletTileLayer, Circle as LeafletCircle } from 'leaflet';
+import type { Map as LeafletMap, Marker as LeafletMarker, CircleMarker as LeafletCircleMarker, TileLayer as LeafletTileLayer, Circle as LeafletCircle, Control as LeafletControl } from 'leaflet';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -106,6 +106,7 @@ export function AddCustomerPage() {
   const customerMarkersRef = useRef<LeafletCircleMarker[]>([]);
   const userDotRef = useRef<LeafletCircleMarker | null>(null);
   const userAccuracyRef = useRef<LeafletCircle | null>(null);
+  const zoomCtlRef = useRef<LeafletControl.Zoom | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('street');
@@ -205,10 +206,16 @@ export function AddCustomerPage() {
       const map = L.map(mapElRef.current, {
         center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
         zoom: 13,
-        zoomControl: true,
+        zoomControl: false,
         attributionControl: true,
         doubleClickZoom: false,
       });
+
+      const zoomCtl = L.control.zoom({
+        position: window.innerWidth < 640 ? 'bottomright' : 'topright',
+      });
+      zoomCtl.addTo(map);
+      zoomCtlRef.current = zoomCtl;
 
       baseTileRef.current = L.tileLayer(STREET_TILE, {
         attribution: STREET_ATTR,
@@ -258,6 +265,18 @@ export function AddCustomerPage() {
     if (!mapRef.current || !mapReady) return;
     void updateCustomerMarkers(mapRef.current);
   }, [mapReady, updateCustomerMarkers]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const handleResize = () => {
+      const ctl = zoomCtlRef.current;
+      if (!ctl) return;
+      const desired = window.innerWidth < 640 ? 'bottomright' : 'topright';
+      if (ctl.getPosition() !== desired) ctl.setPosition(desired);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [mapReady]);
 
   const toggleMapMode = useCallback(async () => {
     if (!mapRef.current) return;
@@ -436,7 +455,7 @@ export function AddCustomerPage() {
         )}
 
         {/* Search overlay — shorter, lighter */}
-        <div className="absolute left-3 top-3 z-[500]" style={{ width: 'min(360px, calc(100% - 64px))' }}>
+        <div className="absolute right-3 top-3 z-[500]" style={{ width: 'min(360px, calc(100% - 80px))' }}>
           <div className="relative">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -487,7 +506,7 @@ export function AddCustomerPage() {
         </div>
 
         {/* Right controls */}
-        <div className="absolute right-3 top-3 z-[500] flex flex-col gap-2">
+        <div className="absolute left-3 top-3 z-[500] flex flex-col gap-2">
           <button
             onClick={locateMe}
             disabled={locating}

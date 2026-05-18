@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Plus, Trash2, Package, ArrowDownToLine, Search, X, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, ArrowDownToLine, Search, X, TrendingUp, Wallet, CreditCard, Layers } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +34,8 @@ export function SupplierImportPage() {
   const [productSearch, setProductSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [newProductOpen, setNewProductOpen] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'DEBT' | 'MIXED'>('DEBT');
+  const [cashAmount, setCashAmount] = useState<number>(0);
 
   const { data: productsData, refetch: refetchProducts } = useProducts({ search: productSearch, limit: 20 });
   const importMut = useSupplierImport();
@@ -95,6 +97,14 @@ export function SupplierImportPage() {
     return { totalMargin };
   }, [items]);
 
+  // Naqd to'lov miqdori: rejim asosida
+  const paidAmount = useMemo(() => {
+    if (paymentMode === 'CASH') return totalCost;
+    if (paymentMode === 'DEBT') return 0;
+    return Math.min(Math.max(cashAmount, 0), totalCost);
+  }, [paymentMode, cashAmount, totalCost]);
+  const debtAmount = Math.max(0, totalCost - paidAmount);
+
   async function handleSubmit() {
     if (items.length === 0) { toast("Kamida 1 ta mahsulot qo'shing", 'error'); return; }
     for (const item of items) {
@@ -102,6 +112,10 @@ export function SupplierImportPage() {
       if (item.sellingPrice > 0 && item.minSellingPrice > 0 && item.minSellingPrice > item.sellingPrice) {
         toast(`${item.productName}: Min narx Dona narxidan katta bo'lmasin`, 'error'); return;
       }
+    }
+    if (paymentMode === 'MIXED') {
+      if (cashAmount <= 0) { toast("Naqd miqdorini kiriting yoki rejimni o'zgartiring", 'error'); return; }
+      if (cashAmount >= totalCost) { toast("Aralash to'lovda naqd jami summadan kam bo'lishi kerak", 'error'); return; }
     }
     try {
       await importMut.mutateAsync({
@@ -115,6 +129,7 @@ export function SupplierImportPage() {
           wholesalePrice: i.wholesalePrice > 0 ? i.wholesalePrice : undefined,
         })),
         note: note || undefined,
+        paidAmount,
       });
       toast('Kirim muvaffaqiyatli saqlandi', 'success');
       navigate({ to: '/suppliers/$supplierId', params: { supplierId } });
@@ -409,6 +424,82 @@ export function SupplierImportPage() {
                   <p className="text-xs sm:text-base font-bold text-primary-700 tabular-nums">{formatCurrency(totalCost)}</p>
                 </div>
               </div>
+            </div>
+
+            {/* ── To'lov turi ── */}
+            <div className="card p-2.5 sm:p-3 mb-3">
+              <label className="text-[10px] font-semibold text-text-muted uppercase block mb-2">To'lov turi</label>
+              <div className="grid grid-cols-3 gap-1.5 mb-2">
+                <button
+                  type="button"
+                  onClick={() => { setPaymentMode('DEBT'); setCashAmount(0); }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 transition-all',
+                    paymentMode === 'DEBT'
+                      ? 'border-warning-500 bg-warning-50 text-warning-700 ring-2 ring-warning-200'
+                      : 'border-border bg-surface text-text-muted hover:border-warning-300 hover:bg-warning-50/30',
+                  )}
+                  style={{ minHeight: 'auto' }}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span className="text-[11px] font-semibold">Qarz</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPaymentMode('CASH'); setCashAmount(totalCost); }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 transition-all',
+                    paymentMode === 'CASH'
+                      ? 'border-success-500 bg-success-50 text-success-700 ring-2 ring-success-200'
+                      : 'border-border bg-surface text-text-muted hover:border-success-300 hover:bg-success-50/30',
+                  )}
+                  style={{ minHeight: 'auto' }}
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span className="text-[11px] font-semibold">Naqd</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPaymentMode('MIXED'); }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 transition-all',
+                    paymentMode === 'MIXED'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
+                      : 'border-border bg-surface text-text-muted hover:border-primary-300 hover:bg-primary-50/30',
+                  )}
+                  style={{ minHeight: 'auto' }}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span className="text-[11px] font-semibold">Aralash</span>
+                </button>
+              </div>
+
+              {/* Mixed input */}
+              {paymentMode === 'MIXED' && (
+                <div className="mb-2">
+                  <label className="text-[10px] font-medium text-text-muted block mb-1">Naqd berilayotgan summa</label>
+                  <input
+                    type="text" inputMode="decimal" value={cashAmount || ''}
+                    onChange={(e) => setCashAmount(Math.max(0, Number(e.target.value.replace(/\s/g, '')) || 0))}
+                    placeholder="0"
+                    className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-[14px] font-semibold tabular-nums focus:outline-2 focus:outline-primary-500"
+                  />
+                </div>
+              )}
+
+              {/* Breakdown */}
+              {totalCost > 0 && (
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="rounded-lg bg-success-50/60 px-2.5 py-1.5">
+                    <p className="text-[9px] text-success-700 font-semibold uppercase">Naqd</p>
+                    <p className="text-[13px] font-bold text-success-700 tabular-nums">{formatCurrency(paidAmount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-warning-50/60 px-2.5 py-1.5">
+                    <p className="text-[9px] text-warning-700 font-semibold uppercase">Qarz</p>
+                    <p className="text-[13px] font-bold text-warning-700 tabular-nums">{formatCurrency(debtAmount)}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── Note ── */}

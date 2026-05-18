@@ -214,11 +214,30 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       await tx.priceHistory.createMany({ data: priceHistoryData });
     }
 
-    // 3. Supplier balansi (qarz)
-    await tx.supplier.update({
-      where: { id: supplierId },
-      data: { balance: { increment: new Prisma.Decimal(total) } },
-    });
+    // 3. Naqd to'lov (agar bo'lsa) — alohida PAYMENT transaksiyasi
+    const paid = Math.min(Math.max(input.paidAmount ?? 0, 0), total);
+    if (paid > 0) {
+      await tx.supplierTransaction.create({
+        data: {
+          supplierId,
+          type: 'PAYMENT',
+          total: new Prisma.Decimal(paid),
+          currency: 'UZS',
+          rate: new Prisma.Decimal(1),
+          note: `Kirim uchun naqd to'lov (#${created.id.slice(0, 8)})`,
+          createdById: userId,
+        },
+      });
+    }
+
+    // 4. Supplier balansi — faqat qarz qismi (total - naqd)
+    const debtAmount = total - paid;
+    if (debtAmount !== 0) {
+      await tx.supplier.update({
+        where: { id: supplierId },
+        data: { balance: { increment: new Prisma.Decimal(debtAmount) } },
+      });
+    }
 
     return created;
   });
