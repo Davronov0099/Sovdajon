@@ -4,6 +4,7 @@ import { ArrowLeft, Wallet, CreditCard, Layers, BarChart3, Phone, Package, Calen
 import { formatCurrency } from '@sardorbek/shared';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useImports, useImportStats } from '@/hooks/useSuppliers';
+import { useDashboardFilter, todayStr, dayStartISO, dayEndISO } from '@/stores/dashboardFilter';
 import { cn } from '@/lib/cn';
 
 type FilterKey = 'all' | 'cash' | 'debt' | 'mixed';
@@ -25,8 +26,13 @@ export function ImportsListPage() {
   const navigate = useNavigate();
   const filter: FilterKey = search.filter ?? 'all';
 
-  const { data: statsResp } = useImportStats();
-  const { data: listResp, isLoading } = useImports(filter, 1, 200);
+  // Dashboard sana filtri — doimiy saqlangan (localStorage), shu sahifada ham ishlaydi
+  const { from, to, setFrom, setTo, setRange, resetToday } = useDashboardFilter();
+  const start = dayStartISO(from);
+  const end = dayEndISO(to);
+
+  const { data: statsResp } = useImportStats(start, end);
+  const { data: listResp, isLoading } = useImports(filter, 1, 200, start, end);
   const stats = statsResp?.data;
 
   const items = useMemo(() => listResp?.data ?? [], [listResp]);
@@ -50,13 +56,47 @@ export function ImportsListPage() {
   return (
     <div className="p-3 sm:p-6 animate-fade-in pb-8">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
-        <Link to="/suppliers" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-base sm:text-xl font-bold text-text-primary">{cfg.label}</h1>
-          <p className="text-[11px] sm:text-xs text-text-muted truncate">Ta'minotchilardan qabul qilingan kirimlar ro'yxati</p>
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Link to="/suppliers" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-secondary transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-xl font-bold text-text-primary">{cfg.label}</h1>
+            <p className="text-[11px] sm:text-xs text-text-muted truncate">Ta'minotchilardan qabul qilingan kirimlar ro'yxati</p>
+          </div>
+        </div>
+        {/* Sana filtri — dashboard bilan bir xil, doimiy saqlanadi */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <span className="text-[10px] sm:text-[11px] font-medium text-text-muted shrink-0">Dan</span>
+            <input
+              type="date"
+              value={from}
+              max={to}
+              onChange={(e) => { const v = e.target.value || todayStr(); if (v > to) setRange(v, v); else setFrom(v); }}
+              className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <span className="text-[10px] sm:text-[11px] font-medium text-text-muted shrink-0">Gacha</span>
+            <input
+              type="date"
+              value={to}
+              min={from}
+              max={todayStr()}
+              onChange={(e) => setTo(e.target.value || todayStr())}
+              className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
+            />
+          </div>
+          <button
+            onClick={() => resetToday()}
+            className="px-2 sm:px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold text-primary-600 hover:bg-primary-50 transition-colors shrink-0"
+            style={{ minHeight: 'auto', minWidth: 'auto', border: '1px solid var(--color-border)' }}
+            title="Bugunga qaytarish"
+          >
+            Bugun
+          </button>
         </div>
       </div>
 

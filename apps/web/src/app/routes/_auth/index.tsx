@@ -16,27 +16,12 @@ import {
 import { useCustomers } from '@/hooks/useCustomers';
 import { useImportStats, useImports } from '@/hooks/useSuppliers';
 import { useExpenseStats, useExpenses } from '@/hooks/useExpenses';
+import { useDashboardFilter, todayStr, dayStartISO, dayEndISO } from '@/stores/dashboardFilter';
 import { cn } from '@/lib/cn';
 
 export const Route = createFileRoute('/_auth/')({
   component: DashboardPage,
 });
-
-// Bugungi sana — YYYY-MM-DD (local)
-function todayStr(): string {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-}
-
-// Timezone-safe: tanlangan local kun chegaralarini aniq UTC instant sifatida yuboramiz.
-function dayStartISO(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y!, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).toISOString();
-}
-function dayEndISO(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y!, (m ?? 1) - 1, d ?? 1, 23, 59, 59, 999).toISOString();
-}
 
 type TabKey = 'home' | 'sales' | 'imports' | 'expenses';
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -66,8 +51,7 @@ function compactMoney(n: number): string {
 
 function DashboardPage() {
   const [tab, setTab] = useState<TabKey>('home');
-  const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate, setToDate] = useState(todayStr);
+  const { from: fromDate, to: toDate, setFrom, setTo, setRange, resetToday } = useDashboardFilter();
   const { start, end } = useMemo(
     () => ({ start: dayStartISO(fromDate), end: dayEndISO(toDate) }),
     [fromDate, toDate],
@@ -79,7 +63,7 @@ function DashboardPage() {
   const { data: topCustomersData } = useTopCustomers(start, end);
   const { data: debtAgingData } = useDebtAging();
   const { data: customersData } = useCustomers({ page: 1, limit: 1 });
-  const { data: importStatsResp } = useImportStats();
+  const { data: importStatsResp } = useImportStats(start, end);
   const { data: expenseStatsResp } = useExpenseStats(start, end);
   const { data: recentExpensesResp } = useExpenses({ page: 1, limit: 8, startDate: start, endDate: end });
 
@@ -93,7 +77,8 @@ function DashboardPage() {
   const expenseStats = expenseStatsResp?.data;
   const recentExpenses = recentExpensesResp?.data ?? [];
 
-  const showPeriod = tab === 'sales' || tab === 'home' || tab === 'expenses';
+  // Sana filtri barcha tab'larda ko'rinadi (Kirim ham)
+  const showPeriod = true;
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 animate-fade-in">
@@ -111,7 +96,7 @@ function DashboardPage() {
                 type="date"
                 value={fromDate}
                 max={toDate}
-                onChange={(e) => { const v = e.target.value || todayStr(); setFromDate(v); if (v > toDate) setToDate(v); }}
+                onChange={(e) => { const v = e.target.value || todayStr(); if (v > toDate) setRange(v, v); else setFrom(v); }}
                 className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
               />
             </div>
@@ -122,12 +107,12 @@ function DashboardPage() {
                 value={toDate}
                 min={fromDate}
                 max={todayStr()}
-                onChange={(e) => setToDate(e.target.value || todayStr())}
+                onChange={(e) => setTo(e.target.value || todayStr())}
                 className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
               />
             </div>
             <button
-              onClick={() => { setFromDate(todayStr()); setToDate(todayStr()); }}
+              onClick={() => resetToday()}
               className="px-2 sm:px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold text-primary-600 hover:bg-primary-50 transition-colors shrink-0"
               style={{ minHeight: 'auto', minWidth: 'auto', border: '1px solid var(--color-border)' }}
               title="Bugunga qaytarish"
@@ -185,7 +170,7 @@ function DashboardPage() {
           start={start} end={end}
         />
       ) : tab === 'imports' ? (
-        <ImportsTab importStats={importStats} />
+        <ImportsTab importStats={importStats} start={start} end={end} />
       ) : (
         <ExpensesTab stats={expenseStats} recent={recentExpenses} />
       )}
@@ -402,11 +387,11 @@ function SalesTab({ summary, trend, topProducts, topCustomers, debtAging, start,
 }
 
 /* ════════════════════ IMPORTS TAB ════════════════════ */
-function ImportsTab({ importStats }: { importStats?: import('@/hooks/useSuppliers').ImportStats }) {
+function ImportsTab({ importStats, start, end }: { importStats?: import('@/hooks/useSuppliers').ImportStats; start: string; end: string }) {
   const navigate = useNavigate();
   const mixedCashPart = importStats ? importStats.paidSum - importStats.cash.sum : 0;
   const mixedDebtPart = importStats ? importStats.mixed.sum - mixedCashPart : 0;
-  const { data: importsResp, isLoading: importsLoading } = useImports('all', 1, 15);
+  const { data: importsResp, isLoading: importsLoading } = useImports('all', 1, 15, start, end);
   const recentImports = importsResp?.data ?? [];
 
   return (

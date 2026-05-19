@@ -323,9 +323,19 @@ export async function makePayment(supplierId: string, input: SupplierPaymentInpu
  * Agregat statistika — barcha IMPORT transaksiyalari bo'yicha.
  * paidAmount asosida: cash (paid=total), debt (paid=0), mixed (0<paid<total)
  */
-export async function getImportStats() {
+function importDateWhere(start?: string, end?: string): Prisma.SupplierTransactionWhereInput {
+  const where: Prisma.SupplierTransactionWhereInput = { type: 'IMPORT' };
+  if (start || end) {
+    where.createdAt = {};
+    if (start) where.createdAt.gte = new Date(start);
+    if (end) where.createdAt.lte = new Date(end);
+  }
+  return where;
+}
+
+export async function getImportStats(start?: string, end?: string) {
   const rows = await prisma.supplierTransaction.findMany({
-    where: { type: 'IMPORT' },
+    where: importDateWhere(start, end),
     select: { total: true, paidAmount: true },
   });
 
@@ -364,10 +374,10 @@ export async function getImportStats() {
 /**
  * Imports ro'yxati — filter: all | cash | debt | mixed
  */
-export async function listImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page: number, limit: number) {
+export async function listImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page: number, limit: number, start?: string, end?: string) {
   const skip = (page - 1) * limit;
   const rows = await prisma.supplierTransaction.findMany({
-    where: { type: 'IMPORT' },
+    where: importDateWhere(start, end),
     orderBy: { createdAt: 'desc' },
     include: {
       supplier: { select: { id: true, name: true, phone: true } },

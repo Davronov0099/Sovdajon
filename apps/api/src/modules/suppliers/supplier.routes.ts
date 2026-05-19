@@ -12,17 +12,18 @@ export async function supplierRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ── IMPORTANT: static routes must be defined BEFORE /:id ──
-  app.get('/imports/stats', { preHandler: [requireRole('ADMIN')] }, async (_request, reply) => {
-    const data = await supplierService.getImportStats();
+  app.get('/imports/stats', { preHandler: [requireRole('ADMIN')] }, async (request, reply) => {
+    const q = request.query as { start?: string; end?: string };
+    const data = await supplierService.getImportStats(q.start, q.end);
     reply.send({ success: true, data });
   });
 
   app.get('/imports', { preHandler: [requireRole('ADMIN')] }, async (request, reply) => {
-    const q = request.query as { filter?: string; page?: string; limit?: string };
+    const q = request.query as { filter?: string; page?: string; limit?: string; start?: string; end?: string };
     const filter = (['all', 'cash', 'debt', 'mixed'].includes(q.filter ?? '') ? q.filter : 'all') as 'all' | 'cash' | 'debt' | 'mixed';
     const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
     const limit = Math.max(1, parseInt(q.limit ?? '50', 10) || 50);
-    const result = await supplierService.listImports(filter, page, limit);
+    const result = await supplierService.listImports(filter, page, limit, q.start, q.end);
     reply.send({ success: true, ...result });
   });
 

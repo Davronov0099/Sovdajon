@@ -21,10 +21,15 @@ export interface ImportStats {
   outstandingDebt: number;
 }
 
-export function useImportStats() {
+export function useImportStats(start?: string, end?: string) {
   return useQuery<{ success: true; data: ImportStats }>({
-    queryKey: ['suppliers', 'imports', 'stats'],
-    queryFn: () => api.get('suppliers/imports/stats').json(),
+    queryKey: ['suppliers', 'imports', 'stats', start, end],
+    queryFn: () => {
+      const sp: Record<string, string> = {};
+      if (start) sp.start = start;
+      if (end) sp.end = end;
+      return api.get('suppliers/imports/stats', { searchParams: sp }).json();
+    },
     staleTime: 30_000,
   });
 }
@@ -42,12 +47,15 @@ export interface ImportListItem {
   createdAt: string;
 }
 
-export function useImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page = 1, limit = 50) {
+export function useImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page = 1, limit = 50, start?: string, end?: string) {
   return useQuery<{ success: true; data: ImportListItem[]; total: number; page: number; limit: number }>({
-    queryKey: ['suppliers', 'imports', filter, page, limit],
-    queryFn: () => api.get('suppliers/imports', {
-      searchParams: { filter, page: String(page), limit: String(limit) },
-    }).json(),
+    queryKey: ['suppliers', 'imports', filter, page, limit, start, end],
+    queryFn: () => {
+      const sp: Record<string, string> = { filter, page: String(page), limit: String(limit) };
+      if (start) sp.start = start;
+      if (end) sp.end = end;
+      return api.get('suppliers/imports', { searchParams: sp }).json();
+    },
     staleTime: 30_000,
   });
 }
