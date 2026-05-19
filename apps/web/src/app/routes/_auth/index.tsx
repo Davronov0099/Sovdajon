@@ -5,7 +5,8 @@ import {
   Banknote, ArrowUpRight, ArrowDownRight, BarChart3, Users, Package,
   Smartphone, CreditCard as CardIcon, Receipt,
   ArrowDownToLine, Wallet, Layers, UserCheck, LayoutDashboard,
-  AlertCircle, ChevronRight,
+  AlertCircle, ChevronRight, Home, Zap, Truck, Megaphone, Wrench,
+  FileText, MoreHorizontal,
 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import {
@@ -14,6 +15,7 @@ import {
 } from '@/hooks/useDashboard';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useImportStats } from '@/hooks/useSuppliers';
+import { useExpenseStats, useExpenses } from '@/hooks/useExpenses';
 import { cn } from '@/lib/cn';
 
 export const Route = createFileRoute('/_auth/')({
@@ -48,12 +50,24 @@ const PERIODS = [
   { key: 'year', label: 'Yil' },
 ] as const;
 
-type TabKey = 'home' | 'sales' | 'imports';
+type TabKey = 'home' | 'sales' | 'imports' | 'expenses';
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'home', label: 'Bosh sahifa', icon: LayoutDashboard },
   { key: 'sales', label: 'Savdo', icon: ShoppingCart },
   { key: 'imports', label: 'Kirim', icon: ArrowDownToLine },
+  { key: 'expenses', label: 'Xarajatlar', icon: Receipt },
 ];
+
+const EXPENSE_META: Record<string, { label: string; icon: typeof DollarSign; bg: string; color: string; bar: string }> = {
+  RENT: { label: 'Ijara', icon: Home, bg: 'bg-blue-50', color: 'text-blue-600', bar: 'bg-blue-500' },
+  SALARY: { label: 'Oylik', icon: Users, bg: 'bg-primary-50', color: 'text-primary-600', bar: 'bg-primary-500' },
+  UTILITIES: { label: 'Kommunal', icon: Zap, bg: 'bg-amber-50', color: 'text-amber-600', bar: 'bg-amber-500' },
+  TRANSPORT: { label: 'Transport', icon: Truck, bg: 'bg-cyan-50', color: 'text-cyan-600', bar: 'bg-cyan-500' },
+  MARKETING: { label: 'Marketing', icon: Megaphone, bg: 'bg-violet-50', color: 'text-violet-600', bar: 'bg-violet-500' },
+  REPAIR: { label: "Ta'mirlash", icon: Wrench, bg: 'bg-orange-50', color: 'text-orange-600', bar: 'bg-orange-500' },
+  TAX: { label: 'Soliq', icon: FileText, bg: 'bg-red-50', color: 'text-red-600', bar: 'bg-red-500' },
+  OTHER: { label: 'Boshqa', icon: MoreHorizontal, bg: 'bg-gray-50', color: 'text-gray-600', bar: 'bg-gray-500' },
+};
 
 function compactMoney(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
@@ -74,6 +88,8 @@ function DashboardPage() {
   const { data: debtAgingData } = useDebtAging();
   const { data: customersData } = useCustomers({ page: 1, limit: 1 });
   const { data: importStatsResp } = useImportStats();
+  const { data: expenseStatsResp } = useExpenseStats(start, end);
+  const { data: recentExpensesResp } = useExpenses({ page: 1, limit: 8, startDate: start, endDate: end });
 
   const summary = summaryData?.data;
   const trend = trendData?.data ?? [];
@@ -82,8 +98,10 @@ function DashboardPage() {
   const debtAging = debtAgingData?.data ?? [];
   const totalCustomers = customersData?.pagination?.total ?? 0;
   const importStats = importStatsResp?.data;
+  const expenseStats = expenseStatsResp?.data;
+  const recentExpenses = recentExpensesResp?.data ?? [];
 
-  const showPeriod = tab === 'sales' || tab === 'home';
+  const showPeriod = tab === 'sales' || tab === 'home' || tab === 'expenses';
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 animate-fade-in">
@@ -158,8 +176,10 @@ function DashboardPage() {
           debtAging={debtAging}
           period={period} start={start} end={end}
         />
-      ) : (
+      ) : tab === 'imports' ? (
         <ImportsTab importStats={importStats} />
+      ) : (
+        <ExpensesTab stats={expenseStats} recent={recentExpenses} />
       )}
     </div>
   );
@@ -440,6 +460,116 @@ function ImportsTab({ importStats }: { importStats?: import('@/hooks/useSupplier
         </div>
         <ChevronRight className="h-4 w-4 text-text-muted shrink-0" />
       </button>
+    </>
+  );
+}
+
+/* ════════════════════ EXPENSES TAB ════════════════════ */
+interface ExpenseStatsShape {
+  totalAmount: number;
+  totalCount: number;
+  byCategory: { category: string; amount: number; count: number }[];
+}
+interface ExpenseRow {
+  id: string; category: string; amount: string; description: string; date: string;
+}
+
+function ExpensesTab({ stats, recent }: { stats?: ExpenseStatsShape; recent: ExpenseRow[] }) {
+  const navigate = useNavigate();
+  const total = stats?.totalAmount ?? 0;
+  const count = stats?.totalCount ?? 0;
+  const avg = count > 0 ? total / count : 0;
+  const byCategory = [...(stats?.byCategory ?? [])].sort((a, b) => b.amount - a.amount);
+  const topCat = byCategory[0];
+  const topMeta = topCat ? (EXPENSE_META[topCat.category] ?? EXPENSE_META.OTHER!) : null;
+
+  return (
+    <>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+        <StatCard label="Jami xarajat" value={formatCurrency(total)} subtext={`${count} ta yozuv`} icon={Receipt} iconBg="bg-orange-50" iconColor="text-orange-600" href="/expenses" />
+        <StatCard label="Xarajatlar soni" value={String(count)} subtext="tanlangan davrda" icon={FileText} iconBg="bg-blue-50" iconColor="text-blue-600" href="/expenses" />
+        <StatCard label="O'rtacha xarajat" value={formatCurrency(Math.round(avg))} subtext="har bir yozuv" icon={BarChart3} iconBg="bg-violet-50" iconColor="text-violet-600" />
+        {topCat && topMeta ? (
+          <StatCard label={`Eng ko'p: ${topMeta.label}`} value={formatCurrency(topCat.amount)} subtext={`${topCat.count} ta`} icon={topMeta.icon} iconBg={topMeta.bg} iconColor={topMeta.color} href="/expenses" />
+        ) : (
+          <StatCard label="Kategoriya" value="—" icon={MoreHorizontal} iconBg="bg-gray-50" iconColor="text-gray-600" />
+        )}
+      </div>
+
+      {/* Category breakdown + recent */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        {/* By category */}
+        <div className="card-flat p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[13px] sm:text-sm font-semibold text-text-primary">Kategoriya bo'yicha</h3>
+            <BarChart3 className="h-4 w-4 text-text-muted" />
+          </div>
+          {byCategory.length > 0 ? (
+            <div className="space-y-3">
+              {byCategory.map((c) => {
+                const meta = EXPENSE_META[c.category] ?? EXPENSE_META.OTHER!;
+                const Icon = meta.icon;
+                const pct = total > 0 ? (c.amount / total) * 100 : 0;
+                return (
+                  <div key={c.category}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', meta.bg)}>
+                        <Icon className={cn('h-3.5 w-3.5', meta.color)} />
+                      </div>
+                      <span className="text-[12px] sm:text-[13px] font-medium text-text-primary flex-1 truncate">{meta.label}</span>
+                      <span className="text-[11px] text-text-muted tabular-nums">{c.count} ta</span>
+                      <span className="text-[12px] sm:text-[13px] font-bold text-text-primary tabular-nums shrink-0 w-24 text-right">{formatCurrency(c.amount)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-tertiary overflow-hidden ml-9">
+                      <div className={cn('h-full rounded-full transition-all duration-500', meta.bar)} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-32 items-center justify-center text-xs sm:text-sm text-text-muted">Xarajat yo'q</div>
+          )}
+        </div>
+
+        {/* Recent expenses */}
+        <div className="card-flat p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[13px] sm:text-sm font-semibold text-text-primary">So'nggi xarajatlar</h3>
+            <Receipt className="h-4 w-4 text-text-muted" />
+          </div>
+          {recent.length > 0 ? (
+            <div className="space-y-2">
+              {recent.map((e) => {
+                const meta = EXPENSE_META[e.category] ?? EXPENSE_META.OTHER!;
+                const Icon = meta.icon;
+                return (
+                  <div key={e.id} className="flex items-center gap-2.5">
+                    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', meta.bg)}>
+                      <Icon className={cn('h-4 w-4', meta.color)} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] sm:text-[13px] font-medium text-text-primary truncate">{e.description || meta.label}</p>
+                      <p className="text-[10px] text-text-muted">{meta.label} · {new Date(e.date).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                    </div>
+                    <span className="text-[12px] sm:text-[13px] font-bold text-danger-600 tabular-nums shrink-0">−{formatCurrency(Number(e.amount))}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-32 items-center justify-center text-xs sm:text-sm text-text-muted">Xarajat yo'q</div>
+          )}
+          <button
+            onClick={() => navigate({ to: '/expenses' })}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-orange-50 px-3 py-2 text-[12px] font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+            style={{ minHeight: 'auto' }}
+          >
+            Barcha xarajatlar <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
     </>
   );
 }
