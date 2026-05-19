@@ -30,18 +30,21 @@ const POSProductCard = memo(function POSProductCard({ product, onClick }: { prod
   const unitLabel = UNIT_LABELS[product.unit] || product.unit;
   const hasImage = product.images && product.images.length > 0 && product.images[0];
   const price = Number(product.price);
+  const isOut = stockStatus === 'OUT_OF_STOCK' || Number(product.stock) <= 0;
 
   return (
     <button
       onClick={onClick}
+      disabled={isOut}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-xl bg-surface text-left transition-all duration-150',
-        'active:scale-[0.97]',
-        'hover:shadow-card-hover hover:-translate-y-0.5',
-        stockStatus === 'OUT_OF_STOCK' && 'opacity-40',
+        isOut
+          ? 'opacity-40 cursor-not-allowed'
+          : 'active:scale-[0.97] hover:shadow-card-hover hover:-translate-y-0.5',
       )}
       style={{ border: '1px solid var(--color-border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 280px' }}
       aria-label={`${product.name} — ${formatCurrency(price)}`}
+      title={isOut ? 'Tugagan — savatga qoshib bolmaydi' : undefined}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-tertiary/50">
         {hasImage ? (
@@ -186,11 +189,15 @@ export function POSPage() {
 
   const handleProductClick = useCallback(
     (product: { id: string; name: string; price: number; costPrice: number; unit: string; stock: number }) => {
+      if (product.stock <= 0) {
+        toast(`"${product.name}" tugagan — savatga qoshib bolmaydi`, 'error');
+        return;
+      }
       setNumPadProduct(product);
       setNumPadTarget(null);
       setNumPadOpen(true);
     },
-    [],
+    [toast],
   );
 
   return (

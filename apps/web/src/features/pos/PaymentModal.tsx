@@ -135,6 +135,7 @@ export function PaymentModal({ open, onClose }: PaymentModalProps) {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
+        unitPrice: i.price,
       })),
       paymentMethod: effectiveMethod as 'CASH' | 'CARD' | 'CLICK' | 'DEBT' | 'MIXED' | 'TRANSFER',
       customerId: customerId ?? undefined,

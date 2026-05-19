@@ -81,7 +81,11 @@ export async function createReceipt(input: CreateReceiptInput, userId: string) {
 
   for (const item of items) {
     const product = productMap.get(item.productId)!;
-    const unitPrice = Number(product.price);
+    if (Number(product.stock) < item.quantity) {
+      throw badRequest('INSUFFICIENT_STOCK', `"${product.name}" stockda yetarli emas (mavjud: ${product.stock}, soralgan: ${item.quantity})`);
+    }
+    // Override narxi (savatda o'zgartirilgan) bo'lsa shu, aks holda mahsulotning standart narxi
+    const unitPrice = item.unitPrice != null && item.unitPrice > 0 ? Number(item.unitPrice) : Number(product.price);
     const costPrice = Number(product.costPrice);
     const lineTotal = unitPrice * item.quantity;
 
@@ -279,7 +283,7 @@ export async function saveDraft(input: CreateReceiptInput, userId: string, sourc
   const receiptItems = input.items.map((item) => {
     const product = productMap.get(item.productId);
     if (!product) throw notFound('PRODUCT_NOT_FOUND');
-    const unitPrice = Number(product.price);
+    const unitPrice = item.unitPrice != null && item.unitPrice > 0 ? Number(item.unitPrice) : Number(product.price);
     const lineTotal = unitPrice * item.quantity;
     return {
       productId: item.productId,

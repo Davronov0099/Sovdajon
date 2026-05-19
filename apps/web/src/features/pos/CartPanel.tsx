@@ -45,6 +45,7 @@ export function CartPanel({ onPayment, onNumPad }: CartPanelProps) {
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
+          unitPrice: i.price,
         })),
         paymentMethod: 'CASH',
       });
@@ -139,6 +140,9 @@ function CartTab({
   items, subtotal, total, saveDraft,
   onRemove, onQuantityChange, onNumPad, onClearCart, onSaveDraft, onPayment,
 }: CartTabProps) {
+  const updatePrice = useCartStore((s) => s.updatePrice);
+  const [editPriceFor, setEditPriceFor] = useState<string | null>(null);
+  const [editPriceVal, setEditPriceVal] = useState('');
   return (
     <>
       {/* Tozalash */}
@@ -189,10 +193,41 @@ function CartTab({
                       </button>
                     </div>
                   </div>
-                  <div className="mt-1.5 flex items-center justify-between">
-                    <p className="text-xs text-text-muted tabular-nums">
-                      {formatCurrency(item.price)} x {item.quantity.toLocaleString()}
-                    </p>
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    {editPriceFor === item.productId ? (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoFocus
+                        value={editPriceVal}
+                        onChange={(e) => setEditPriceVal(e.target.value.replace(/[^\d.]/g, ''))}
+                        onBlur={() => {
+                          const n = parseFloat(editPriceVal);
+                          if (!isNaN(n) && n > 0) updatePrice(item.productId, n);
+                          setEditPriceFor(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const n = parseFloat(editPriceVal);
+                            if (!isNaN(n) && n > 0) updatePrice(item.productId, n);
+                            setEditPriceFor(null);
+                          } else if (e.key === 'Escape') {
+                            setEditPriceFor(null);
+                          }
+                        }}
+                        className="w-24 rounded border border-primary-400 bg-surface px-1.5 py-0.5 text-xs tabular-nums focus:outline-2 focus:outline-primary-500"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setEditPriceFor(item.productId); setEditPriceVal(String(item.price)); }}
+                        className="text-xs text-text-muted tabular-nums hover:text-primary-600 hover:underline decoration-dotted underline-offset-2"
+                        style={{ minHeight: 'auto', minWidth: 'auto' }}
+                        title="Narxni o'zgartirish"
+                      >
+                        {formatCurrency(item.price)} x {item.quantity.toLocaleString()}
+                      </button>
+                    )}
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onQuantityChange(item.productId, -1)}

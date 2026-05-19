@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const receiptItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().min(1),
+  /** Agar berilsa, mahsulotning standart narxi o'rniga shu ishlatiladi (savatda o'zgartirilgan narx). */
+  unitPrice: z.number().min(0).optional(),
 });
 
 export const mixedPaymentSchema = z.object({
