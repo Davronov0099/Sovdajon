@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   DollarSign, ShoppingCart, CreditCard, TrendingUp,
-  Banknote, ArrowUpRight, ArrowDownRight, BarChart3, Users, Package,
+  Banknote, ArrowUpRight, BarChart3, Users, Package,
   Smartphone, CreditCard as CardIcon, Receipt,
   ArrowDownToLine, Wallet, Layers, UserCheck, LayoutDashboard,
   AlertCircle, ChevronRight, Home, Zap, Truck, Megaphone, Wrench,
@@ -14,7 +14,7 @@ import {
   useDebtAging,
 } from '@/hooks/useDashboard';
 import { useCustomers } from '@/hooks/useCustomers';
-import { useImportStats } from '@/hooks/useSuppliers';
+import { useImportStats, useImports } from '@/hooks/useSuppliers';
 import { useExpenseStats, useExpenses } from '@/hooks/useExpenses';
 import { cn } from '@/lib/cn';
 
@@ -398,6 +398,8 @@ function ImportsTab({ importStats }: { importStats?: import('@/hooks/useSupplier
   const navigate = useNavigate();
   const mixedCashPart = importStats ? importStats.paidSum - importStats.cash.sum : 0;
   const mixedDebtPart = importStats ? importStats.mixed.sum - mixedCashPart : 0;
+  const { data: importsResp, isLoading: importsLoading } = useImports('all', 1, 15);
+  const recentImports = importsResp?.data ?? [];
 
   return (
     <>
@@ -445,7 +447,7 @@ function ImportsTab({ importStats }: { importStats?: import('@/hooks/useSupplier
         </div>
       </div>
 
-      {/* Quick link to full list */}
+      {/* Quick link to full list — tugma qoladi */}
       <button
         onClick={() => navigate({ to: '/suppliers/imports', search: { filter: 'all' } })}
         className="card-flat p-4 flex items-center gap-3 w-full hover:shadow-card-hover active:scale-[0.99] transition-all text-left"
@@ -460,6 +462,60 @@ function ImportsTab({ importStats }: { importStats?: import('@/hooks/useSupplier
         </div>
         <ChevronRight className="h-4 w-4 text-text-muted shrink-0" />
       </button>
+
+      {/* Inline imports list — tugmasiz pastda professional ko'rinadi */}
+      <div className="card-flat p-3.5 sm:p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[13px] sm:text-sm font-semibold text-text-primary">So'nggi kirimlar</h3>
+          <span className="text-[11px] text-text-muted tabular-nums">{importsResp?.total ?? 0} ta jami</span>
+        </div>
+        {importsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-surface-secondary animate-pulse" />)}
+          </div>
+        ) : recentImports.length > 0 ? (
+          <div className="divide-y" style={{ borderColor: 'var(--color-border-subtle)' }}>
+            {recentImports.map((it) => {
+              const t = Number(it.total);
+              const p = Number(it.paidAmount);
+              const d = it.debtAmount;
+              const kind = p === 0 ? 'debt' : p >= t ? 'cash' : 'mixed';
+              const kindMeta = kind === 'cash'
+                ? { label: 'Naqd', cls: 'bg-success-50 text-success-700', Icon: Wallet }
+                : kind === 'debt'
+                ? { label: 'Qarz', cls: 'bg-warning-50 text-warning-700', Icon: CreditCard }
+                : { label: 'Aralash', cls: 'bg-violet-50 text-violet-700', Icon: Layers };
+              const KIcon = kindMeta.Icon;
+              return (
+                <button
+                  key={it.id}
+                  onClick={() => navigate({ to: '/suppliers/$supplierId', params: { supplierId: it.supplierId } })}
+                  className="flex w-full items-center gap-2.5 sm:gap-3 py-2.5 text-left hover:bg-surface-secondary/40 transition-colors"
+                  style={{ minHeight: 'auto' }}
+                >
+                  <div className={cn('flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg', kindMeta.cls)}>
+                    <KIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] sm:text-[13px] font-semibold text-text-primary truncate">{it.supplierName}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-text-muted">
+                      <span className={cn('rounded px-1 py-px font-semibold', kindMeta.cls)}>{kindMeta.label}</span>
+                      <span>{it.itemCount} mahsulot</span>
+                      <span>{new Date(it.createdAt).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[12px] sm:text-[13px] font-bold text-text-primary tabular-nums">{formatCurrency(t)}</p>
+                    {d > 0 && <p className="text-[10px] text-warning-600 tabular-nums">Qarz: {formatCurrency(d)}</p>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex h-28 items-center justify-center text-xs sm:text-sm text-text-muted">Kirim yo'q</div>
+        )}
+      </div>
     </>
   );
 }
@@ -681,31 +737,29 @@ interface StatCardProps {
   icon: typeof DollarSign; iconBg: string; iconColor: string;
   trend?: number; href?: string;
 }
-function StatCard({ label, value, subtext, icon: Icon, iconBg, iconColor, trend, href }: StatCardProps) {
+function StatCard({ label, value, subtext, icon: Icon, iconBg, iconColor, href }: StatCardProps) {
   const navigate = useNavigate();
+  const clickable = !!href;
   return (
-    <div
-      className={`stat-card group ${href ? 'cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all' : ''}`}
-      onClick={href ? () => navigate({ to: href }) : undefined}
-      role={href ? 'link' : undefined}
-      tabIndex={href ? 0 : undefined}
-      onKeyDown={href ? (e) => { if (e.key === 'Enter') navigate({ to: href }); } : undefined}
+    <button
+      type="button"
+      disabled={!clickable}
+      onClick={clickable ? () => navigate({ to: href }) : undefined}
+      className={cn(
+        'card p-2.5 sm:p-3 flex items-center gap-2.5 text-left w-full transition-all',
+        clickable ? 'hover:shadow-card-hover active:scale-[0.98] cursor-pointer' : 'cursor-default',
+      )}
+      style={{ minHeight: 'auto', minWidth: 'auto' }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
-          <Icon className={`h-5 w-5 ${iconColor}`} />
-        </div>
-        {trend !== undefined && (
-          <span className={`stat-trend flex items-center gap-0.5 ${trend >= 0 ? 'up' : 'down'}`}>
-            {trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-            {Math.abs(trend)}%
-          </span>
-        )}
-        {href && <ArrowUpRight className="h-3.5 w-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />}
+      <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+        <Icon className={cn('h-4 w-4 sm:h-5 sm:w-5', iconColor)} />
       </div>
-      <p className="stat-value">{value}</p>
-      <p className="stat-label mt-1">{label}</p>
-      {subtext && <p className="text-[11px] text-text-muted mt-0.5">{subtext}</p>}
-    </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] sm:text-[10px] text-text-muted font-semibold uppercase truncate">{label}</p>
+        <p className="text-sm sm:text-base font-bold text-text-primary tabular-nums leading-tight truncate">{value}</p>
+        {subtext && <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums truncate">{subtext}</p>}
+      </div>
+      {clickable && <ArrowUpRight className="h-3 w-3 text-text-muted/40 shrink-0" />}
+    </button>
   );
 }
