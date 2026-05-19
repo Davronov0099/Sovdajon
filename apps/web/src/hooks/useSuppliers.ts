@@ -11,6 +11,47 @@ export function useSuppliers(query: { page?: number; limit?: number; search?: st
   });
 }
 
+export interface ImportStats {
+  total: { count: number; sum: number };
+  cash: { count: number; sum: number };
+  debt: { count: number; sum: number };
+  mixed: { count: number; sum: number };
+  paidSum: number;
+  debtPortionSum: number;
+  outstandingDebt: number;
+}
+
+export function useImportStats() {
+  return useQuery<{ success: true; data: ImportStats }>({
+    queryKey: ['suppliers', 'imports', 'stats'],
+    queryFn: () => api.get('suppliers/imports/stats').json(),
+    staleTime: 30_000,
+  });
+}
+
+export interface ImportListItem {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierPhone: string | null;
+  total: string;
+  paidAmount: string;
+  debtAmount: number;
+  itemCount: number;
+  note: string | null;
+  createdAt: string;
+}
+
+export function useImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page = 1, limit = 50) {
+  return useQuery<{ success: true; data: ImportListItem[]; total: number; page: number; limit: number }>({
+    queryKey: ['suppliers', 'imports', filter, page, limit],
+    queryFn: () => api.get('suppliers/imports', {
+      searchParams: { filter, page: String(page), limit: String(limit) },
+    }).json(),
+    staleTime: 30_000,
+  });
+}
+
 export function useInfiniteSuppliers(filters: { search?: string; limit?: number } = {}) {
   const limit = filters.limit ?? 50;
   return useInfiniteQuery({

@@ -11,6 +11,21 @@ export async function supplierRoutes(app: FastifyInstance): Promise<void> {
     reply.send({ success: true, ...result });
   });
 
+  // ── IMPORTANT: static routes must be defined BEFORE /:id ──
+  app.get('/imports/stats', { preHandler: [requireRole('ADMIN')] }, async (_request, reply) => {
+    const data = await supplierService.getImportStats();
+    reply.send({ success: true, data });
+  });
+
+  app.get('/imports', { preHandler: [requireRole('ADMIN')] }, async (request, reply) => {
+    const q = request.query as { filter?: string; page?: string; limit?: string };
+    const filter = (['all', 'cash', 'debt', 'mixed'].includes(q.filter ?? '') ? q.filter : 'all') as 'all' | 'cash' | 'debt' | 'mixed';
+    const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+    const limit = Math.max(1, parseInt(q.limit ?? '50', 10) || 50);
+    const result = await supplierService.listImports(filter, page, limit);
+    reply.send({ success: true, ...result });
+  });
+
   app.get('/:id', { preHandler: [requireRole('ADMIN'), validateParams(idParamSchema)] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const supplier = await supplierService.getSupplier(id);

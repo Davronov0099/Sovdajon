@@ -27,6 +27,7 @@ import { Route as AuthDebtsRouteImport } from './routes/_auth/debts'
 import { Route as AuthCustomersRouteImport } from './routes/_auth/customers'
 import { Route as AuthCategoriesRouteImport } from './routes/_auth/categories'
 import { Route as AuthArchiveRouteImport } from './routes/_auth/archive'
+import { Route as AuthSuppliersImportsRouteImport } from './routes/_auth/suppliers_.imports'
 import { Route as AuthSuppliersSupplierIdRouteImport } from './routes/_auth/suppliers_.$supplierId'
 import { Route as AuthReportsSalesRouteImport } from './routes/_auth/reports/sales'
 import { Route as AuthReportsProfitRouteImport } from './routes/_auth/reports/profit'
@@ -141,6 +142,13 @@ const AuthArchiveRoute = AuthArchiveRouteImport.update({
   path: '/archive',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthSuppliersImportsRoute = AuthSuppliersImportsRouteImport.update({
+  id: '/suppliers_/imports',
+  path: '/suppliers/imports',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/suppliers_.imports.lazy').then((d) => d.Route),
+)
 const AuthSuppliersSupplierIdRoute = AuthSuppliersSupplierIdRouteImport.update({
   id: '/suppliers_/$supplierId',
   path: '/suppliers/$supplierId',
@@ -244,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/suppliers/imports': typeof AuthSuppliersImportsRoute
   '/customers/$customerId/location': typeof AuthCustomersCustomerIdLocationRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
@@ -273,6 +282,7 @@ export interface FileRoutesByTo {
   '/reports/profit': typeof AuthReportsProfitRoute
   '/reports/sales': typeof AuthReportsSalesRoute
   '/suppliers/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/suppliers/imports': typeof AuthSuppliersImportsRoute
   '/customers/$customerId/location': typeof AuthCustomersCustomerIdLocationRoute
   '/suppliers/$supplierId/import': typeof AuthSuppliersSupplierIdImportRoute
 }
@@ -304,6 +314,7 @@ export interface FileRoutesById {
   '/_auth/reports/profit': typeof AuthReportsProfitRoute
   '/_auth/reports/sales': typeof AuthReportsSalesRoute
   '/_auth/suppliers_/$supplierId': typeof AuthSuppliersSupplierIdRoute
+  '/_auth/suppliers_/imports': typeof AuthSuppliersImportsRoute
   '/_auth/customers_/$customerId_/location': typeof AuthCustomersCustomerIdLocationRoute
   '/_auth/suppliers_/$supplierId_/import': typeof AuthSuppliersSupplierIdImportRoute
 }
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
+    | '/suppliers/imports'
     | '/customers/$customerId/location'
     | '/suppliers/$supplierId/import'
   fileRoutesByTo: FileRoutesByTo
@@ -364,6 +376,7 @@ export interface FileRouteTypes {
     | '/reports/profit'
     | '/reports/sales'
     | '/suppliers/$supplierId'
+    | '/suppliers/imports'
     | '/customers/$customerId/location'
     | '/suppliers/$supplierId/import'
   id:
@@ -394,6 +407,7 @@ export interface FileRouteTypes {
     | '/_auth/reports/profit'
     | '/_auth/reports/sales'
     | '/_auth/suppliers_/$supplierId'
+    | '/_auth/suppliers_/imports'
     | '/_auth/customers_/$customerId_/location'
     | '/_auth/suppliers_/$supplierId_/import'
   fileRoutesById: FileRoutesById
@@ -531,6 +545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthArchiveRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/suppliers_/imports': {
+      id: '/_auth/suppliers_/imports'
+      path: '/suppliers/imports'
+      fullPath: '/suppliers/imports'
+      preLoaderRoute: typeof AuthSuppliersImportsRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/suppliers_/$supplierId': {
       id: '/_auth/suppliers_/$supplierId'
       path: '/suppliers/$supplierId'
@@ -629,6 +650,7 @@ interface AuthRouteChildren {
   AuthReportsProfitRoute: typeof AuthReportsProfitRoute
   AuthReportsSalesRoute: typeof AuthReportsSalesRoute
   AuthSuppliersSupplierIdRoute: typeof AuthSuppliersSupplierIdRoute
+  AuthSuppliersImportsRoute: typeof AuthSuppliersImportsRoute
   AuthCustomersCustomerIdLocationRoute: typeof AuthCustomersCustomerIdLocationRoute
   AuthSuppliersSupplierIdImportRoute: typeof AuthSuppliersSupplierIdImportRoute
 }
@@ -658,6 +680,7 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthReportsProfitRoute: AuthReportsProfitRoute,
   AuthReportsSalesRoute: AuthReportsSalesRoute,
   AuthSuppliersSupplierIdRoute: AuthSuppliersSupplierIdRoute,
+  AuthSuppliersImportsRoute: AuthSuppliersImportsRoute,
   AuthCustomersCustomerIdLocationRoute: AuthCustomersCustomerIdLocationRoute,
   AuthSuppliersSupplierIdImportRoute: AuthSuppliersSupplierIdImportRoute,
 }

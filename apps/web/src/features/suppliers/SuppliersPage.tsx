@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Truck, Plus, Phone, Building2, Loader2, ArrowDownToLine, Pencil, Trash2 } from 'lucide-react';
+import { Truck, Plus, Phone, Building2, Loader2, ArrowDownToLine, Pencil, Trash2, Wallet, CreditCard, Layers, BarChart3, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/common/SearchInput';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
-import { useInfiniteSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierPayment } from '@/hooks/useSuppliers';
+import { useInfiniteSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierPayment, useImportStats } from '@/hooks/useSuppliers';
 import { useToast } from '@/components/ui/toast';
 import { ContactsPanel } from '@/components/common/ContactsPanel';
 
@@ -30,6 +30,8 @@ export function SuppliersPage() {
   const [company, setCompany] = useState('');
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteSuppliers({ search, limit: 50 });
+  const { data: statsResp } = useImportStats();
+  const stats = statsResp?.data;
   const createMut = useCreateSupplier();
   const updateMut = useUpdateSupplier();
   const deleteMut = useDeleteSupplier();
@@ -111,6 +113,82 @@ export function SuppliersPage() {
           </button>
         </div>
       </div>
+
+      {/* Import Stats — clickable cards */}
+      {stats && stats.total.count > 0 && (
+        <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+          <button
+            onClick={() => navigate({ to: '/suppliers/imports', search: { filter: 'all' } })}
+            className="card p-2.5 sm:p-3 flex items-center gap-2.5 hover:shadow-card-hover active:scale-[0.98] transition-all text-left"
+            style={{ minHeight: 'auto', minWidth: 'auto' }}
+          >
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] text-text-muted font-semibold uppercase truncate">Jami kirim</p>
+              <p className="text-sm sm:text-base font-bold text-text-primary tabular-nums truncate">{formatCurrency(stats.total.sum)}</p>
+              <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums">{stats.total.count} ta</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate({ to: '/suppliers/imports', search: { filter: 'cash' } })}
+            className="card p-2.5 sm:p-3 flex items-center gap-2.5 hover:shadow-card-hover active:scale-[0.98] transition-all text-left"
+            style={{ minHeight: 'auto', minWidth: 'auto' }}
+          >
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-success-50 text-success-600">
+              <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] text-success-700 font-semibold uppercase truncate">Naqd</p>
+              <p className="text-sm sm:text-base font-bold text-success-700 tabular-nums truncate">{formatCurrency(stats.cash.sum)}</p>
+              <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums">{stats.cash.count} ta</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate({ to: '/suppliers/imports', search: { filter: 'debt' } })}
+            className="card p-2.5 sm:p-3 flex items-center gap-2.5 hover:shadow-card-hover active:scale-[0.98] transition-all text-left"
+            style={{ minHeight: 'auto', minWidth: 'auto' }}
+          >
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-warning-50 text-warning-600">
+              <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] text-warning-700 font-semibold uppercase truncate">Qarz</p>
+              <p className="text-sm sm:text-base font-bold text-warning-700 tabular-nums truncate">{formatCurrency(stats.debt.sum)}</p>
+              <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums">{stats.debt.count} ta</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate({ to: '/suppliers/imports', search: { filter: 'mixed' } })}
+            className="card p-2.5 sm:p-3 flex items-center gap-2.5 hover:shadow-card-hover active:scale-[0.98] transition-all text-left"
+            style={{ minHeight: 'auto', minWidth: 'auto' }}
+          >
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+              <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] text-primary-700 font-semibold uppercase truncate">Aralash</p>
+              <p className="text-sm sm:text-base font-bold text-primary-700 tabular-nums truncate">{formatCurrency(stats.mixed.sum)}</p>
+              <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums">{stats.mixed.count} ta</p>
+            </div>
+          </button>
+
+          <div className="card p-2.5 sm:p-3 flex items-center gap-2.5 bg-danger-50/40">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-danger-100 text-danger-600">
+              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] text-danger-700 font-semibold uppercase truncate">Joriy qarz</p>
+              <p className="text-sm sm:text-base font-bold text-danger-700 tabular-nums truncate">{formatCurrency(stats.outstandingDebt)}</p>
+              <p className="text-[9px] sm:text-[10px] text-text-muted">to'lanmagan</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="mb-4 flex items-center gap-3">

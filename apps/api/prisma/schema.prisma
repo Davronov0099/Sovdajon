@@ -408,6 +408,7 @@ model SupplierTransaction {
   supplierId  String
   type        String   // IMPORT, PAYMENT, RETURN
   total       Decimal  @db.Decimal(12, 2)
+  paidAmount  Decimal  @db.Decimal(12, 2) @default(0)  // IMPORT uchun: kirim paytida naqd to'langan summa
   currency    String   @default("UZS")
   rate        Decimal  @db.Decimal(12, 4) @default(1)
   note        String?

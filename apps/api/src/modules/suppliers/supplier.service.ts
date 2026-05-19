@@ -130,6 +130,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
 
   // Atomic transaction: kirim mahsulotlar bo'limiga (Product.stock) to'g'ridan-to'g'ri
   const alerts: { productName: string; oldPrice: number; newPrice: number; changePercent: number }[] = [];
+  const paidAtImport = Math.min(Math.max(input.paidAmount ?? 0, 0), total);
 
   const transaction = await prisma.$transaction(async (tx) => {
     // 1. Create supplier transaction
@@ -138,6 +139,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
         supplierId,
         type: 'IMPORT',
         total: new Prisma.Decimal(total),
+        paidAmount: new Prisma.Decimal(paidAtImport),
         currency: 'UZS',
         rate: new Prisma.Decimal(1),
         note: input.note ?? null,
@@ -215,7 +217,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
     }
 
     // 3. Naqd to'lov (agar bo'lsa) — alohida PAYMENT transaksiyasi
-    const paid = Math.min(Math.max(input.paidAmount ?? 0, 0), total);
+    const paid = paidAtImport;
     if (paid > 0) {
       await tx.supplierTransaction.create({
         data: {
@@ -292,6 +294,89 @@ export async function makePayment(supplierId: string, input: SupplierPaymentInpu
   });
 
   return result;
+}
+
+/**
+ * Agregat statistika — barcha IMPORT transaksiyalari bo'yicha.
+ * paidAmount asosida: cash (paid=total), debt (paid=0), mixed (0<paid<total)
+ */
+export async function getImportStats() {
+  const rows = await prisma.supplierTransaction.findMany({
+    where: { type: 'IMPORT' },
+    select: { total: true, paidAmount: true },
+  });
+
+  let totalCount = 0, cashCount = 0, debtCount = 0, mixedCount = 0;
+  let totalSum = 0, cashSum = 0, debtSum = 0, mixedSum = 0;
+  let paidSum = 0, debtPortionSum = 0;
+
+  for (const r of rows) {
+    const t = Number(r.total);
+    const p = Number(r.paidAmount);
+    totalCount += 1;
+    totalSum += t;
+    paidSum += p;
+    debtPortionSum += t - p;
+    if (p === 0) { debtCount += 1; debtSum += t; }
+    else if (p >= t) { cashCount += 1; cashSum += t; }
+    else { mixedCount += 1; mixedSum += t; }
+  }
+
+  const totalDebt = await prisma.supplier.aggregate({
+    where: { isDeleted: false },
+    _sum: { balance: true },
+  });
+
+  return {
+    total: { count: totalCount, sum: totalSum },
+    cash: { count: cashCount, sum: cashSum },
+    debt: { count: debtCount, sum: debtSum },
+    mixed: { count: mixedCount, sum: mixedSum },
+    paidSum,            // Naqd to'langan jami (cash + mixed.paid)
+    debtPortionSum,     // Qarz qismi jami (debt.sum + mixed.unpaid)
+    outstandingDebt: Number(totalDebt._sum.balance ?? 0),
+  };
+}
+
+/**
+ * Imports ro'yxati — filter: all | cash | debt | mixed
+ */
+export async function listImports(filter: 'all' | 'cash' | 'debt' | 'mixed', page: number, limit: number) {
+  const skip = (page - 1) * limit;
+  const rows = await prisma.supplierTransaction.findMany({
+    where: { type: 'IMPORT' },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      supplier: { select: { id: true, name: true, phone: true } },
+      _count: { select: { items: true } },
+    },
+  });
+
+  // Filter by paidAmount semantics
+  const filtered = rows.filter((r) => {
+    const t = Number(r.total);
+    const p = Number(r.paidAmount);
+    if (filter === 'cash') return p >= t;
+    if (filter === 'debt') return p === 0;
+    if (filter === 'mixed') return p > 0 && p < t;
+    return true;
+  });
+
+  const total = filtered.length;
+  const data = filtered.slice(skip, skip + limit).map((r) => ({
+    id: r.id,
+    supplierId: r.supplierId,
+    supplierName: r.supplier.name,
+    supplierPhone: r.supplier.phone,
+    total: r.total,
+    paidAmount: r.paidAmount,
+    debtAmount: Number(r.total) - Number(r.paidAmount),
+    itemCount: r._count.items,
+    note: r.note,
+    createdAt: r.createdAt,
+  }));
+
+  return { data, total, page, limit };
 }
 
 export async function softDeleteSupplier(id: string, userId: string) {
