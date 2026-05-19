@@ -22,25 +22,35 @@ export const Route = createFileRoute('/_auth/')({
   component: DashboardPage,
 });
 
-function toLocalDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
+// Timezone-safe: local kun chegaralarini aniq UTC instant sifatida yuboramiz.
+// Naive "YYYY-MM-DDT00:00:00" string server timezone'da noto'g'ri o'qilardi —
+// "Bugun" filtri (aniq 24 soat) shu sababli sotuvni o'tkazib yuborardi.
 function getDateRange(period: string) {
   const now = new Date();
-  const end = `${toLocalDate(now)}T23:59:59`;
-  const d = new Date(now);
+  const startD = new Date(now);
+  const endD = new Date(now);
+  endD.setHours(23, 59, 59, 999);
   switch (period) {
-    case 'today': break;
-    case 'week': d.setDate(d.getDate() - 7); break;
-    case 'month': d.setMonth(d.getMonth() - 1); break;
-    case 'year': d.setFullYear(d.getFullYear() - 1); break;
-    default: d.setMonth(d.getMonth() - 1);
+    case 'today':
+      startD.setHours(0, 0, 0, 0);
+      break;
+    case 'week':
+      startD.setDate(startD.getDate() - 7);
+      startD.setHours(0, 0, 0, 0);
+      break;
+    case 'month':
+      startD.setMonth(startD.getMonth() - 1);
+      startD.setHours(0, 0, 0, 0);
+      break;
+    case 'year':
+      startD.setFullYear(startD.getFullYear() - 1);
+      startD.setHours(0, 0, 0, 0);
+      break;
+    default:
+      startD.setMonth(startD.getMonth() - 1);
+      startD.setHours(0, 0, 0, 0);
   }
-  return { start: `${toLocalDate(d)}T00:00:00`, end };
+  return { start: startD.toISOString(), end: endD.toISOString() };
 }
 
 const PERIODS = [
