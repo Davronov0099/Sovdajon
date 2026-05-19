@@ -22,43 +22,21 @@ export const Route = createFileRoute('/_auth/')({
   component: DashboardPage,
 });
 
-// Timezone-safe: local kun chegaralarini aniq UTC instant sifatida yuboramiz.
-// Naive "YYYY-MM-DDT00:00:00" string server timezone'da noto'g'ri o'qilardi —
-// "Bugun" filtri (aniq 24 soat) shu sababli sotuvni o'tkazib yuborardi.
-function getDateRange(period: string) {
-  const now = new Date();
-  const startD = new Date(now);
-  const endD = new Date(now);
-  endD.setHours(23, 59, 59, 999);
-  switch (period) {
-    case 'today':
-      startD.setHours(0, 0, 0, 0);
-      break;
-    case 'week':
-      startD.setDate(startD.getDate() - 7);
-      startD.setHours(0, 0, 0, 0);
-      break;
-    case 'month':
-      startD.setMonth(startD.getMonth() - 1);
-      startD.setHours(0, 0, 0, 0);
-      break;
-    case 'year':
-      startD.setFullYear(startD.getFullYear() - 1);
-      startD.setHours(0, 0, 0, 0);
-      break;
-    default:
-      startD.setMonth(startD.getMonth() - 1);
-      startD.setHours(0, 0, 0, 0);
-  }
-  return { start: startD.toISOString(), end: endD.toISOString() };
+// Bugungi sana — YYYY-MM-DD (local)
+function todayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
 }
 
-const PERIODS = [
-  { key: 'today', label: 'Bugun' },
-  { key: 'week', label: 'Hafta' },
-  { key: 'month', label: 'Oy' },
-  { key: 'year', label: 'Yil' },
-] as const;
+// Timezone-safe: tanlangan local kun chegaralarini aniq UTC instant sifatida yuboramiz.
+function dayStartISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).toISOString();
+}
+function dayEndISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1, 23, 59, 59, 999).toISOString();
+}
 
 type TabKey = 'home' | 'sales' | 'imports' | 'expenses';
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -88,8 +66,12 @@ function compactMoney(n: number): string {
 
 function DashboardPage() {
   const [tab, setTab] = useState<TabKey>('home');
-  const [period, setPeriod] = useState('today');
-  const { start, end } = useMemo(() => getDateRange(period), [period]);
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
+  const { start, end } = useMemo(
+    () => ({ start: dayStartISO(fromDate), end: dayEndISO(toDate) }),
+    [fromDate, toDate],
+  );
 
   const { data: summaryData, isLoading } = useDashboardSummary(start, end);
   const { data: trendData } = useSalesTrend(start, end);
@@ -116,26 +98,42 @@ function DashboardPage() {
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 animate-fade-in">
       {/* ═══ Header ═══ */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary">Boshqaruv paneli</h1>
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary">Bosh sahifa</h1>
           <p className="text-[11px] sm:text-sm text-text-muted mt-0.5 hidden sm:block">SovdaJON — umumiy ko'rinish</p>
         </div>
         {showPeriod && (
-          <div className="flex rounded-lg p-0.5 sm:p-1 gap-0.5 shrink-0" style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={cn(
-                  'px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all',
-                  period === p.key ? 'bg-primary-600 text-white shadow-sm' : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary',
-                )}
-                style={{ minHeight: 'auto', minWidth: 'auto' }}
-              >
-                {p.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+              <span className="text-[10px] sm:text-[11px] font-medium text-text-muted shrink-0">Dan</span>
+              <input
+                type="date"
+                value={fromDate}
+                max={toDate}
+                onChange={(e) => { const v = e.target.value || todayStr(); setFromDate(v); if (v > toDate) setToDate(v); }}
+                className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+              <span className="text-[10px] sm:text-[11px] font-medium text-text-muted shrink-0">Gacha</span>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate}
+                max={todayStr()}
+                onChange={(e) => setToDate(e.target.value || todayStr())}
+                className="bg-transparent text-[11px] sm:text-xs font-medium text-text-primary outline-none tabular-nums"
+              />
+            </div>
+            <button
+              onClick={() => { setFromDate(todayStr()); setToDate(todayStr()); }}
+              className="px-2 sm:px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold text-primary-600 hover:bg-primary-50 transition-colors shrink-0"
+              style={{ minHeight: 'auto', minWidth: 'auto', border: '1px solid var(--color-border)' }}
+              title="Bugunga qaytarish"
+            >
+              Bugun
+            </button>
           </div>
         )}
       </div>
@@ -174,7 +172,7 @@ function DashboardPage() {
           totalCustomers={totalCustomers}
           importStats={importStats}
           trend={trend}
-          period={period} start={start} end={end}
+          start={start} end={end}
           onTab={setTab}
         />
       ) : tab === 'sales' ? (
@@ -184,7 +182,7 @@ function DashboardPage() {
           topProducts={topProducts}
           topCustomers={topCustomers}
           debtAging={debtAging}
-          period={period} start={start} end={end}
+          start={start} end={end}
         />
       ) : tab === 'imports' ? (
         <ImportsTab importStats={importStats} />
@@ -202,20 +200,20 @@ interface SummaryShape {
 }
 type TrendPoint = { date: string; total: number };
 
-function HomeTab({ summary, totalCustomers, importStats, trend, period, start, end, onTab }: {
+function HomeTab({ summary, totalCustomers, importStats, trend, start, end, onTab }: {
   summary?: SummaryShape;
   totalCustomers: number;
   importStats?: import('@/hooks/useSuppliers').ImportStats;
   trend: TrendPoint[];
-  period: string; start: string; end: string;
+  start: string; end: string;
   onTab: (t: TabKey) => void;
 }) {
   return (
     <>
       {/* Hero KPI */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        <StatCard label="Jami sotuv" value={formatCurrency(summary?.totalSales ?? 0)} subtext={`${summary?.totalCount ?? 0} ta chek`} icon={ShoppingCart} iconBg="bg-primary-50" iconColor="text-primary-600" href={`/reports/sales?period=${period}&start=${start}&end=${end}`} />
-        <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?period=${period}&start=${start}&end=${end}`} />
+        <StatCard label="Jami sotuv" value={formatCurrency(summary?.totalSales ?? 0)} subtext={`${summary?.totalCount ?? 0} ta chek`} icon={ShoppingCart} iconBg="bg-primary-50" iconColor="text-primary-600" href={`/reports/sales?start=${start}&end=${end}`} />
+        <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?start=${start}&end=${end}`} />
         <StatCard label="Jami mijozlar" value={String(totalCustomers)} subtext="ro'yxatda" icon={UserCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" href="/customers" />
         <StatCard label="Faol qarzlar" value={formatCurrency(summary?.activeDebts ?? 0)} subtext={`${summary?.debtCount ?? 0} ta`} icon={CreditCard} iconBg="bg-danger-50" iconColor="text-danger-600" href="/debts?status=ACTIVE" />
       </div>
@@ -243,7 +241,7 @@ function HomeTab({ summary, totalCustomers, importStats, trend, period, start, e
             desc="Sotuv va foyda bo'yicha to'liq hisobotlar"
             icon={BarChart3}
             bg="bg-violet-50" color="text-violet-600"
-            to={`/reports/sales?period=${period}&start=${start}&end=${end}`}
+            to={`/reports/sales?start=${start}&end=${end}`}
           />
         </div>
       </div>
@@ -274,20 +272,20 @@ function HomeTab({ summary, totalCustomers, importStats, trend, period, start, e
 }
 
 /* ════════════════════ SALES TAB ════════════════════ */
-function SalesTab({ summary, trend, topProducts, topCustomers, debtAging, period, start, end }: {
+function SalesTab({ summary, trend, topProducts, topCustomers, debtAging, start, end }: {
   summary?: SummaryShape;
   trend: TrendPoint[];
   topProducts: Array<{ productId: string; productName: string; totalQty: number; totalRevenue: number }>;
   topCustomers: Array<{ customerId: string; customerName: string; receiptCount: number; totalSpent: number }>;
   debtAging: Array<{ period: string; amount: number }>;
-  period: string; start: string; end: string;
+  start: string; end: string;
 }) {
   return (
     <>
       {/* Main sales cards */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
-        <StatCard label="Barcha savdolar" value={formatCurrency(summary?.totalSales ?? 0)} subtext={`${summary?.totalCount ?? 0} ta chek`} icon={ShoppingCart} iconBg="bg-primary-50" iconColor="text-primary-600" href={`/reports/sales?period=${period}&start=${start}&end=${end}`} />
-        <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?period=${period}&start=${start}&end=${end}`} />
+        <StatCard label="Barcha savdolar" value={formatCurrency(summary?.totalSales ?? 0)} subtext={`${summary?.totalCount ?? 0} ta chek`} icon={ShoppingCart} iconBg="bg-primary-50" iconColor="text-primary-600" href={`/reports/sales?start=${start}&end=${end}`} />
+        <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?start=${start}&end=${end}`} />
         <StatCard label="Xarajatlar" value={formatCurrency(summary?.totalExpenses ?? 0)} icon={Receipt} iconBg="bg-orange-50" iconColor="text-orange-600" href="/expenses" />
         <StatCard label="Faol qarzlar" value={formatCurrency(summary?.activeDebts ?? 0)} subtext={`${summary?.debtCount ?? 0} ta`} icon={CreditCard} iconBg="bg-danger-50" iconColor="text-danger-600" href="/debts?status=ACTIVE" />
       </div>
@@ -302,7 +300,7 @@ function SalesTab({ summary, trend, topProducts, topCustomers, debtAging, period
             { label: 'Click', value: summary?.click ?? 0, icon: Smartphone, bg: 'bg-violet-50', color: 'text-violet-600', m: 'CLICK' },
             { label: 'Qarzga sotuv', value: summary?.debt ?? 0, icon: Receipt, bg: 'bg-orange-50', color: 'text-orange-600', m: 'DEBT' },
           ].map((c) => (
-            <StatCard key={c.label} label={c.label} value={formatCurrency(c.value)} icon={c.icon} iconBg={c.bg} iconColor={c.color} href={`/reports/sales?period=${period}&start=${start}&end=${end}&method=${c.m}`} />
+            <StatCard key={c.label} label={c.label} value={formatCurrency(c.value)} icon={c.icon} iconBg={c.bg} iconColor={c.color} href={`/reports/sales?start=${start}&end=${end}&method=${c.m}`} />
           ))}
         </div>
       </div>
