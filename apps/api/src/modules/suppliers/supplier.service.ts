@@ -216,7 +216,7 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       await tx.priceHistory.createMany({ data: priceHistoryData });
     }
 
-    // 3. Naqd to'lov (agar bo'lsa) — alohida PAYMENT transaksiyasi
+    // 3. Naqd to'lov (agar bo'lsa) — alohida PAYMENT transaksiyasi + xarajat
     const paid = paidAtImport;
     if (paid > 0) {
       await tx.supplierTransaction.create({
@@ -227,6 +227,18 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
           currency: 'UZS',
           rate: new Prisma.Decimal(1),
           note: `Kirim uchun naqd to'lov (#${created.id.slice(0, 8)})`,
+          createdById: userId,
+        },
+      });
+
+      // Faqat NAQD to'langan qism xarajatlarga tushadi (qarz qismi tushmaydi —
+      // u keyin to'langanda makePayment orqali qo'shiladi)
+      await tx.expense.create({
+        data: {
+          category: 'OTHER',
+          type: 'SUPPLIER_IMPORT',
+          amount: new Prisma.Decimal(paid),
+          description: `Ta'minotchi kirimi (naqd): ${supplier.name}`,
           createdById: userId,
         },
       });
@@ -280,6 +292,17 @@ export async function makePayment(supplierId: string, input: SupplierPaymentInpu
     await tx.supplier.update({
       where: { id: supplierId },
       data: { balance: { decrement: new Prisma.Decimal(input.amount) } },
+    });
+
+    // Qarz to'langanda — endi shu summa xarajatlarga tushadi
+    await tx.expense.create({
+      data: {
+        category: 'OTHER',
+        type: 'SUPPLIER_DEBT_PAYMENT',
+        amount: new Prisma.Decimal(input.amount),
+        description: `Ta'minotchi qarzi to'lovi: ${supplier.name}`,
+        createdById: userId,
+      },
     });
 
     return transaction;
