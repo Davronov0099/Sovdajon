@@ -69,7 +69,10 @@ export function SupplierDetailPage() {
   const importTxns = transactions.filter((t) => t.type === 'IMPORT');
   const paymentTxns = transactions.filter((t) => t.type === 'PAYMENT');
   const totalImports = importTxns.reduce((s, t) => s + (Number(t.total) || 0), 0);
-  const totalPayments = paymentTxns.reduce((s, t) => s + (Number(t.total) || 0), 0);
+  // Jami to'lovlar = alohida PAYMENT to'lovlar + kirim paytida naqd to'langan qism
+  const totalPayments =
+    paymentTxns.reduce((s, t) => s + (Number(t.total) || 0), 0) +
+    importTxns.reduce((s, t) => s + (Number(t.paidAmount) || 0), 0);
 
   return (
     <div className="p-4 sm:p-6 animate-fade-in">
@@ -211,6 +214,9 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
   const [expanded, setExpanded] = useState(false);
   const isImport = txn.type === 'IMPORT';
   const total = Number(txn.total) || 0;
+  const paid = Number(txn.paidAmount) || 0;
+  const debtPart = Math.max(0, total - paid);
+  const kind = !isImport ? 'payment' : paid <= 0 ? 'debt' : paid >= total ? 'cash' : 'mixed';
 
   return (
     <div className="card p-3 sm:p-4 stagger-item">
@@ -223,20 +229,31 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
             {isImport ? <ArrowDownToLine className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-semibold text-text-primary">
+            <p className="text-xs sm:text-sm font-semibold text-text-primary flex items-center gap-1.5">
               {isImport ? 'Kirim' : "To'lov"}
+              {isImport && kind === 'cash' && <span className="rounded bg-success-50 px-1 py-px text-[9px] font-bold text-success-600">NAQD</span>}
+              {isImport && kind === 'debt' && <span className="rounded bg-warning-50 px-1 py-px text-[9px] font-bold text-warning-600">QARZ</span>}
+              {isImport && kind === 'mixed' && <span className="rounded bg-violet-50 px-1 py-px text-[9px] font-bold text-violet-600">ARALASH</span>}
             </p>
             <p className="text-[10px] sm:text-[11px] text-text-muted">
               {formatDateTime(txn.createdAt)}
             </p>
           </div>
         </div>
-        <p className={cn(
-          'text-sm sm:text-base font-bold tabular-nums shrink-0',
-          isImport ? 'text-danger-600' : 'text-success-600',
-        )}>
-          {isImport ? '+' : '-'}{formatCurrency(total)}
-        </p>
+        <div className="text-right shrink-0">
+          <p className={cn(
+            'text-sm sm:text-base font-bold tabular-nums',
+            isImport ? 'text-text-primary' : 'text-success-600',
+          )}>
+            {isImport ? '' : '-'}{formatCurrency(total)}
+          </p>
+          {isImport && paid > 0 && (
+            <p className="text-[10px] text-success-600 tabular-nums">Naqd: {formatCurrency(paid)}</p>
+          )}
+          {isImport && debtPart > 0 && (
+            <p className="text-[10px] text-warning-600 tabular-nums">Qarz: {formatCurrency(debtPart)}</p>
+          )}
+        </div>
       </div>
 
       {txn.note && (

@@ -203,6 +203,7 @@ export interface SupplierTransactionItem {
   id: string;
   type: string;
   total: string;
+  paidAmount: string;
   currency: string;
   rate: string;
   note: string | null;

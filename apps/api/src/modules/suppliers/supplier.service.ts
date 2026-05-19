@@ -216,23 +216,11 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       await tx.priceHistory.createMany({ data: priceHistoryData });
     }
 
-    // 3. Naqd to'lov (agar bo'lsa) — alohida PAYMENT transaksiyasi + xarajat
+    // 3. Naqd to'langan qism — XARAJAT sifatida (alohida PAYMENT yozuvi YO'Q,
+    //    chunki IMPORT yozuvida paidAmount allaqachon saqlanyapti — aks holda
+    //    tarixonda ikkita bir-birini bekor qiluvchi yozuv chiqib chalkash bo'lardi)
     const paid = paidAtImport;
     if (paid > 0) {
-      await tx.supplierTransaction.create({
-        data: {
-          supplierId,
-          type: 'PAYMENT',
-          total: new Prisma.Decimal(paid),
-          currency: 'UZS',
-          rate: new Prisma.Decimal(1),
-          note: `Kirim uchun naqd to'lov (#${created.id.slice(0, 8)})`,
-          createdById: userId,
-        },
-      });
-
-      // Faqat NAQD to'langan qism xarajatlarga tushadi (qarz qismi tushmaydi —
-      // u keyin to'langanda makePayment orqali qo'shiladi)
       await tx.expense.create({
         data: {
           category: 'OTHER',
