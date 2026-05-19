@@ -181,9 +181,44 @@ function CartTab({
                       {item.name}
                     </p>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[13px] font-bold text-text-primary tabular-nums whitespace-nowrap">
-                        {formatCurrency(lineTotal)}
-                      </span>
+                      {editPriceFor === item.productId ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoFocus
+                          value={editPriceVal}
+                          onChange={(e) => setEditPriceVal(e.target.value.replace(/[^\d.]/g, ''))}
+                          onBlur={() => {
+                            const total = parseFloat(editPriceVal);
+                            if (!isNaN(total) && total > 0) {
+                              updatePrice(item.productId, total / Math.max(1, item.quantity));
+                            }
+                            setEditPriceFor(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const total = parseFloat(editPriceVal);
+                              if (!isNaN(total) && total > 0) {
+                                updatePrice(item.productId, total / Math.max(1, item.quantity));
+                              }
+                              setEditPriceFor(null);
+                            } else if (e.key === 'Escape') {
+                              setEditPriceFor(null);
+                            }
+                          }}
+                          className="w-28 rounded border border-primary-400 bg-surface px-1.5 py-0.5 text-[13px] font-bold tabular-nums text-right focus:outline-2 focus:outline-primary-500"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setEditPriceFor(item.productId); setEditPriceVal(String(Math.round(lineTotal))); }}
+                          className="text-[13px] font-bold text-text-primary tabular-nums whitespace-nowrap hover:text-primary-600 hover:underline decoration-dotted underline-offset-2"
+                          style={{ minHeight: 'auto', minWidth: 'auto' }}
+                          title="Narxni o'zgartirish"
+                        >
+                          {formatCurrency(lineTotal)}
+                        </button>
+                      )}
                       <button
                         onClick={() => onRemove(item.productId)}
                         className="rounded-md p-0.5 text-danger-400 hover:bg-danger-50 hover:text-danger-600 transition-all"
@@ -194,40 +229,9 @@ function CartTab({
                     </div>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between gap-2">
-                    {editPriceFor === item.productId ? (
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        autoFocus
-                        value={editPriceVal}
-                        onChange={(e) => setEditPriceVal(e.target.value.replace(/[^\d.]/g, ''))}
-                        onBlur={() => {
-                          const n = parseFloat(editPriceVal);
-                          if (!isNaN(n) && n > 0) updatePrice(item.productId, n);
-                          setEditPriceFor(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const n = parseFloat(editPriceVal);
-                            if (!isNaN(n) && n > 0) updatePrice(item.productId, n);
-                            setEditPriceFor(null);
-                          } else if (e.key === 'Escape') {
-                            setEditPriceFor(null);
-                          }
-                        }}
-                        className="w-24 rounded border border-primary-400 bg-surface px-1.5 py-0.5 text-xs tabular-nums focus:outline-2 focus:outline-primary-500"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => { setEditPriceFor(item.productId); setEditPriceVal(String(item.price)); }}
-                        className="text-xs text-text-muted tabular-nums hover:text-primary-600 hover:underline decoration-dotted underline-offset-2"
-                        style={{ minHeight: 'auto', minWidth: 'auto' }}
-                        title="Narxni o'zgartirish"
-                      >
-                        {formatCurrency(item.price)} x {item.quantity.toLocaleString()}
-                      </button>
-                    )}
+                    <p className="text-xs text-text-muted tabular-nums">
+                      {formatCurrency(item.price)} x {item.quantity.toLocaleString()}
+                    </p>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onQuantityChange(item.productId, -1)}
