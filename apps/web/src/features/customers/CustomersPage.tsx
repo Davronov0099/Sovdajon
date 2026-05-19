@@ -12,6 +12,7 @@ import { useCustomerCategories, useCreateCustomerCategory, useDeleteCustomerCate
 import { useDebts } from '@/hooks/useDebts';
 import { useToast } from '@/components/ui/toast';
 import { ContactsPanel } from '@/components/common/ContactsPanel';
+import { AddressPicker } from './AddressPicker';
 import { cn } from '@/lib/cn';
 
 type SortMode = 'newest' | 'name' | 'name-desc';
@@ -35,13 +36,10 @@ export function CustomersPage() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('+998');
-  const [formViloyat, setFormViloyat] = useState('');
-  const [formTuman, setFormTuman] = useState('');
+  const [formAddress, setFormAddress] = useState('');
 
   const [note, setNote] = useState('');
   const [formCategoryId, setFormCategoryId] = useState('');
-
-  const formTumanlar = formViloyat ? getTumanlar(formViloyat) : [];
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteCustomers({ search, categoryId: categoryId || undefined, limit: 50 });
   const { data: debtsData } = useDebts({ limit: 100 });
@@ -102,7 +100,7 @@ export function CustomersPage() {
 
   const [formStartDate, setFormStartDate] = useState('');
 
-  function resetForm() { setName(''); setPhone('+998'); setFormViloyat(''); setFormTuman(''); setNote(''); setFormCategoryId(''); setFormStartDate(''); }
+  function resetForm() { setName(''); setPhone('+998'); setFormAddress(''); setNote(''); setFormCategoryId(''); setFormStartDate(''); }
 
   function getWorkDuration(startDate: string | null): string {
     if (!startDate) return '';
@@ -116,10 +114,7 @@ export function CustomersPage() {
     return rem > 0 ? `${years} yil ${rem} oy` : `${years} yil`;
   }
 
-  const buildAddress = () => {
-    if (!formViloyat) return undefined;
-    return formTuman ? `${formViloyat}, ${formTuman}` : formViloyat;
-  };
+  const buildAddress = () => formAddress.trim() || undefined;
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) { toast('Ismni kiriting', 'error'); return; }
@@ -129,7 +124,7 @@ export function CustomersPage() {
       toast('Mijoz yaratildi', 'success');
       setModalOpen(false); resetForm();
     } catch { toast("Yaratish xatosi", 'error'); }
-  }, [name, phone, formViloyat, formTuman, note, formStartDate, formCategoryId, createMut, toast]);
+  }, [name, phone, formAddress, note, formStartDate, formCategoryId, createMut, toast]);
 
   const handleUpdate = useCallback(async () => {
     if (!editModal || !name.trim()) return;
@@ -138,7 +133,7 @@ export function CustomersPage() {
       toast('Yangilandi', 'success');
       setEditModal(null);
     } catch { toast('Yangilash xatosi', 'error'); }
-  }, [editModal, name, phone, formViloyat, formTuman, note, formStartDate, formCategoryId, updateMut, toast]);
+  }, [editModal, name, phone, formAddress, note, formStartDate, formCategoryId, updateMut, toast]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -151,8 +146,7 @@ export function CustomersPage() {
 
   function openEdit(c: typeof rawCustomers[0]) {
     setName(c.name); setPhone(c.phone);
-    const parts = (c.address || '').split(',').map((s) => s.trim());
-    setFormViloyat(parts[0] || ''); setFormTuman(parts[1] || '');
+    setFormAddress(c.address || '');
     setNote(c.note || '');
     setFormCategoryId(c.categoryId || '');
     setFormStartDate(c.startDate ? c.startDate.slice(0, 10) : '');
@@ -505,24 +499,7 @@ export function CustomersPage() {
           <Input id="c-name" label="Ism *" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ism familiya" />
           <Input id="c-phone" label="Telefon *" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998901234567" />
           {categorySelect}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="c-viloyat" className="mb-1.5 block text-sm font-medium text-text-primary">Viloyat</label>
-              <select id="c-viloyat" value={formViloyat} onChange={(e) => { setFormViloyat(e.target.value); setFormTuman(''); }}
-                className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500">
-                <option value="">Tanlang</option>
-                {UZ_VILOYATLAR.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="c-tuman" className="mb-1.5 block text-sm font-medium text-text-primary">Tuman/Shahar</label>
-              <select id="c-tuman" value={formTuman} onChange={(e) => setFormTuman(e.target.value)} disabled={!formViloyat}
-                className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500 disabled:opacity-50">
-                <option value="">Tanlang</option>
-                {formTumanlar.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
+          <AddressPicker id="c-address" value={formAddress} onChange={setFormAddress} />
           <Input id="c-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
           <Input id="c-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
@@ -538,24 +515,7 @@ export function CustomersPage() {
           <Input id="e-name" label="Ism *" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           <Input id="e-phone" label="Telefon *" value={phone} onChange={(e) => setPhone(e.target.value)} />
           {categorySelect}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="e-viloyat" className="mb-1.5 block text-sm font-medium text-text-primary">Viloyat</label>
-              <select id="e-viloyat" value={formViloyat} onChange={(e) => { setFormViloyat(e.target.value); setFormTuman(''); }}
-                className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500">
-                <option value="">Tanlang</option>
-                {UZ_VILOYATLAR.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="e-tuman" className="mb-1.5 block text-sm font-medium text-text-primary">Tuman/Shahar</label>
-              <select id="e-tuman" value={formTuman} onChange={(e) => setFormTuman(e.target.value)} disabled={!formViloyat}
-                className="min-h-[44px] w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-2 focus:outline-primary-500 disabled:opacity-50">
-                <option value="">Tanlang</option>
-                {formTumanlar.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
+          <AddressPicker id="e-address" value={formAddress} onChange={setFormAddress} />
           <Input id="e-start" label="Ishlash boshlanish sanasi" type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} />
           <Input id="e-note" label="Izoh" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
