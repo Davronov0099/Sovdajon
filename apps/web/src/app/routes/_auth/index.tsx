@@ -4,12 +4,15 @@ import {
   DollarSign, ShoppingCart, CreditCard, TrendingUp,
   Banknote, ArrowUpRight, ArrowDownRight, BarChart3, Users, Package,
   Smartphone, CreditCard as CardIcon, Receipt,
+  ArrowDownToLine, Wallet, Layers, UserCheck,
 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import {
   useDashboardSummary, useSalesTrend, useTopProducts, useTopCustomers,
   useDebtAging,
 } from '@/hooks/useDashboard';
+import { useCustomers } from '@/hooks/useCustomers';
+import { useImportStats } from '@/hooks/useSuppliers';
 import { cn } from '@/lib/cn';
 
 export const Route = createFileRoute('/_auth/')({
@@ -60,12 +63,16 @@ function DashboardPage() {
   const { data: topProductsData } = useTopProducts(start, end);
   const { data: topCustomersData } = useTopCustomers(start, end);
   const { data: debtAgingData } = useDebtAging();
+  const { data: customersData } = useCustomers({ page: 1, limit: 1 });
+  const { data: importStatsResp } = useImportStats();
 
   const summary = summaryData?.data;
   const trend = trendData?.data ?? [];
   const topProducts = topProductsData?.data ?? [];
   const topCustomers = topCustomersData?.data ?? [];
   const debtAging = debtAgingData?.data ?? [];
+  const totalCustomers = customersData?.pagination?.total ?? 0;
+  const importStats = importStatsResp?.data;
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 animate-fade-in">
@@ -135,6 +142,71 @@ function DashboardPage() {
             <StatCard label="Sof foyda" value={formatCurrency(summary?.profit ?? 0)} icon={TrendingUp} iconBg="bg-success-50" iconColor="text-success-600" href={`/reports/profit?period=${period}&start=${start}&end=${end}`} />
             <StatCard label="Xarajatlar" value={formatCurrency(summary?.totalExpenses ?? 0)} icon={Receipt} iconBg="bg-orange-50" iconColor="text-orange-600" />
             <StatCard label="Faol qarzlar" value={formatCurrency(summary?.activeDebts ?? 0)} subtext={`${summary?.debtCount ?? 0} ta`} icon={CreditCard} iconBg="bg-danger-50" iconColor="text-danger-600" href="/debts?status=ACTIVE" />
+          </div>
+
+          {/* Row 1.5: Operatsiyalar — Sotuvlar/Mijozlar/Kirimlar — clickable */}
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Operatsiyalar</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+              <OpsCard
+                label="Barcha savdolar"
+                count={summary?.totalCount ?? 0}
+                sub={formatCurrency(summary?.totalSales ?? 0)}
+                icon={ShoppingCart}
+                bg="bg-primary-50"
+                color="text-primary-600"
+                href={`/reports/sales?period=${period}&start=${start}&end=${end}`}
+              />
+              <OpsCard
+                label="Jami mijozlar"
+                count={totalCustomers}
+                sub="ro'yxatda"
+                icon={UserCheck}
+                bg="bg-emerald-50"
+                color="text-emerald-600"
+                href="/customers"
+              />
+              <OpsCard
+                label="Barcha kirimlar"
+                count={importStats?.total.count ?? 0}
+                sub={formatCurrency(importStats?.total.sum ?? 0)}
+                icon={ArrowDownToLine}
+                bg="bg-blue-50"
+                color="text-blue-600"
+                href="/suppliers/imports?filter=all"
+              />
+              <OpsCard
+                label="Naqdga kirimlar"
+                count={importStats?.cash.count ?? 0}
+                sub={formatCurrency(importStats?.cash.sum ?? 0)}
+                icon={Wallet}
+                bg="bg-success-50"
+                color="text-success-600"
+                href="/suppliers/imports?filter=cash"
+              />
+              <OpsCard
+                label="Qarzga kirimlar"
+                count={importStats?.debt.count ?? 0}
+                sub={formatCurrency(importStats?.debt.sum ?? 0)}
+                icon={CreditCard}
+                bg="bg-warning-50"
+                color="text-warning-600"
+                href="/suppliers/imports?filter=debt"
+              />
+            </div>
+            {importStats && importStats.mixed.count > 0 && (
+              <div className="mt-2">
+                <OpsCard
+                  label="Aralash kirimlar"
+                  count={importStats.mixed.count}
+                  sub={`Naqd: ${formatCurrency(importStats.paidSum - importStats.cash.sum)} · Qarz: ${formatCurrency(importStats.mixed.sum - (importStats.paidSum - importStats.cash.sum))}`}
+                  icon={Layers}
+                  bg="bg-violet-50"
+                  color="text-violet-600"
+                  href="/suppliers/imports?filter=mixed"
+                />
+              </div>
+            )}
           </div>
 
           {/* Row 2: To'lov usullari — mobile: 2x2 compact grid, desktop: avvalgidek */}
@@ -308,6 +380,38 @@ interface StatCardProps {
   iconColor: string;
   trend?: number;
   href?: string;
+}
+
+/* ─── Compact operations card — count-focused, clickable ─── */
+interface OpsCardProps {
+  label: string;
+  count: number;
+  sub?: string;
+  icon: typeof DollarSign;
+  bg: string;
+  color: string;
+  href: string;
+}
+
+function OpsCard({ label, count, sub, icon: Icon, bg, color, href }: OpsCardProps) {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate({ to: href })}
+      className="card p-2.5 sm:p-3 flex items-center gap-2.5 hover:shadow-card-hover active:scale-[0.98] transition-all text-left w-full"
+      style={{ minHeight: 'auto', minWidth: 'auto' }}
+    >
+      <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg', bg)}>
+        <Icon className={cn('h-4 w-4 sm:h-5 sm:w-5', color)} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] sm:text-[10px] text-text-muted font-semibold uppercase truncate">{label}</p>
+        <p className="text-base sm:text-lg font-bold text-text-primary tabular-nums leading-tight">{count}</p>
+        {sub && <p className="text-[9px] sm:text-[10px] text-text-muted tabular-nums truncate">{sub}</p>}
+      </div>
+      <ArrowUpRight className="h-3 w-3 text-text-muted/40 shrink-0" />
+    </button>
+  );
 }
 
 function StatCard({ label, value, subtext, icon: Icon, iconBg, iconColor, trend, href }: StatCardProps) {
