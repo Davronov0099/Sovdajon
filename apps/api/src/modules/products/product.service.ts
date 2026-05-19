@@ -190,6 +190,8 @@ export async function createProduct(input: CreateProductInput, userId: string) {
       name: input.name,
       price: input.price,
       costPrice: input.costPrice,
+      minSellingPrice: input.minSellingPrice,
+      wholesalePrice: input.wholesalePrice,
       stock: input.stock ?? 0,
       minStock: input.minStock ?? 5,
       unit: input.unit ?? 'PIECE',
@@ -243,6 +245,8 @@ export async function updateProduct(id: string, input: UpdateProductInput, userI
     if (input.name !== undefined) updateData.name = input.name;
     if (input.price !== undefined) updateData.price = input.price;
     if (input.costPrice !== undefined) updateData.costPrice = input.costPrice;
+    if (input.minSellingPrice !== undefined) updateData.minSellingPrice = input.minSellingPrice;
+    if (input.wholesalePrice !== undefined) updateData.wholesalePrice = input.wholesalePrice;
     if (input.stock !== undefined) updateData.stock = input.stock;
     if (input.minStock !== undefined) updateData.minStock = input.minStock;
     if (input.unit !== undefined) updateData.unit = input.unit;
