@@ -15,6 +15,7 @@ import { Route as AuthIndexRouteImport } from './routes/_auth/index'
 import { Route as AuthSuppliersRouteImport } from './routes/_auth/suppliers'
 import { Route as AuthStockAlertsRouteImport } from './routes/_auth/stock-alerts'
 import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
+import { Route as AuthSalesRouteImport } from './routes/_auth/sales'
 import { Route as AuthReceiptsRouteImport } from './routes/_auth/receipts'
 import { Route as AuthProspectingRouteImport } from './routes/_auth/prospecting'
 import { Route as AuthProductsRouteImport } from './routes/_auth/products'
@@ -72,6 +73,11 @@ const AuthSettingsRoute = AuthSettingsRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_auth/settings.lazy').then((d) => d.Route),
 )
+const AuthSalesRoute = AuthSalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() => import('./routes/_auth/sales.lazy').then((d) => d.Route))
 const AuthReceiptsRoute = AuthReceiptsRouteImport.update({
   id: '/receipts',
   path: '/receipts',
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof AuthProductsRoute
   '/prospecting': typeof AuthProspectingRoute
   '/receipts': typeof AuthReceiptsRoute
+  '/sales': typeof AuthSalesRoute
   '/settings': typeof AuthSettingsRoute
   '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/products': typeof AuthProductsRoute
   '/prospecting': typeof AuthProspectingRoute
   '/receipts': typeof AuthReceiptsRoute
+  '/sales': typeof AuthSalesRoute
   '/settings': typeof AuthSettingsRoute
   '/stock-alerts': typeof AuthStockAlertsRoute
   '/suppliers': typeof AuthSuppliersRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/_auth/products': typeof AuthProductsRoute
   '/_auth/prospecting': typeof AuthProspectingRoute
   '/_auth/receipts': typeof AuthReceiptsRoute
+  '/_auth/sales': typeof AuthSalesRoute
   '/_auth/settings': typeof AuthSettingsRoute
   '/_auth/stock-alerts': typeof AuthStockAlertsRoute
   '/_auth/suppliers': typeof AuthSuppliersRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/prospecting'
     | '/receipts'
+    | '/sales'
     | '/settings'
     | '/stock-alerts'
     | '/suppliers'
@@ -364,6 +374,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/prospecting'
     | '/receipts'
+    | '/sales'
     | '/settings'
     | '/stock-alerts'
     | '/suppliers'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/_auth/products'
     | '/_auth/prospecting'
     | '/_auth/receipts'
+    | '/_auth/sales'
     | '/_auth/settings'
     | '/_auth/stock-alerts'
     | '/_auth/suppliers'
@@ -459,6 +471,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthSettingsRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/sales': {
+      id: '/_auth/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof AuthSalesRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/receipts': {
@@ -638,6 +657,7 @@ interface AuthRouteChildren {
   AuthProductsRoute: typeof AuthProductsRoute
   AuthProspectingRoute: typeof AuthProspectingRoute
   AuthReceiptsRoute: typeof AuthReceiptsRoute
+  AuthSalesRoute: typeof AuthSalesRoute
   AuthSettingsRoute: typeof AuthSettingsRoute
   AuthStockAlertsRoute: typeof AuthStockAlertsRoute
   AuthSuppliersRoute: typeof AuthSuppliersRoute
@@ -668,6 +688,7 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthProductsRoute: AuthProductsRoute,
   AuthProspectingRoute: AuthProspectingRoute,
   AuthReceiptsRoute: AuthReceiptsRoute,
+  AuthSalesRoute: AuthSalesRoute,
   AuthSettingsRoute: AuthSettingsRoute,
   AuthStockAlertsRoute: AuthStockAlertsRoute,
   AuthSuppliersRoute: AuthSuppliersRoute,

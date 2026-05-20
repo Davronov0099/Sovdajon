@@ -33,6 +33,7 @@ export const en = {
   nav: {
     dashboard: 'Dashboard',
     pos: 'POS',
+    sales: 'Sales',
     drafts: 'Drafts',
     products: 'Products',
     categories: 'Categories',

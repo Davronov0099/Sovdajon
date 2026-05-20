@@ -14,6 +14,7 @@ const REMOVED_KEYS = new Set(['warehouses', 'marketplace-settings']);
 const DEFAULT_NAV: NavItem[] = [
   { key: 'dashboard', visible: true },
   { key: 'pos', visible: true },
+  { key: 'sales', visible: true },
   { key: 'products', visible: true },
   { key: 'categories', visible: true },
   { key: 'debts', visible: true },

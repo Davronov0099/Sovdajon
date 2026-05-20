@@ -33,6 +33,7 @@ export const ru = {
   nav: {
     dashboard: 'Панель управления',
     pos: 'Продажи',
+    sales: 'Чеки продаж',
     drafts: 'Черновики',
     products: 'Товары',
     categories: 'Категории',

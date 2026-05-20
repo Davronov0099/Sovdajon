@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn';
 const NAV_META: Record<string, { to: string; icon: typeof LayoutDashboard; roles: string[] }> = {
   dashboard: { to: '/', icon: LayoutDashboard, roles: ['ADMIN'] },
   pos: { to: '/pos', icon: ShoppingCart, roles: ['ADMIN', 'CASHIER'] },
+  sales: { to: '/sales', icon: Receipt, roles: ['ADMIN'] },
   products: { to: '/products', icon: Package, roles: ['ADMIN', 'CASHIER', 'HELPER'] },
   categories: { to: '/categories', icon: FolderTree, roles: ['ADMIN'] },
   debts: { to: '/debts', icon: CreditCard, roles: ['ADMIN', 'CASHIER'] },

@@ -33,6 +33,7 @@ export const uz = {
   nav: {
     dashboard: 'Bosh sahifa',
     pos: 'Savdo',
+    sales: 'Sotuvlar',
     drafts: 'Saqlanganlar',
     products: 'Mahsulotlar',
     categories: 'Kategoriyalar',
