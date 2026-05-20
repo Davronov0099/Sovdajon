@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapPin, LocateFixed, Loader2, Search, X, Check, Eye, Satellite, Map as MapIcon } from 'lucide-react';
+import { MapPin, LocateFixed, Loader2, Search, X, Check, Eye, Satellite, Map as MapIcon, Plus, Minus } from 'lucide-react';
 import type { Map as LeafletMap, Marker as LeafletMarker, TileLayer as LeafletTileLayer } from 'leaflet';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
@@ -84,16 +84,37 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
     if (!open || !mapElRef.current || mapRef.current) return;
     let cancelled = false;
     let ro: ResizeObserver | null = null;
-    let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function init() {
       const L = await import('leaflet');
       if (cancelled || !mapElRef.current) return;
+
+      // CRITICAL: modal animatsiyasi tugaguncha kutamiz — aks holda kontayner
+      // o'lchami noaniq bo'lib Leaflet noto'g'ri tile bounds hisoblaydi.
+      // requestAnimationFrame ikki bor + element o'lchamini tekshirish.
+      await new Promise<void>((resolve) => {
+        const tryFrame = (left: number) => {
+          requestAnimationFrame(() => {
+            if (cancelled || !mapElRef.current) return resolve();
+            const rect = mapElRef.current.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) return resolve();
+            if (left > 0) tryFrame(left - 1);
+            else resolve();
+          });
+        };
+        tryFrame(10);
+      });
+      if (cancelled || !mapElRef.current) return;
+
       const initial = picked ?? DEFAULT_CENTER;
       const map = L.map(mapElRef.current, {
         center: [initial.lat, initial.lng],
         zoom: picked ? 16 : 12,
-        zoomControl: true,
+        zoomControl: false,           // o'z customimiz pastdan qo'shiladi
+        doubleClickZoom: false,       // qo'lda boshqaramiz
+        attributionControl: true,
       });
       tileRef.current = L.tileLayer(STREET_URL, {
         attribution: STREET_ATTR,
@@ -102,21 +123,21 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
       }).addTo(map);
       mapRef.current = map;
 
-      // CRITICAL: Modal-da xarita init bo'lganda container o'lchami hali aniq
-      // bo'lmasligi mumkin — invalidateSize'siz tile'lar bo'sh qoladi.
-      // Bir necha bor chaqiramiz turli vaqtlarda (modal animatsiyasi tugashini kutib)
-      const invalidate = () => {
-        if (mapRef.current && !cancelled) mapRef.current.invalidateSize();
+      // invalidateSize + setView birgalikda tile bounds'ni qaytadan hisoblatadi
+      const refreshTiles = () => {
+        if (!mapRef.current || cancelled) return;
+        mapRef.current.invalidateSize({ animate: false, pan: false });
+        const c = mapRef.current.getCenter();
+        mapRef.current.setView([c.lat, c.lng], mapRef.current.getZoom(), { animate: false });
       };
-      [50, 150, 300, 600].forEach((ms) => {
-        invalidateTimer = setTimeout(invalidate, ms);
+      // Modal animatsiyasi turli timing bilan tugashi mumkin — bir necha marta
+      [0, 80, 200, 400, 800].forEach((ms) => {
+        timers.push(setTimeout(refreshTiles, ms));
       });
 
-      // Container o'lchami o'zgarganda ham invalidate qilamiz
-      if (mapElRef.current && typeof ResizeObserver !== 'undefined') {
-        ro = new ResizeObserver(() => {
-          if (mapRef.current && !cancelled) mapRef.current.invalidateSize();
-        });
+      // ResizeObserver — kontayner o'zgarsa darhol qayta hisoblaydi
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(refreshTiles);
         ro.observe(mapElRef.current);
       }
 
@@ -127,16 +148,29 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
         await drawMarker(picked);
       }
 
-      // Edit mode — clicking the map picks a location
+      // Edit mode: single tap = pick, double tap = zoom in
       if (mode === 'edit') {
-        map.on('click', async (e) => {
-          const latlng: LatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
-          await drawMarker(latlng);
-          setPicked(latlng);
-          setGeocoding(true);
-          const addr = await reverseGeocode(latlng.lat, latlng.lng);
-          setGeocoding(false);
-          setPickedAddress(addr);
+        map.on('click', (e) => {
+          if (clickTimer) return; // double-click davom etmoqda
+          clickTimer = setTimeout(async () => {
+            clickTimer = null;
+            const latlng: LatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+            await drawMarker(latlng);
+            setPicked(latlng);
+            setGeocoding(true);
+            const addr = await reverseGeocode(latlng.lat, latlng.lng);
+            setGeocoding(false);
+            setPickedAddress(addr);
+          }, 280);
+        });
+        map.on('dblclick', (e) => {
+          if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+          map.setView(e.latlng, Math.min(map.getZoom() + 2, 21), { animate: true });
+        });
+      } else {
+        // View mode: faqat double-click → zoom in
+        map.on('dblclick', (e) => {
+          map.setView(e.latlng, Math.min(map.getZoom() + 2, 21), { animate: true });
         });
       }
     }
@@ -144,7 +178,8 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
 
     return () => {
       cancelled = true;
-      if (invalidateTimer) clearTimeout(invalidateTimer);
+      timers.forEach((t) => clearTimeout(t));
+      if (clickTimer) clearTimeout(clickTimer);
       ro?.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
@@ -156,6 +191,16 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /* ── Custom zoom controls ── */
+  const zoomIn = useCallback(() => {
+    const m = mapRef.current; if (!m) return;
+    m.setZoom(Math.min(m.getZoom() + 1, 21));
+  }, []);
+  const zoomOut = useCallback(() => {
+    const m = mapRef.current; if (!m) return;
+    m.setZoom(Math.max(m.getZoom() - 1, 1));
+  }, []);
 
   /* ── Tile mode switch (street ↔ satellite) ── */
   const switchTiles = useCallback(async (next: MapMode) => {
@@ -402,6 +447,30 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
               </div>
             )}
 
+            {/* Custom Zoom controls (chap-pastda) */}
+            {mapReady && (
+              <div className="absolute left-3 bottom-3 z-[600] flex flex-col overflow-hidden rounded-lg shadow-md" style={{ border: '1px solid rgba(0,0,0,0.12)' }}>
+                <button
+                  type="button"
+                  onClick={zoomIn}
+                  className="flex h-9 w-9 items-center justify-center bg-surface/95 text-text-primary hover:bg-surface hover:text-primary-600 transition-colors"
+                  style={{ minHeight: 'auto', minWidth: 'auto', borderBottom: '1px solid rgba(0,0,0,0.08)' }}
+                  title="Kattalashtirish"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={zoomOut}
+                  className="flex h-9 w-9 items-center justify-center bg-surface/95 text-text-primary hover:bg-surface hover:text-primary-600 transition-colors"
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  title="Kichraytirish"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             {!mapReady && (
               <div className="absolute inset-0 z-[500] flex items-center justify-center bg-surface-secondary">
                 <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
@@ -416,7 +485,8 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
             {mode === 'edit' && mapReady && !picked && (
               <div className="pointer-events-none absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-xl px-4 py-2 text-[12px] font-semibold text-white shadow-xl"
                 style={{ background: 'rgba(15,23,42,0.82)' }}>
-                Xaritada nuqtani bosing yoki qidiring
+                Bir marta bosing — manzil
+                <span className="ml-2 rounded bg-white/15 px-1.5 py-0.5 text-[10px]">2x bosish = zoom</span>
               </div>
             )}
           </div>
