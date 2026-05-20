@@ -67,4 +67,19 @@ export async function supplierRoutes(app: FastifyInstance): Promise<void> {
     const result = await supplierService.makePayment(id, body, request.userId);
     reply.send({ success: true, data: result });
   });
+
+  // PATCH /api/v1/suppliers/:id/transactions/:txnId — edit note / paidAmount
+  app.patch('/:id/transactions/:txnId', { preHandler: [requireRole('ADMIN')] }, async (request, reply) => {
+    const { id, txnId } = request.params as { id: string; txnId: string };
+    const body = request.body as { note?: string | null; paidAmount?: number };
+    await supplierService.updateTransaction(id, txnId, body, request.userId);
+    reply.send({ success: true });
+  });
+
+  // DELETE /api/v1/suppliers/:id/transactions/:txnId — delete + reverse side effects
+  app.delete('/:id/transactions/:txnId', { preHandler: [requireRole('ADMIN')] }, async (request, reply) => {
+    const { id, txnId } = request.params as { id: string; txnId: string };
+    await supplierService.deleteTransaction(id, txnId, request.userId);
+    reply.send({ success: true });
+  });
 }

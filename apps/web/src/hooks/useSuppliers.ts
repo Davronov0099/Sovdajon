@@ -108,6 +108,35 @@ export function useUpdateSupplier() {
   });
 }
 
+/** IMPORT/PAYMENT tranzaksiyani o'chirish (yon ta'sirlar qaytariladi) */
+export function useDeleteSupplierTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ supplierId, txnId }: { supplierId: string; txnId: string }) =>
+      api.delete(`suppliers/${supplierId}/transactions/${txnId}`).json(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      qc.invalidateQueries({ queryKey: ['supplier'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+    },
+  });
+}
+
+/** IMPORT tranzaksiya note + paidAmount tahrirlash */
+export function useUpdateSupplierTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ supplierId, txnId, ...data }: { supplierId: string; txnId: string; note?: string | null; paidAmount?: number }) =>
+      api.patch(`suppliers/${supplierId}/transactions/${txnId}`, { json: data }).json(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      qc.invalidateQueries({ queryKey: ['supplier'] });
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+    },
+  });
+}
+
 export function useSupplierImport() {
   const qc = useQueryClient();
   return useMutation({

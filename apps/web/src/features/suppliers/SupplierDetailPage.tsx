@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck } from 'lucide-react';
+import { ArrowLeft, Phone, Building2, ArrowDownToLine, Pencil, Package, Banknote, Truck, Trash2, AlertTriangle } from 'lucide-react';
 import { formatCurrency, formatDate, formatDateTime } from '@sardorbek/shared';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSupplier, useUpdateSupplier, useSupplierPayment } from '@/hooks/useSuppliers';
+import { useSupplier, useUpdateSupplier, useSupplierPayment, useDeleteSupplierTransaction, useUpdateSupplierTransaction } from '@/hooks/useSuppliers';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { SupplierLocationButton } from './SupplierLocationButton';
@@ -179,7 +179,7 @@ export function SupplierDetailPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Operatsiyalar tarixi</h2>
           {transactions.map((txn) => (
-            <TransactionCard key={txn.id} txn={txn} />
+            <TransactionCard key={txn.id} txn={txn} supplierId={supplierId} />
           ))}
         </div>
       )}
@@ -217,13 +217,52 @@ export function SupplierDetailPage() {
 }
 
 /* ─── Transaction Card ─── */
-function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
+function TransactionCard({ txn, supplierId }: { txn: SupplierTransactionItem; supplierId: string }) {
+  const { toast } = useToast();
+  const deleteMut = useDeleteSupplierTransaction();
+  const updateMut = useUpdateSupplierTransaction();
   const [expanded, setExpanded] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editNote, setEditNote] = useState('');
+  const [editPaid, setEditPaid] = useState<string>('');
+
   const isImport = txn.type === 'IMPORT';
   const total = Number(txn.total) || 0;
   const paid = Number(txn.paidAmount) || 0;
   const debtPart = Math.max(0, total - paid);
   const kind = !isImport ? 'payment' : paid <= 0 ? 'debt' : paid >= total ? 'cash' : 'mixed';
+
+  function openEdit() {
+    setEditNote(txn.note ?? '');
+    setEditPaid(String(paid));
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit() {
+    try {
+      const payload: { note?: string | null; paidAmount?: number } = { note: editNote.trim() || null };
+      if (isImport) {
+        const n = parseFloat(editPaid);
+        if (!isNaN(n) && n >= 0) payload.paidAmount = Math.min(n, total);
+      }
+      await updateMut.mutateAsync({ supplierId, txnId: txn.id, ...payload });
+      toast('Yangilandi', 'success');
+      setEditOpen(false);
+    } catch (err) {
+      toast((err as { message?: string }).message ?? 'Yangilash xatosi', 'error');
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteMut.mutateAsync({ supplierId, txnId: txn.id });
+      toast("O'chirildi — yon ta'sirlar qaytarildi", 'success');
+      setDeleteOpen(false);
+    } catch (err) {
+      toast((err as { message?: string }).message ?? "O'chirish xatosi", 'error');
+    }
+  }
 
   return (
     <div className="card p-3 sm:p-4 stagger-item">
@@ -260,6 +299,24 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
           {isImport && debtPart > 0 && (
             <p className="text-[10px] text-warning-600 tabular-nums">Qarz: {formatCurrency(debtPart)}</p>
           )}
+          <div className="mt-1.5 flex items-center justify-end gap-1">
+            <button
+              onClick={openEdit}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-primary-50 hover:text-primary-600 transition-colors"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+              title="Tahrirlash"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-danger-50 hover:text-danger-600 transition-colors"
+              style={{ minHeight: 'auto', minWidth: 'auto' }}
+              title="O'chirish"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -303,6 +360,76 @@ function TransactionCard({ txn }: { txn: SupplierTransactionItem }) {
           )}
         </div>
       )}
+
+      {/* Edit Modal */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={isImport ? 'Kirimni tahrirlash' : "To'lovni tahrirlash"} size="sm">
+        <div className="space-y-3">
+          {isImport && (
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-text-primary">Naqd to'langan (jami: {formatCurrency(total)} so'm)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={editPaid}
+                onChange={(e) => setEditPaid(e.target.value.replace(/[^\d.]/g, ''))}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm tabular-nums focus:outline-2 focus:outline-primary-500"
+              />
+              <p className="mt-1 text-[10px] text-text-muted">0 ≤ naqd ≤ jami. Qarz qismi = jami − naqd avtomatik hisoblanadi.</p>
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-[12px] font-medium text-text-primary">Izoh</label>
+            <textarea
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              rows={2}
+              className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:outline-2 focus:outline-primary-500"
+              placeholder="Ixtiyoriy izoh..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={updateMut.isPending}>Bekor</Button>
+            <Button onClick={handleSaveEdit} loading={updateMut.isPending}>Saqlash</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirm Modal */}
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="O'chirishni tasdiqlang" size="sm">
+        <div className="space-y-3">
+          <div className="flex gap-2.5 rounded-lg bg-danger-50 p-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-danger-600" />
+            <div className="text-[12px] text-danger-800 leading-snug">
+              {isImport ? (
+                <>
+                  Ushbu <b>Kirim</b> ({formatCurrency(total)} so'm, {txn.items?.length ?? 0} mahsulot) o'chiriladi:
+                  <ul className="mt-1.5 list-disc pl-4 space-y-0.5">
+                    <li>Mahsulotlar stock'i qaytariladi</li>
+                    <li>Ta'minotchi balansi qarz qismiga kamayadi: {formatCurrency(debtPart)}</li>
+                    {paid > 0 && <li>Naqd to'lov xarajati o'chiriladi: {formatCurrency(paid)}</li>}
+                    <li>Narx tarixi (shu kirimga oid) o'chiriladi</li>
+                  </ul>
+                  <p className="mt-1.5 font-semibold">Stock yetarli bo'lmasa (sotuv qilingan bo'lsa) — o'chirishga ruxsat berilmaydi.</p>
+                </>
+              ) : (
+                <>
+                  Ushbu <b>To'lov</b> ({formatCurrency(total)} so'm) o'chiriladi:
+                  <ul className="mt-1.5 list-disc pl-4 space-y-0.5">
+                    <li>Ta'minotchi balansiga qaytariladi</li>
+                    <li>Bog'liq xarajat o'chiriladi</li>
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMut.isPending}>Bekor</Button>
+            <Button onClick={handleDelete} loading={deleteMut.isPending} className="bg-danger-600 hover:bg-danger-700 text-white">
+              <Trash2 className="h-4 w-4" /> O'chirish
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

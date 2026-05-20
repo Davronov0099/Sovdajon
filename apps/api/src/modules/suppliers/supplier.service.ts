@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { CreateSupplierInput, SupplierImportInput, SupplierPaymentInput } from '@sardorbek/shared';
 import { isCostPriceAlertNeeded } from '@sardorbek/shared';
 import { prisma } from '../../config/database.js';
-import { notFound } from '../../utils/errors.js';
+import { notFound, badRequest } from '../../utils/errors.js';
 import { createAuditLog } from '../../utils/auditLog.js';
 import { emitToAdmins } from '../../websocket/index.js';
 
@@ -307,6 +307,167 @@ export async function makePayment(supplierId: string, input: SupplierPaymentInpu
   });
 
   return result;
+}
+
+/**
+ * IMPORT yoki PAYMENT transaksiyasini o'chirish + yon ta'sirlarni qaytarish.
+ * - IMPORT: stock -= items.qty (yetarli bo'lsa), supplier.balance -= debtPart,
+ *   priceHistory (shu kirim) o'chiriladi, paidAmount > 0 bo'lsa shu xarajat o'chiriladi
+ * - PAYMENT: supplier.balance += amount, mos xarajat o'chiriladi
+ */
+export async function deleteTransaction(supplierId: string, txnId: string, userId: string) {
+  const txn = await prisma.supplierTransaction.findFirst({
+    where: { id: txnId, supplierId },
+    include: { items: true, supplier: { select: { name: true } } },
+  });
+  if (!txn) throw notFound('NOT_FOUND', 'Tranzaksiya topilmadi');
+
+  await prisma.$transaction(async (tx) => {
+    if (txn.type === 'IMPORT') {
+      // 1) Stock'ni qaytarish (har bir mahsulot uchun decrement)
+      for (const it of txn.items) {
+        const product = await tx.product.findUnique({ where: { id: it.productId }, select: { stock: true, name: true } });
+        if (!product) continue;
+        if (product.stock < it.quantity) {
+          throw badRequest('INSUFFICIENT_STOCK', `"${product.name}" stockda yetarli emas (mavjud: ${product.stock}, qaytarilishi kerak: ${it.quantity}). Sotuvdan keyin o'chirib bo'lmaydi.`);
+        }
+        await tx.product.update({
+          where: { id: it.productId },
+          data: { stock: { decrement: it.quantity } },
+        });
+      }
+      // 2) Supplier balansi: faqat qarz qismi qaytariladi
+      const debtPart = Number(txn.total) - Number(txn.paidAmount);
+      if (debtPart !== 0) {
+        await tx.supplier.update({
+          where: { id: supplierId },
+          data: { balance: { decrement: new Prisma.Decimal(debtPart) } },
+        });
+      }
+      // 3) Bog'liq xarajatni topib o'chirish (paidAmount > 0 bo'lganda yaratilgan)
+      if (Number(txn.paidAmount) > 0) {
+        await tx.expense.deleteMany({
+          where: {
+            type: 'SUPPLIER_IMPORT',
+            amount: txn.paidAmount,
+            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
+            createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
+          },
+        });
+      }
+      // 4) PriceHistory (shu kirim) — taxminan
+      await tx.priceHistory.deleteMany({
+        where: {
+          reason: 'SUPPLIER_IMPORT',
+          productId: { in: txn.items.map((i) => i.productId) },
+          createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
+        },
+      });
+    } else if (txn.type === 'PAYMENT') {
+      // Balans + (qarz qaytaradi)
+      await tx.supplier.update({
+        where: { id: supplierId },
+        data: { balance: { increment: txn.total } },
+      });
+      // Bog'liq xarajatni topib o'chirish
+      await tx.expense.deleteMany({
+        where: {
+          type: 'SUPPLIER_DEBT_PAYMENT',
+          amount: txn.total,
+          description: `Ta'minotchi qarzi to'lovi: ${txn.supplier.name}`,
+          createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
+        },
+      });
+    }
+    // Tranzaksiyaning o'zi (items cascade)
+    await tx.supplierTransactionItem.deleteMany({ where: { transactionId: txnId } });
+    await tx.supplierTransaction.delete({ where: { id: txnId } });
+  });
+
+  await createAuditLog({
+    action: 'DELETE',
+    entity: 'SupplierTransaction',
+    entityId: txnId,
+    userId,
+    oldData: { type: txn.type, total: Number(txn.total), paidAmount: Number(txn.paidAmount) },
+  });
+}
+
+/**
+ * Tranzaksiya'ning note va paidAmount'ni yangilash (IMPORT uchun).
+ * paidAmount o'zgarsa: supplier balansi va xarajat ham mos ravishda yangilanadi.
+ */
+export async function updateTransaction(
+  supplierId: string,
+  txnId: string,
+  input: { note?: string | null; paidAmount?: number },
+  userId: string,
+) {
+  const txn = await prisma.supplierTransaction.findFirst({
+    where: { id: txnId, supplierId },
+    include: { supplier: { select: { name: true } } },
+  });
+  if (!txn) throw notFound('NOT_FOUND', 'Tranzaksiya topilmadi');
+
+  await prisma.$transaction(async (tx) => {
+    const updateData: Prisma.SupplierTransactionUpdateInput = {};
+    if (input.note !== undefined) updateData.note = input.note;
+
+    if (txn.type === 'IMPORT' && input.paidAmount !== undefined) {
+      const oldPaid = Number(txn.paidAmount);
+      const total = Number(txn.total);
+      const newPaid = Math.min(Math.max(input.paidAmount, 0), total);
+      updateData.paidAmount = new Prisma.Decimal(newPaid);
+
+      // Balans farqi: qarz qismi (total - paid) o'zgaradi
+      // Eski debt = total - oldPaid, yangi debt = total - newPaid
+      // Balans = balance - (oldDebt - newDebt) = balance - (oldPaid yangi - eski emas) hmm:
+      // Actually: balance allaqachon (total - oldPaid) qo'shilgan. Yangisi (total - newPaid) bo'lishi kerak.
+      // Farq: (total - newPaid) - (total - oldPaid) = oldPaid - newPaid
+      const balanceDelta = oldPaid - newPaid; // newPaid > oldPaid bo'lsa, balans kamayadi (manfiy delta)
+      if (balanceDelta !== 0) {
+        await tx.supplier.update({
+          where: { id: supplierId },
+          data: { balance: { increment: new Prisma.Decimal(balanceDelta) } },
+        });
+      }
+
+      // Xarajatni mos ravishda yangilash: eski xarajatni o'chirib yangisini yaratamiz
+      if (oldPaid > 0) {
+        await tx.expense.deleteMany({
+          where: {
+            type: 'SUPPLIER_IMPORT',
+            amount: txn.paidAmount,
+            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
+            createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
+          },
+        });
+      }
+      if (newPaid > 0) {
+        await tx.expense.create({
+          data: {
+            category: 'OTHER',
+            type: 'SUPPLIER_IMPORT',
+            amount: new Prisma.Decimal(newPaid),
+            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
+            createdById: userId,
+          },
+        });
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await tx.supplierTransaction.update({ where: { id: txnId }, data: updateData });
+    }
+  });
+
+  await createAuditLog({
+    action: 'UPDATE',
+    entity: 'SupplierTransaction',
+    entityId: txnId,
+    userId,
+    newData: input as Record<string, unknown>,
+  });
 }
 
 /**
