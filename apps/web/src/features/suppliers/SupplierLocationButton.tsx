@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapPin, LocateFixed, Loader2, Search, X, Check, Eye } from 'lucide-react';
+import { MapPin, LocateFixed, Loader2, Search, X, Check, Eye, Satellite, Map as MapIcon } from 'lucide-react';
 import type { Map as LeafletMap, Marker as LeafletMarker, TileLayer as LeafletTileLayer } from 'leaflet';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
@@ -15,9 +15,12 @@ interface NominatimResult {
   lon: string;
 }
 
+type MapMode = 'street' | 'satellite';
 const DEFAULT_CENTER: LatLng = { lat: 41.2995, lng: 69.2401 };
-const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TILE_ATTR = '© OpenStreetMap';
+const STREET_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const STREET_ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const SAT_URL = 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+const SAT_ATTR = '© Google Maps';
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -45,6 +48,7 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit'>('edit');
+  const [mapMode, setMapMode] = useState<MapMode>('street');
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NominatimResult[]>([]);
@@ -58,6 +62,7 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
   const tileRef = useRef<LeafletTileLayer | null>(null);
   const markerRef = useRef<LeafletMarker | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   function openModal() {
     if (hasLocation) {
@@ -78,6 +83,8 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
   useEffect(() => {
     if (!open || !mapElRef.current || mapRef.current) return;
     let cancelled = false;
+    let ro: ResizeObserver | null = null;
+    let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function init() {
       const L = await import('leaflet');
@@ -88,8 +95,31 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
         zoom: picked ? 16 : 12,
         zoomControl: true,
       });
-      tileRef.current = L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+      tileRef.current = L.tileLayer(STREET_URL, {
+        attribution: STREET_ATTR,
+        maxZoom: 21,
+        maxNativeZoom: 19,
+      }).addTo(map);
       mapRef.current = map;
+
+      // CRITICAL: Modal-da xarita init bo'lganda container o'lchami hali aniq
+      // bo'lmasligi mumkin — invalidateSize'siz tile'lar bo'sh qoladi.
+      // Bir necha bor chaqiramiz turli vaqtlarda (modal animatsiyasi tugashini kutib)
+      const invalidate = () => {
+        if (mapRef.current && !cancelled) mapRef.current.invalidateSize();
+      };
+      [50, 150, 300, 600].forEach((ms) => {
+        invalidateTimer = setTimeout(invalidate, ms);
+      });
+
+      // Container o'lchami o'zgarganda ham invalidate qilamiz
+      if (mapElRef.current && typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => {
+          if (mapRef.current && !cancelled) mapRef.current.invalidateSize();
+        });
+        ro.observe(mapElRef.current);
+      }
+
       setMapReady(true);
 
       // View mode — drop marker for saved location
@@ -114,15 +144,41 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
 
     return () => {
       cancelled = true;
+      if (invalidateTimer) clearTimeout(invalidateTimer);
+      ro?.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      tileRef.current = null;
       markerRef.current = null;
       setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /* ── Tile mode switch (street ↔ satellite) ── */
+  const switchTiles = useCallback(async (next: MapMode) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const L = await import('leaflet');
+    if (tileRef.current) { tileRef.current.remove(); tileRef.current = null; }
+    if (next === 'satellite') {
+      tileRef.current = L.tileLayer(SAT_URL, {
+        attribution: SAT_ATTR,
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 21,
+        maxNativeZoom: 20,
+      }).addTo(map);
+    } else {
+      tileRef.current = L.tileLayer(STREET_URL, {
+        attribution: STREET_ATTR,
+        maxZoom: 21,
+        maxNativeZoom: 19,
+      }).addTo(map);
+    }
+    setMapMode(next);
+  }, []);
 
   const drawMarker = useCallback(async (latlng: LatLng) => {
     const map = mapRef.current;
@@ -143,31 +199,40 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
     map.setView([latlng.lat, latlng.lng], 16, { animate: true });
   }, []);
 
-  /* ── Jonli qidiruv ── */
+  /* ── Jonli qidiruv (real-time) ── */
   useEffect(() => {
     if (!open || mode !== 'edit') return;
     const q = query.trim();
-    if (q.length < 2) { setResults([]); return; }
+    if (q.length < 1) { setResults([]); setSearching(false); return; }
+
+    setSearching(true); // Loader darhol ko'rinadi
     const handle = setTimeout(async () => {
-      setSearching(true);
+      // Avvalgi so'rovni bekor qilamiz (stale natijalar oldini olish)
+      searchAbortRef.current?.abort();
+      const ctrl = new AbortController();
+      searchAbortRef.current = ctrl;
       try {
         const params = new URLSearchParams({
           format: 'json',
           q: `${q}, O'zbekiston`,
           countrycodes: 'uz',
-          limit: '6',
+          limit: '8',
         });
         const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
           headers: { 'Accept-Language': 'uz,ru,en' },
+          signal: ctrl.signal,
         });
         const data: NominatimResult[] = await res.json();
-        setResults(Array.isArray(data) ? data : []);
-      } catch {
+        if (!ctrl.signal.aborted) {
+          setResults(Array.isArray(data) ? data : []);
+          setSearching(false);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setResults([]);
-      } finally {
         setSearching(false);
       }
-    }, 400);
+    }, 180); // 400 -> 180ms (deyarli darhol)
     return () => clearTimeout(handle);
   }, [query, open, mode]);
 
@@ -306,6 +371,37 @@ export function SupplierLocationButton({ supplierId, latitude, longitude, addres
           {/* Map */}
           <div className="relative h-[360px] w-full overflow-hidden rounded-xl" style={{ border: '1px solid var(--color-border-subtle)' }}>
             <div ref={mapElRef} className="h-full w-full" style={{ background: '#e8eff4' }} />
+
+            {/* Street ↔ Satellite toggle */}
+            {mapReady && (
+              <div className="absolute right-3 top-3 z-[600] flex overflow-hidden rounded-lg shadow-md" style={{ border: '1px solid rgba(0,0,0,0.12)' }}>
+                <button
+                  type="button"
+                  onClick={() => mapMode !== 'street' && switchTiles('street')}
+                  className={cn(
+                    'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                    mapMode === 'street' ? 'bg-primary-600 text-white' : 'bg-surface/95 text-text-primary hover:bg-surface',
+                  )}
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  title="Yo'l xaritasi"
+                >
+                  <MapIcon className="h-3.5 w-3.5" /> Yo'l
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mapMode !== 'satellite' && switchTiles('satellite')}
+                  className={cn(
+                    'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                    mapMode === 'satellite' ? 'bg-primary-600 text-white' : 'bg-surface/95 text-text-primary hover:bg-surface',
+                  )}
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  title="Sun'iy yo'ldosh ko'rinishi"
+                >
+                  <Satellite className="h-3.5 w-3.5" /> Sat
+                </button>
+              </div>
+            )}
+
             {!mapReady && (
               <div className="absolute inset-0 z-[500] flex items-center justify-center bg-surface-secondary">
                 <Loader2 className="h-7 w-7 animate-spin text-primary-600" />
