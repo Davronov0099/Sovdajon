@@ -5,6 +5,8 @@ export const createSupplierSchema = z.object({
   phone: z.string().optional(),
   company: z.string().max(200).optional(),
   address: z.string().max(300).optional(),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
 });
 
 export const updateSupplierSchema = createSupplierSchema.partial();

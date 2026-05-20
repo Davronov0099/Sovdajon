@@ -101,7 +101,10 @@ export function useUpdateSupplier() {
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<CreateSupplierInput> & { id: string }) =>
       api.patch(`suppliers/${id}`, { json: data }).json(),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['suppliers'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      qc.invalidateQueries({ queryKey: ['supplier'] });
+    },
   });
 }
 

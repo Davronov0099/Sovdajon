@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useSupplier, useUpdateSupplier, useSupplierPayment } from '@/hooks/useSuppliers';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
+import { SupplierLocationButton } from './SupplierLocationButton';
 import type { SupplierTransactionItem } from '@/types/api';
 
 export function SupplierDetailPage() {
@@ -113,6 +114,12 @@ export function SupplierDetailPage() {
             </div>
             {/* Action buttons */}
             <div className="flex flex-wrap gap-1.5 shrink-0">
+              <SupplierLocationButton
+                supplierId={supplierId}
+                latitude={supplier.latitude != null ? Number(supplier.latitude) : null}
+                longitude={supplier.longitude != null ? Number(supplier.longitude) : null}
+                address={supplier.address}
+              />
               <button onClick={openEdit} className="btn btn-secondary btn-sm">
                 <Pencil className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Tahrirlash</span>

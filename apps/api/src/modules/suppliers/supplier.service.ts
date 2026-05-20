@@ -89,6 +89,8 @@ export async function updateSupplier(id: string, input: Partial<CreateSupplierIn
   if (input.phone !== undefined) data.phone = input.phone;
   if (input.company !== undefined) data.company = input.company;
   if (input.address !== undefined) data.address = input.address;
+  if (input.latitude !== undefined) data.latitude = input.latitude === null ? null : new Prisma.Decimal(input.latitude);
+  if (input.longitude !== undefined) data.longitude = input.longitude === null ? null : new Prisma.Decimal(input.longitude);
 
   const supplier = await prisma.supplier.update({ where: { id }, data });
 

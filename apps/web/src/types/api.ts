@@ -194,6 +194,8 @@ export interface SupplierItem {
   phone: string | null;
   company: string | null;
   address: string | null;
+  latitude: string | null;
+  longitude: string | null;
   balance: string;
   createdAt: string;
   _count: { transactions: number };
