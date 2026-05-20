@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, Minus, Plus, X, ShoppingBag, ShoppingCart, FileText, Trash2, Clock, Package, ChevronLeft, Upload, ScanBarcode } from 'lucide-react';
+import { Save, Minus, Plus, X, ShoppingBag, ShoppingCart, FileText, Trash2, Clock, Package, ChevronLeft, Upload, ScanBarcode, Undo2 } from 'lucide-react';
 import { formatCurrency } from '@sardorbek/shared';
 import { useCartStore } from '@/stores/cart';
 import { useReceipts, useSaveDraft, useDeleteDraft, useHelperCarts } from '@/hooks/useReceipts';
@@ -534,12 +534,8 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
           {drafts.map((draft) => (
             <div
               key={draft.id}
-              onClick={() => handleLoad(draft)}
-              className="w-full text-left rounded-xl p-3 transition-all hover:bg-surface-secondary group cursor-pointer"
+              className="w-full text-left rounded-xl p-3 transition-all hover:bg-surface-secondary group"
               style={{ border: '1px solid var(--color-border-subtle)' }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && handleLoad(draft)}
             >
               {/* Header row */}
               <div className="flex items-center justify-between gap-2">
@@ -587,9 +583,18 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
               {/* Action buttons */}
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); setSelected(draft); }}
-                  className="flex-1 rounded-lg py-1.5 text-[11px] font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); handleLoad(draft); }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors"
                   style={{ minHeight: 'auto', minWidth: 'auto' }}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Savatga qaytarish
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelected(draft); }}
+                  className="rounded-lg px-3 py-1.5 text-[11px] font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
+                  style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  title="Batafsil"
                 >
                   Batafsil
                 </button>
@@ -598,6 +603,7 @@ function DraftsTab({ onLoadDraft }: { onLoadDraft: () => void }) {
                   disabled={deleteDraft.isPending}
                   className="rounded-lg px-3 py-1.5 text-[11px] font-semibold text-danger-600 bg-danger-50 hover:bg-danger-100 transition-colors"
                   style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  title="O'chirish"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
