@@ -31,7 +31,7 @@ export const uz = {
     sessionExpired: 'Sessiya muddati tugagan',
   },
   nav: {
-    dashboard: 'Boshqaruv paneli',
+    dashboard: 'Bosh sahifa',
     pos: 'Savdo',
     drafts: 'Saqlanganlar',
     products: 'Mahsulotlar',
