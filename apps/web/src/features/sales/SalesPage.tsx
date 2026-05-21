@@ -255,12 +255,14 @@ export function SalesPage() {
         </div>
       )}
 
-      {/* Return modal — uses existing ReturnModal */}
-      <ReturnModal
-        open={returnFor !== null}
-        onClose={() => setReturnFor(null)}
-        receipt={returnFor}
-      />
+      {/* Return modal — uses existing ReturnModal (faqat receipt tanlanganda mount) */}
+      {returnFor && (
+        <ReturnModal
+          open
+          onClose={() => setReturnFor(null)}
+          receipt={returnFor}
+        />
+      )}
 
       {/* Delete confirm */}
       <Modal open={deleteFor !== null} onClose={() => setDeleteFor(null)} title="Savdoni o'chirishni tasdiqlang" size="sm">

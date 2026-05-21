@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Undo2, Package, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@sardorbek/shared';
 import { Modal } from '@/components/ui/modal';
@@ -33,8 +33,11 @@ export function ReturnModal({ open, onClose, receipt, alreadyReturned = {} }: Pr
   const [lines, setLines] = useState<ReturnLine[]>([]);
   const [reason, setReason] = useState('');
 
-  // Receipt o'zgarganda inputlarni qayta tayyorlash
-  useMemo(() => {
+  // Receipt o'zgarganda inputlarni qayta tayyorlash — useEffect (render paytida
+  // setState chaqirish "Too many re-renders" xatosiga olib keladi).
+  // receipt.id ga bog'liq deps (alreadyReturned obyektining referens'i barqaror emas).
+  const receiptId = receipt?.id;
+  useEffect(() => {
     if (!receipt) { setLines([]); return; }
     const init: ReturnLine[] = receipt.items.map((it) => {
       const returned = alreadyReturned[it.productId] ?? 0;
@@ -49,7 +52,8 @@ export function ReturnModal({ open, onClose, receipt, alreadyReturned = {} }: Pr
       };
     });
     setLines(init);
-  }, [receipt, alreadyReturned]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptId]);
 
   if (!receipt) return null;
 
