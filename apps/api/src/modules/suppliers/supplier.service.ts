@@ -218,21 +218,12 @@ export async function createImport(supplierId: string, input: SupplierImportInpu
       await tx.priceHistory.createMany({ data: priceHistoryData });
     }
 
-    // 3. Naqd to'langan qism — XARAJAT sifatida (alohida PAYMENT yozuvi YO'Q,
-    //    chunki IMPORT yozuvida paidAmount allaqachon saqlanyapti — aks holda
-    //    tarixonda ikkita bir-birini bekor qiluvchi yozuv chiqib chalkash bo'lardi)
+    // 3. Naqd to'lov xarajatga TUSHMAYDI — bu inventar oldi-berdi, COGS emas.
+    //    COGS (tan narx) faqat tovar sotilganda ReceiptItem.costPrice
+    //    orqali foydaga ta'sir qiladi. Aks holda double-counting bo'ladi.
+    //    Ta'minotchi cash flow: SupplierTransaction.paidAmount + Supplier.balance
+    //    orqali ko'rinadi.
     const paid = paidAtImport;
-    if (paid > 0) {
-      await tx.expense.create({
-        data: {
-          category: 'OTHER',
-          type: 'SUPPLIER_IMPORT',
-          amount: new Prisma.Decimal(paid),
-          description: `Ta'minotchi kirimi (naqd): ${supplier.name}`,
-          createdById: userId,
-        },
-      });
-    }
 
     // 4. Supplier balansi — faqat qarz qismi (total - naqd)
     const debtAmount = total - paid;
@@ -284,16 +275,9 @@ export async function makePayment(supplierId: string, input: SupplierPaymentInpu
       data: { balance: { decrement: new Prisma.Decimal(input.amount) } },
     });
 
-    // Qarz to'langanda — endi shu summa xarajatlarga tushadi
-    await tx.expense.create({
-      data: {
-        category: 'OTHER',
-        type: 'SUPPLIER_DEBT_PAYMENT',
-        amount: new Prisma.Decimal(input.amount),
-        description: `Ta'minotchi qarzi to'lovi: ${supplier.name}`,
-        createdById: userId,
-      },
-    });
+    // Qarz to'lovi xarajatga TUSHMAYDI — bu tovar uchun to'lov bo'lib,
+    // tan narx (COGS) tovar sotilganda allaqachon hisobga olingan.
+    // Aks holda double-counting bo'ladi.
 
     return transaction;
   });
@@ -344,13 +328,11 @@ export async function deleteTransaction(supplierId: string, txnId: string, userI
           data: { balance: { decrement: new Prisma.Decimal(debtPart) } },
         });
       }
-      // 3) Bog'liq xarajatni topib o'chirish (paidAmount > 0 bo'lganda yaratilgan)
+      // 3) Tarixiy SUPPLIER_IMPORT xarajati (eski kod yaratgan) — agar bor bo'lsa, o'chiramiz
       if (Number(txn.paidAmount) > 0) {
         await tx.expense.deleteMany({
           where: {
             type: 'SUPPLIER_IMPORT',
-            amount: txn.paidAmount,
-            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
             createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
           },
         });
@@ -369,12 +351,10 @@ export async function deleteTransaction(supplierId: string, txnId: string, userI
         where: { id: supplierId },
         data: { balance: { increment: txn.total } },
       });
-      // Bog'liq xarajatni topib o'chirish
+      // Tarixiy SUPPLIER_DEBT_PAYMENT xarajati (eski kod yaratgan) — agar bor bo'lsa, tozalash
       await tx.expense.deleteMany({
         where: {
           type: 'SUPPLIER_DEBT_PAYMENT',
-          amount: txn.total,
-          description: `Ta'minotchi qarzi to'lovi: ${txn.supplier.name}`,
           createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
         },
       });
@@ -432,25 +412,13 @@ export async function updateTransaction(
         });
       }
 
-      // Xarajatni mos ravishda yangilash: eski xarajatni o'chirib yangisini yaratamiz
+      // Xarajat yaratilmaydi/yangilanmaydi — kirim naqd to'lovi xarajat emas.
+      // Tarixiy yozuvlar bo'lsa (eski kod yaratgan), tozalab ketamiz.
       if (oldPaid > 0) {
         await tx.expense.deleteMany({
           where: {
             type: 'SUPPLIER_IMPORT',
-            amount: txn.paidAmount,
-            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
             createdAt: { gte: new Date(txn.createdAt.getTime() - 5000), lte: new Date(txn.createdAt.getTime() + 5000) },
-          },
-        });
-      }
-      if (newPaid > 0) {
-        await tx.expense.create({
-          data: {
-            category: 'OTHER',
-            type: 'SUPPLIER_IMPORT',
-            amount: new Prisma.Decimal(newPaid),
-            description: `Ta'minotchi kirimi (naqd): ${txn.supplier.name}`,
-            createdById: userId,
           },
         });
       }

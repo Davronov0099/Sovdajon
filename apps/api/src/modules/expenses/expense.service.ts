@@ -17,6 +17,9 @@ export async function listExpenses(query: ExpenseListQuery) {
   const skip = (page - 1) * limit;
 
   const where: Prisma.ExpenseWhereInput = {
+    // Ta'minotchi tovar to'lovlari foydaga ta'sir qilmagani uchun xarajatlar
+    // ro'yxatidan ham yashiramiz (faqat operatsion xarajatlar ko'rinadi).
+    type: { notIn: ['SUPPLIER_IMPORT', 'SUPPLIER_DEBT_PAYMENT'] },
     ...(category && { category }),
     ...(startDate && endDate && {
       date: { gte: new Date(startDate), lte: new Date(endDate) },
@@ -41,6 +44,7 @@ export async function listExpenses(query: ExpenseListQuery) {
 
 export async function getExpenseStats(startDate?: string, endDate?: string) {
   const where: Prisma.ExpenseWhereInput = {
+    type: { notIn: ['SUPPLIER_IMPORT', 'SUPPLIER_DEBT_PAYMENT'] },
     ...(startDate && endDate && {
       date: { gte: new Date(startDate), lte: new Date(endDate) },
     }),

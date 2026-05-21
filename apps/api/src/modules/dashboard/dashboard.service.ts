@@ -41,9 +41,14 @@ export async function getSummaryStats(start?: string, end?: string) {
           (SELECT COALESCE(SUM(total), 0)::float FROM "Receipt" WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate} AND "isDraft" = false) AS revenue,
           (SELECT COALESCE(SUM(ri."costPrice" * ri.quantity), 0)::float FROM "ReceiptItem" ri JOIN "Receipt" r ON r.id = ri."receiptId" WHERE r."createdAt" >= ${startDate} AND r."createdAt" <= ${endDate} AND r."isDraft" = false) AS cost
       `,
-      // Total expenses
+      // Total expenses — ta'minotchi tovar to'lovlari foydaga ta'sir qilmaydi
+      // (COGS allaqachon tan narx orqali hisoblangan). Faqat haqiqiy operatsion
+      // xarajatlar (ijara, oylik, kommunal va h.k.) foydadan ayriladi.
       prisma.expense.aggregate({
-        where: { date: { gte: startDate, lte: endDate } },
+        where: {
+          date: { gte: startDate, lte: endDate },
+          type: { notIn: ['SUPPLIER_IMPORT', 'SUPPLIER_DEBT_PAYMENT'] },
+        },
         _sum: { amount: true },
       }),
       // Active debts
